@@ -98,7 +98,7 @@ class QLoss(object):
             q_tp1_best_masked = (1.0 - done_mask) * q_tp1_best
 
             # compute RHS of bellman equation
-            if sbe:  # NFL
+            if sbe:  # NFL: here is the Safety Bellman Equation Backup
                 done_case = done_mask * rewards
                 not_done_case = (1.0 - done_mask) * ((1.0 - gamma) * rewards + gamma * tf.minimum(rewards, q_tp1_best))
                 q_t_selected_target = done_case + not_done_case
@@ -362,7 +362,7 @@ def build_q_losses(policy, batch_tensors):
         q_t_selected, q_logits_t_selected, q_tp1_best, q_dist_tp1_best,
         batch_tensors[PRIO_WEIGHTS], batch_tensors[SampleBatch.REWARDS],
         tf.cast(batch_tensors[SampleBatch.DONES],
-                tf.float32), policy.gamma, config["n_step"],  # NFL must use the tensor from the policy
+                tf.float32), policy.gamma, config["n_step"],  # NFL: gamma as tensor so it can be annealed
         config["num_atoms"], config["v_min"], config["v_max"])
     return policy.q_loss.loss
 
@@ -405,7 +405,7 @@ def setup_early_mixins(policy, obs_space, action_space, config):
     gamma_schedule = config.get('gamma_schedule', None)
     if gamma_schedule == 'stepped':
         gamma_schedule = SteppedSchedule(config['gamma'], config['final_gamma'], config['gamma_half_life'])
-    GammaSchedule.__init__(policy, config["gamma"], gamma_schedule)  # NFL
+    GammaSchedule.__init__(policy, config["gamma"], gamma_schedule)  # NFL: gamma annealing
 
 
 def setup_late_mixins(policy, obs_space, action_space, config):
@@ -502,7 +502,7 @@ def _postprocess_dqn(policy, batch):
     batch[SampleBatch.DONES] = np.zeros(len(batch[SampleBatch.DONES]), dtype=bool)  # NFL allows for infinite horizon
     return batch
 
-
+# NFL: this class is to anneal gamma
 @DeveloperAPI
 class GammaSchedule(object):
     """Mixin for TFPolicy that adds a discount rate schedule."""
@@ -548,5 +548,5 @@ DQNTFPolicy = build_tf_policy(
         TargetNetworkMixin,
         ComputeTDErrorMixin,
         LearningRateSchedule,
-        GammaSchedule
+        GammaSchedule # NFL: add gamma annealing mixin
     ])

@@ -1,6 +1,3 @@
-# Author: Neil Lugovoy except for plot_episode_stats see below
-# Please contact me before using this software.
-# nflugovoy@berkeley.edu
 import matplotlib
 import _pickle as cPickle
 import numpy as np

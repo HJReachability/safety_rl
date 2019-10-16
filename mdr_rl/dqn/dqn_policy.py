@@ -523,8 +523,10 @@ class GammaSchedule(object):
             session=self._sess)
 
 
+# NFL: added to compute q values to compare value functions
 def get_estimate(policy, obs_batch):
     return policy._sess.run(policy.q_values, feed_dict={policy.input_dict['obs']: obs_batch})
+
 
 DQNTFPolicy = build_tf_policy(
     name="DQNTFPolicy",
@@ -548,5 +550,5 @@ DQNTFPolicy = build_tf_policy(
         TargetNetworkMixin,
         ComputeTDErrorMixin,
         LearningRateSchedule,
-        GammaSchedule # NFL: add gamma annealing mixin
+        GammaSchedule  # NFL: add gamma annealing mixin
     ])

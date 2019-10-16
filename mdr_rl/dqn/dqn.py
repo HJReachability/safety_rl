@@ -279,6 +279,7 @@ def disable_exploration(trainer):
     trainer.evaluation_workers.local_worker().foreach_policy(
         lambda p, _: p.set_epsilon(0))
 
+
 # NFL: added to evaluate q network and compare value function
 def q_values(trainer, obs_batch, batched=False):
         if not batched:

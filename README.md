@@ -5,8 +5,8 @@ and Reinforcement Learning.
 
 ## Some quick notes:
 
-1. If you want to use the Safety Bellman Equation with your reinforcement learning algorithm you will need the functions `sbe_backup` and/or `sbe_outcome` in the `utils.py` file. The former computes the backup for value function learning (Q-learning, DQN, SAC, etc.) and the latter computes the outcome of a trajectory used in policy optimization methods (policy gradient, TRPO, PPO, etc.).
-2. The DQN and Policy Gradient algorithms are modified versions of the implementation from the Ray library. Where I have made a modification I have commented with my initials (NFL) and included details about the change.
+1. If you want to use the Safety Bellman Equation with your reinforcement learning algorithm you will need the functions `sbe_backup` and/or `sbe_outcome` in the `utils.py` file. The former computes the backup for value function learning (Q-learning, DQN, SAC, etc.) from equation 7 and the latter computes the outcome of a trajectory (from equation 8) used in policy optimization methods (policy gradient, TRPO, PPO, etc.).
+2. The DQN and Policy Gradient algorithms are modified versions of the implementation from the Ray library. Where I have made a modification I have included a line of hashtags, commented with my initials (NFL) and included details about the change.
 3. The Soft Actor Critic algorithm is a modified version from the implementation in Spinning Up (Ray does not have a working implementation currently). I have commented with my initials for all changes I have made.
 4. The inverted pendulum and lunar lander environments are subclasses of environments implemented in Open AI's Gym. The major changes from the parent classes are documented in the files.
 

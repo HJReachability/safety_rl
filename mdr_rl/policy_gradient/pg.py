@@ -4,8 +4,10 @@ from __future__ import print_function
 
 from ray.rllib.agents.trainer import with_common_config
 from ray.rllib.agents.trainer_template import build_trainer
-from mdr_rl.policy_gradient.pg_policy import PGTFPolicy  # NFL: import pg with sbe outcome
-
+###########################################################
+# NFL: import pg with sbe outcome
+from mdr_rl.policy_gradient.pg_policy import PGTFPolicy  
+###########################################################
 # yapf: disable
 # __sphinx_doc_begin__
 DEFAULT_CONFIG = with_common_config({

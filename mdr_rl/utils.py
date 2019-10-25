@@ -19,7 +19,7 @@ from itertools import product
 
 def sbe_backup(rewards, dones, next_state_val, gamma, tensorflow=False):
     """
-    computes backup for Safety Bellman Equation
+    computes backup for Safety Bellman Equation from equation 7
     :param rewards: either a scalar reward or a tensor of rewards for multiple trajectories
     :param dones: either a single boolean representing whether the state is terminal or a tensor of
     dones for multiple trajectories
@@ -40,8 +40,8 @@ def sbe_backup(rewards, dones, next_state_val, gamma, tensorflow=False):
 def sbe_outcome(rewards, gamma):
     """
     computes the outcome of the trajectory with the given discount factor for the Safety Bellman
-    Equation. If you want to use this with a value function predicting the value at the last state
-    append that value to the end of rewards. See the rewards_plus_v variable in ray's
+    Equation from equation 8. If you want to use this with a value function predicting the value at
+    the last state append that value to the end of rewards. See the rewards_plus_v variable in ray's
     rllib/evaluation/postprocessing.py file for an example.
     :param rewards: 1d list or array of rewards for the trajectory
     :param gamma: discount factor

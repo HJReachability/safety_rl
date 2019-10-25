@@ -7,7 +7,9 @@ from ray.rllib.evaluation.postprocessing import Postprocessing
 from ray.rllib.policy.tf_policy_template import build_tf_policy
 from ray.rllib.policy.sample_batch import SampleBatch
 from ray.rllib.utils import try_import_tf
+###########################################################
 from mdr_rl.policy_gradient.postprocessing import compute_advantages  # NFL
+###########################################################
 tf = try_import_tf()
 
 
@@ -25,8 +27,11 @@ def postprocess_advantages(policy,
                            sample_batch,
                            other_agent_batches=None,
                            episode=None):
-    return compute_advantages(  # NFL: this is the only change needed for Safety Bellman Equation
-        sample_batch, 0.0, policy.config["gamma"], use_gae=False, use_sbe=True)
+    ###########################################################
+    # NFL: compute advantages by using trajectory outcome from equation 8
+    return compute_advantages(sample_batch, 0.0, policy.config["gamma"],
+                              use_gae=False, use_sbe=True)
+    ###########################################################
 
 
 PGTFPolicy = build_tf_policy(

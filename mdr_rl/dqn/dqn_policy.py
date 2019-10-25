@@ -22,7 +22,10 @@ from ray.rllib.utils import try_import_tf
 from ray.rllib.utils.annotations import override, DeveloperAPI
 from ray.rllib.policy.policy import Policy
 from ray.rllib.utils.schedules import ConstantSchedule
-from mdr_rl.utils import SteppedSchedule # NFL
+###########################################################
+# NFL: import stepped schedule for gamma scheduling
+from mdr_rl.utils import SteppedSchedule
+###########################################################
 
 tf = try_import_tf()
 
@@ -47,11 +50,17 @@ class QLoss(object):
                  num_atoms=1,
                  v_min=-10.0,
                  v_max=10.0,
-                 sbe=False):  # NFL
+###########################################################
+                 # NFL: param for whether to use safety bellman equation
+                 sbe=False):
+###########################################################
 
         if num_atoms > 1:
+###########################################################
             if sbe:
-                raise NotImplementedError('distributional q learning is not yet supported with Safety Bellman Equation')  # NFL
+                raise NotImplementedError('distributional q learning is not yet supported with '
+                                          'Safety Bellman Equation')  # NFL
+###########################################################
 
             # Distributional Q-learning which corresponds to an entropy loss
 
@@ -91,19 +100,21 @@ class QLoss(object):
                 labels=m, logits=q_logits_t_selected)
             self.loss = tf.reduce_mean(self.td_error * importance_weights)
             self.stats = {
-                # TODO: better Q stats for dist dqn  # NFL: this is not my TODO
+                # TODO: better Q stats for dist dqn
                 "mean_td_error": tf.reduce_mean(self.td_error),
             }
         else:
             q_tp1_best_masked = (1.0 - done_mask) * q_tp1_best
 
             # compute RHS of bellman equation
-            if sbe:  # NFL: here is the Safety Bellman Equation Backup
+###########################################################
+            if sbe:  # NFL: Safety Bellman Equation Backup from equation 7
                 done_case = done_mask * rewards
                 not_done_case = (1.0 - done_mask) * ((1.0 - gamma) * rewards + gamma * tf.minimum(rewards, q_tp1_best))
                 q_t_selected_target = done_case + not_done_case
-            else:
+            else:   # NFL: sum of discounted rewards backup
                 q_t_selected_target = rewards + gamma**n_step * q_tp1_best_masked
+###########################################################
 
             # compute the error (potentially clipped)
             self.td_error = (
@@ -362,7 +373,10 @@ def build_q_losses(policy, batch_tensors):
         q_t_selected, q_logits_t_selected, q_tp1_best, q_dist_tp1_best,
         batch_tensors[PRIO_WEIGHTS], batch_tensors[SampleBatch.REWARDS],
         tf.cast(batch_tensors[SampleBatch.DONES],
-                tf.float32), policy.gamma, config["n_step"],  # NFL: gamma as tensor so it can be annealed
+###########################################################
+                # NFL: gamma must be passed as tensor so it can be annealed
+                tf.float32), policy.gamma, config["n_step"],
+###########################################################
         config["num_atoms"], config["v_min"], config["v_max"])
     return policy.q_loss.loss
 
@@ -405,8 +419,9 @@ def setup_early_mixins(policy, obs_space, action_space, config):
     gamma_schedule = config.get('gamma_schedule', None)
     if gamma_schedule == 'stepped':
         gamma_schedule = SteppedSchedule(config['gamma'], config['final_gamma'], config['gamma_half_life'])
+###########################################################
     GammaSchedule.__init__(policy, config["gamma"], gamma_schedule)  # NFL: gamma annealing
-
+###########################################################
 
 def setup_late_mixins(policy, obs_space, action_space, config):
     TargetNetworkMixin.__init__(policy, obs_space, action_space, config)
@@ -498,17 +513,30 @@ def _postprocess_dqn(policy, batch):
         new_priorities = (
             np.abs(td_errors) + policy.config["prioritized_replay_eps"])
         batch.data[PRIO_WEIGHTS] = new_priorities
-
-    batch[SampleBatch.DONES] = np.zeros(len(batch[SampleBatch.DONES]), dtype=bool)  # NFL allows for infinite horizon
+###########################################################
+    # NFL allows for infinite horizon with short episodes. this is important because you can use
+    # short episodes with uniform resets to get samples all over the state space instead of just
+    # on trajectories taken by the current policy
+    batch[SampleBatch.DONES] = np.zeros(len(batch[SampleBatch.DONES]), dtype=bool)
+###########################################################
     return batch
 
+###########################################################
 # NFL: this class is to anneal gamma
 @DeveloperAPI
 class GammaSchedule(object):
-    """Mixin for TFPolicy that adds a discount rate schedule."""
+    """Mixin for TFPolicy that adds a discount rate schedule. Note that gamma
+    is a TF tensor that is used in the backup and needs to be updated with load
+    method instead of a python float that is re-assigned."""
 
     @DeveloperAPI
     def __init__(self, gamma, gamma_schedule):
+        """
+        constructor for GammaSchedule
+        :param gamma: initial gamma value
+        :param gamma_schedule: schedule object that has method value(t) that
+        returns the value of gamma at timestep t
+        """
         self.gamma = tf.get_variable("gamma", initializer=gamma, trainable=False)
         if gamma_schedule is None:
             self.gamma_schedule = ConstantSchedule(gamma)
@@ -517,6 +545,11 @@ class GammaSchedule(object):
 
     @override(Policy)
     def on_global_var_update(self, global_vars):
+        """
+        updates gamma value on every timestep
+        :param global_vars: dictionary of global variables used for scheduling
+        :return: None
+        """
         super(GammaSchedule, self).on_global_var_update(global_vars)
         self.gamma.load(
             self.gamma_schedule.value(global_vars["timestep"]),
@@ -525,7 +558,15 @@ class GammaSchedule(object):
 
 # NFL: added to compute q values to compare value functions
 def get_estimate(policy, obs_batch):
+    '''
+
+    :param policy: policy to evaluate q network of
+    :param obs_batch: batch of observations to evaluate
+    :return: q values of shape (m, a) where m is batch size and a is number
+    of actions
+    '''
     return policy._sess.run(policy.q_values, feed_dict={policy.input_dict['obs']: obs_batch})
+###########################################################
 
 
 DQNTFPolicy = build_tf_policy(
@@ -550,5 +591,7 @@ DQNTFPolicy = build_tf_policy(
         TargetNetworkMixin,
         ComputeTDErrorMixin,
         LearningRateSchedule,
+###########################################################
         GammaSchedule  # NFL: add gamma annealing mixin
+###########################################################
     ])

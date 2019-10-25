@@ -7,7 +7,10 @@ import logging
 from ray import tune
 from ray.rllib.agents.trainer import with_common_config
 from ray.rllib.agents.trainer_template import build_trainer
-from mdr_rl.dqn.dqn_policy import DQNTFPolicy, get_estimate  # NFL
+###########################################################
+# NFL: have to use modified policy graph with SBE backup and q value evaluate
+from mdr_rl.dqn.dqn_policy import DQNTFPolicy, get_estimate
+###########################################################
 from ray.rllib.agents.dqn.simple_q_policy import SimpleQPolicy
 from ray.rllib.optimizers import SyncReplayOptimizer
 from ray.rllib.policy.sample_batch import DEFAULT_POLICY_ID
@@ -279,15 +282,27 @@ def disable_exploration(trainer):
     trainer.evaluation_workers.local_worker().foreach_policy(
         lambda p, _: p.set_epsilon(0))
 
-
+###########################################################
 # NFL: added to evaluate q network and compare value function
 def q_values(trainer, obs_batch, batched=False):
-        if not batched:
-            obs_batch = [obs_batch]
-        values = get_estimate(trainer.get_policy(), obs_batch)
-        if not batched:
-            return values[0]
-        return values
+    """
+    evaluates q network of trainer on obs_batch
+    :param trainer: trainer to compute forward pass of network
+    :param obs_batch: batch of observations to run forward pass on
+    :param batched: if true obs_batch is of shape (m, n) where m is batch
+    size and n is shape of single obs and output is of shape (m, a). where
+    a is number of actions. if false obs_batch is of shape (n) and output is
+    shape (a). batching improves performance but can be easy to make mistake
+    with a single obs
+    :return:
+    """
+    if not batched:
+        obs_batch = [obs_batch]
+    values = get_estimate(trainer.get_policy(), obs_batch)
+    if not batched:
+        return values[0]
+    return values
+###########################################################
 
 GenericOffPolicyTrainer = build_trainer(
     name="GenericOffPolicyAlgorithm",

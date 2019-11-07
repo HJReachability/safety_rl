@@ -52,18 +52,20 @@ class CheetahBalanceEnv(HalfCheetahEnv):
         :return: true if the cheetah's head or front leg is touching the ground, false if not
         """
 
-        # Geom IDs :['floor':0, 'torso':1, 'head':2, 'bthigh':3, 'bshin':4, 'bfoot':5, 'fthigh':6, 'fshin':7, 'ffoot':8]
+        # Geom IDs :['floor':0, 'torso':1, 'head':2, 'bthigh':3, 'bshin':4, 'bfoot':5, 'fthigh':6,
+        # 'fshin':7, 'ffoot':8]
         return any([self.data.contact[i].geom2 in [2, 7, 8] for i in range(self.data.ncon)])
 
     def l_function(self):
         """
-        :return: the signed distance function of the environment at the current state to the avoid set. for this problem
-        the avoid set is the set of all states where the cheetah
+        :return: the signed distance of the environment at the current state to the failure
+         set. For this problem the failure set is the set of all states where the cheetah's head,
+         front foot or front shin is touching the ground.
 
         """
 
-        # calculate the position of the head based on the lengths of the torso, head and thickness of the head
-        # these values can be found in the half_cheetah.xml file in openai gym repo
+        # calculate the position of the head based on the lengths of the torso, head and thickness
+        # of the head these values can be found in the half_cheetah.xml file in openai gym repo
         if self.detect_contact():
             return -1.0
 

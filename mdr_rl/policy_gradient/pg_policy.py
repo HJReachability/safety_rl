@@ -8,7 +8,9 @@ from ray.rllib.policy.tf_policy_template import build_tf_policy
 from ray.rllib.policy.sample_batch import SampleBatch
 from ray.rllib.utils import try_import_tf
 ###########################################################
-from mdr_rl.policy_gradient.postprocessing import compute_advantages  # NFL
+# import function to compute SBE advantages induced by SBE outcome from Equation (8) of [ICRA19]
+#  instead of sum of discounted rewards advantages
+from mdr_rl.policy_gradient.postprocessing import compute_advantages
 ###########################################################
 tf = try_import_tf()
 
@@ -28,7 +30,7 @@ def postprocess_advantages(policy,
                            other_agent_batches=None,
                            episode=None):
     ###########################################################
-    # NFL: compute advantages by using trajectory outcome from equation 8
+    # compute advantages by using trajectory outcome from Equation (8) of [ICRA19]
     return compute_advantages(sample_batch, 0.0, policy.config["gamma"],
                               use_gae=False, use_sbe=True)
     ###########################################################

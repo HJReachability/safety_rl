@@ -1,5 +1,5 @@
 ###########################################################
-from mdr_rl.utils import sbe_outcome  # NFL: added to log SBE stats
+from mdr_rl.utils import sbe_outcome  # added to log SBE stats
 ###########################################################
 import numpy as np
 import tensorflow as tf
@@ -176,7 +176,7 @@ def sac(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
     # Targets for Q and V regression
     ###########################################################
-    if use_sbe:  # NFL: this is the backup for SBE from equation 7
+    if use_sbe:  # This is the backup for SBE from Equation (7) in [IRCA19].
         done_case = r_ph  # terminal state
         not_done_case = (1 - gamma) * r_ph + gamma * tf.minimum(r_ph, v_targ)
         q_backup = d_ph * done_case + (1 - d_ph) * not_done_case
@@ -235,7 +235,7 @@ def sac(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         for j in range(n):
             o, r, d, ep_ret, ep_len = test_env.reset(), 0, False, 0, 0
             ###########################################################
-            rewards = []  # NFL
+            rewards = []
             ###########################################################
             while not (d or (ep_len == max_ep_len)):
                 # Take deterministic actions at test time
@@ -244,16 +244,16 @@ def sac(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                 ep_len += 1
                 rewards.append(r)
             ###########################################################
-            # NFL: added min and sbe outcome stats
+            # added min and SBE outcome stats
             logger.store(TestEpRet=ep_ret, TestEpLen=ep_len,
                          TestEpMin=np.min(rewards),
-                         TestEpMdr=sbe_outcome(rewards, gamma)[0])
+                         TestEpSBEOutcome=sbe_outcome(rewards, gamma)[0])
             ###########################################################
     start_time = time.time()
     o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
     total_steps = steps_per_epoch * epochs
     ###########################################################
-    rewards = []  # NFL: used to log min and mdr
+    rewards = []  # used to log min and SBE outcome
     ###########################################################
     # Main loop: collect experience in env and update/log each epoch
     for t in range(total_steps):
@@ -273,7 +273,7 @@ def sac(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         ep_ret += r
         ep_len += 1
         ###########################################################
-        rewards.append(r)  # NFL: for logging see below
+        rewards.append(r)  # for logging see below
         ###########################################################
         # Ignore the "done" signal if it comes from hitting the time
         # horizon (that is, when it's an artificial terminal signal
@@ -306,14 +306,14 @@ def sac(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                              LossV=outs[3], Q1Vals=outs[4], Q2Vals=outs[5],
                              VVals=outs[6], LogPi=outs[7])
             ###########################################################
-            # NFL: log episode min and sbe outcome
+            # log episode min and SBE outcome
             logger.store(EpRet=ep_ret, EpLen=ep_len,
                          EpMin=np.min(rewards),
-                         EpMdr=sbe_outcome(rewards, gamma)[0])
+                         EpSBEOutcome=sbe_outcome(rewards, gamma)[0])
             ###########################################################
             o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
             ###########################################################
-            rewards = []  # NFL: for logging
+            rewards = []  # for logging
             ###########################################################
         # End of epoch wrap-up
         if t > 0 and t % steps_per_epoch == 0:
@@ -330,11 +330,11 @@ def sac(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             logger.log_tabular('Epoch', epoch)
             logger.log_tabular('EpRet', with_min_and_max=True)
             ###########################################################
-            # NFL: added logging for min and min of discounted rewards
+            # added logging for min and SBE outcome
             logger.log_tabular('EpMin', with_min_and_max=True)
-            logger.log_tabular('EpMdr', with_min_and_max=True)
+            logger.log_tabular('EpSBEOutcome', with_min_and_max=True)
             logger.log_tabular('TestEpMin', with_min_and_max=True)
-            logger.log_tabular('TestEpMdr', with_min_and_max=True)
+            logger.log_tabular('TestEpSBEOutcome', with_min_and_max=True)
             ###########################################################
             logger.log_tabular('TestEpRet', with_min_and_max=True)
             logger.log_tabular('EpLen', average_only=True)

@@ -6,17 +6,19 @@ from spinup.algos.sac import core
 import gym
 import os
 from datetime import datetime
-
+from mdr_rl.utils import get_save_dir
 
 # == Experiment 5 ==
 """
-This experiment runs soft actor critic with the Safety Bellman Equation backup on the cheetah task 
-and searches over hyper-parameters. This is compared against sac optimizing for sum of discounted 
-rewards with the same reward function and sum of discounted rewards with only penalization for 
-falling over.
+This experiment runs Soft Actor Critic (SAC) with the Safety Bellman Equation backup on the cheetah 
+task and searches over hyper-parameters. This is compared against SAC optimizing for sum of 
+discounted rewards with the same reward function and sum of discounted rewards with only 
+penalization for falling over.
 """
 
 
+# since the SAC implementation in Spinning Up is a function that runs once and not object-oriented
+# to run it in Ray a single function that runs the entire experiment must be run
 def run_sac(search_config, reporter):
 
     def env_fn():
@@ -46,98 +48,116 @@ ray.init()
 now = datetime.now()
 save_dir = now.strftime('%b') + str(now.day)
 
-# == hyper param search ==
+# ======= Hyper-Parameter Search Experiment =======
 
 search_config = {}
 
-# == env ==
+# == Environment ==
 search_config['env'] = 'cheetah_balance-v0'
 search_config['gamma'] = 0.99
 search_config['max_ep_len'] = 100
 search_config['seed'] = 0
 
-# == optimization ==
+# == Optimization ==
+search_config['epochs'] = 5
+search_config['steps_per_epoch'] = int(1e4)
+
 search_config['alpha'] = tune.grid_search([1e-3, 1e-2, 1e-1])
 search_config['batch_size'] = tune.grid_search([50, 100, 200])
 search_config['lr'] = tune.grid_search([1e-4, 5e-4, 1e-3])
 
-# == scheduling ==
-search_config['epochs'] = 5
-search_config['steps_per_epoch'] = int(1e4)
-
 search_config['sbe'] = False
+
+
+# This Experiment will call the function run_sac() until completion. Each trial is a different set
+# of hyper-parameter in this case since the config specifies to grid search over hyper-parameters.
+# The data for each trial will be saved in local_dir/name/trial_name where local_dir and name are
+# the arguments to Experiment() and trial_name is produced by ray based on the hyper-parameters of
+# the trial and time of the Experiment.
+
+# searches over hyper-parameters for sum of discounted rewards SAC on the cheetah
 sum_cheetah_search = Experiment(
         name='sac_sum_cheetah_search_' + save_dir,
         config=search_config,
         run=run_sac,
         num_samples=1,
-        local_dir='~/safety_rl/mdr_rl/data',
+        local_dir=get_save_dir(),
         checkpoint_at_end=True)
 
-# super important to copy dictionary before making changes or else prev experiment will be
-# changed
+# crucial to copy dictionary before making changes or else previous experiment will be changed
 sbe_search_config = search_config.copy()
 sbe_search_config['sbe'] = True
 
+# searches over hyper-parameters for SBE outcome SAC on the cheetah
 sbe_cheetah_search = Experiment(
         name='sac_sbe_cheetah_search_' + save_dir,
         config=sbe_search_config,
         run=run_sac,
         num_samples=1,
-        local_dir='~/safety_rl/mdr_rl/data',
+        local_dir=get_save_dir(),
         checkpoint_at_end=True)
 
 sum_search_config_penalize = search_config.copy()
 sum_search_config_penalize['env'] = 'cheetah_balance_penalize-v0'
 sum_search_config_penalize['sbe'] = False
+
+# searches over hyper-parameters sum of discounted rewards SAC on the cheetah with the
+# reward function only penalizing safety violations (see cheetah_balance_penalize.py)
 sum_cheetah_penalize_search = Experiment(
         name='sac_sum_cheetah_penalize_search_' + save_dir,
         config=sum_search_config_penalize,
         run=run_sac,
         num_samples=1,
-        local_dir='~/safety_rl/mdr_rl/data',
+        local_dir=get_save_dir(),
         checkpoint_at_end=True)
 
 tune.run_experiments([sum_cheetah_search, sbe_cheetah_search, sum_cheetah_penalize_search])
 
 
-# == 100 seed experiment ==
+# ======= 100 Seed Experiment =======
+
 multi_seed_config = search_config.copy()
 
 # == Environment ==
 multi_seed_config['env'] = 'cheetah_balance-v0'
 multi_seed_config['seed'] = tune.grid_search(list(range(100)))
 
-# == optimization ==
+# == Optimization ==
 # TODO set according to result of hyper-param search
 multi_seed_config['alpha'] = 1e-3
 multi_seed_config['batch_size'] = 100
 multi_seed_config['lr'] = 1e-4
 
 multi_seed_config['sbe'] = False
+
+# runs sum of discounted rewards SAC on the cheetah on 100 seeds with the best
+# hyper-parameters from the hyper-parameter search
 sum_cheetah = Experiment(
         name='sac_sum_cheetah_' + save_dir,
         config=multi_seed_config,
         run=run_sac,
         num_samples=1,
-        local_dir='~/safety_rl/mdr_rl/data',
+        local_dir=get_save_dir(),
         checkpoint_at_end=True)
 
 sbe_multi_seed_config = multi_seed_config.copy()
 
-# == optimization ==
+# == Optimization ==
 # TODO set according to result of hyper-param search
 sbe_multi_seed_config['alpha'] = 1e-3
 sbe_multi_seed_config['batch_size'] = 100
 sbe_multi_seed_config['lr'] = 1e-4
 
 sbe_multi_seed_config['sbe'] = True
+
+# runs SBE SAC on the cheetah on 100 seeds with the best hyper-parameters from
+# the hyper-parameter search
 sbe_cheetah = Experiment(
         name='sac_sbe_cheetah_' + save_dir,
         config=sbe_multi_seed_config,
         run=run_sac,
         num_samples=1,
-        local_dir='~/safety_rl/mdr_rl/data',
+        local_dir=get_save_dir(),
         checkpoint_at_end=True)
 
 sum_penalize_multi_seed_config = multi_seed_config.copy()
@@ -152,12 +172,15 @@ sum_penalize_multi_seed_config['batch_size'] = 100
 sum_penalize_multi_seed_config['lr'] = 1e-4
 
 sum_penalize_multi_seed_config['sbe'] = False
+
+# runs sum of discounted rewards SAC on the penalize-only cheetah on 100 seeds with the
+# best hyper-parameters from the hyper-parameter search
 sum_cheetah_penalize = Experiment(
         name='sac_sum_cheetah_penalize_' + save_dir,
         config=sum_penalize_multi_seed_config,
         run=run_sac,
         num_samples=1,
-        local_dir='~/safety_rl/mdr_rl/data',
+        local_dir=get_save_dir(),
         checkpoint_at_end=True)
 
 tune.run_experiments([sum_cheetah_search, sbe_cheetah_search, sum_cheetah_penalize_search])

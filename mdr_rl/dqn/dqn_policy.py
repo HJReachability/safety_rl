@@ -23,7 +23,7 @@ from ray.rllib.utils.annotations import override, DeveloperAPI
 from ray.rllib.policy.policy import Policy
 from ray.rllib.utils.schedules import ConstantSchedule
 ###########################################################
-# NFL: import stepped schedule for gamma scheduling
+# import stepped schedule for gamma scheduling
 from mdr_rl.utils import SteppedSchedule
 ###########################################################
 

@@ -6,19 +6,20 @@ from datetime import datetime
 from ray.rllib.agents.trainer import Trainer
 from ray.tune.registry import register_env
 from mdr_rl.dqn.run_dqn_experiment import TrainDQN
+from mdr_rl.utils import get_save_dir
 
 # == Experiment 3 ==
 """
-This experiment runs dqn with the Safety Bellman Equation on lunar lander over 100 random seeds and
-compares the resulting policies against the simulator over the course of training to see how many
-trajectories violate. At the end of training the q function is compared against on-policy rollouts
-in the simulator.
+This experiment runs DQN with the Safety Bellman Equation on lunar lander over 100 random seeds and
+compares the resulting policies against the simulator over the course of training to see how many 
+trajectories violate the safety constraints. At the end of training the q function is compared 
+against on-policy rollouts in the simulator.
 """
 
 if __name__ == "__main__":
     ray.init()
     now = datetime.now()
-    save_dir = now.strftime("%b") + str(now.day)
+    date = now.strftime("%b") + str(now.day)
 
     # register env
     def double_int_env_creator(env_config):
@@ -69,7 +70,7 @@ if __name__ == "__main__":
     dqn_config["seed"] = tune.grid_search(list(range(100)))
 
     # == Custom Safety Bellman Equation configs ==
-    Trainer._allow_unknown_configs = True  # need to allow use of sbe config option
+    Trainer._allow_unknown_configs = True  # need to allow use of SBE config option
     dqn_config["gamma_schedule"] = "stepped"
     dqn_config["final_gamma"] = 0.999999
     dqn_config["gamma"] = 0.7  # initial gamma
@@ -95,14 +96,22 @@ if __name__ == "__main__":
 
     exp_config["dqn_config"] = dqn_config
 
+    # This Experiment will call TrainDQN._setup() once at the beginning of the experiment and call
+    # TrainDQN._train() until the condition specified by the argument stop is met. In this case
+    # once the training_iteration reaches exp_config["max_iterations"] the experiment will stop.
+    # Every checkpoint_freq it will call TrainDQN._save() and at the end of the experiment. Each
+    # trial is a seed in this case since the config specifies to grid search over seeds and no other
+    # config options. The data for each trial will be saved in local_dir/name/trial_name where
+    # local_dir and name are the arguments to Experiment() and trial_name is produced by ray based
+    # on the hyper-parameters of the trial and time of the Experiment.
     train_double_integrator = Experiment(
-        name="train_lunar_lander_" + save_dir,
+        name="dqn_lunar_lander_" + date,
         config=exp_config,
         run=TrainDQN,
         num_samples=1,
         stop={"training_iteration": exp_config["max_iterations"]},
         resources_per_trial={"cpu": 1, "gpu": 0},
-        local_dir="~/safety_rl/mdr_rl/data",
+        local_dir=get_save_dir(),
         checkpoint_freq=exp_config["checkpoint_freq"],
         checkpoint_at_end=True)
     ray.tune.run_experiments([train_double_integrator], verbose=2)

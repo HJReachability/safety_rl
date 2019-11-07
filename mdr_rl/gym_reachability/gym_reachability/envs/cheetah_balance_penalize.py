@@ -3,7 +3,7 @@ from mdr_rl.gym_reachability.gym_reachability.envs.cheetah_balance import Cheeta
 from ray.rllib.utils.annotations import override
 
 """
-in this version of the cheetah problem the reward will be -1 for all states in the avoid set 
+in this version of the cheetah problem the reward will be -1 for all states in the failure set 
 (head or front leg touching the ground) and 0 for all other states. thus only providing reward info
 through penalization
 """

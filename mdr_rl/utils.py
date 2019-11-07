@@ -294,6 +294,12 @@ def offsets(d):
         l.append(np.array([int(b) - 1 for b in bit_string]))
     return l
 
+# == save directory ==
+
+
+def get_save_dir():
+    return os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
+
 
 # == saving and loading q functions == # TODO this still needs some cleanup
 

@@ -15,7 +15,7 @@ class TrainDQN(Trainable):
     def _setup(self, config=None, logger_creator=None):
 
         # set up trainer
-        Trainer._allow_unknown_configs = True  # need to allow use of sbe config option
+        Trainer._allow_unknown_configs = True  # need to allow use of SBE config option
         dqn_config = config['dqn_config']
         self.trainer = dqn.DQNTrainer(config=dqn_config, env=dqn_config['env'])
 

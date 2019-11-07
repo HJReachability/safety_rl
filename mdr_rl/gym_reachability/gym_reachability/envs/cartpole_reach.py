@@ -29,7 +29,7 @@ class CartPoleReachabilityEnv(CartPoleEnv):
         # multiply by 2 to give buffer since ray will crash if outside box
         self.observation_space = gym.spaces.Box(2 * self.low, 2 * self.high, dtype=np.float32)
 
-        # prevents env from warning when stepping in avoid set
+        # prevents env from warning when stepping in failure set
         self.steps_beyond_done = 1
 
         # seeding
@@ -44,7 +44,7 @@ class CartPoleReachabilityEnv(CartPoleEnv):
         """
         super(CartPoleReachabilityEnv, self).reset()
         self.state = np.random.uniform(low=self.low, high=self.high)
-        self.steps_beyond_done = 1  # prevents env from warning when stepping in avoid set
+        self.steps_beyond_done = 1  # prevents env from warning when stepping in failure set
         return np.array(self.state)
 
     @override(CartPoleEnv)
@@ -59,16 +59,16 @@ class CartPoleReachabilityEnv(CartPoleEnv):
         r = self.l_function(self.state)
         s, _, done, info = super(CartPoleReachabilityEnv, self).step(action)
 
-        # allow the environment to run into avoid set to let negative values propagate
+        # allow the environment to run into failure set to let negative values propagate
         info['done'] = done  # done info is provided in case algorithm wants to use it
         return s, r, False, info
 
     def l_function(self, s):
         """
         :param s: state
-        :return: the signed distance function of the environment at state s to the avoid set. for
+        :return: the signed distance of the environment at state s to the failure set. For
         this problem the set is only bounded in the x and theta dimensions so any x_dot and
-        theta_dot are permitted
+        theta_dot are permitted.
 
         """
         # calculate in x dimension

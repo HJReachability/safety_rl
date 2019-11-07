@@ -28,7 +28,7 @@ def learn(
     :param seed: seed for random number generator
     :param fictitious_terminal_val: whether to use a terminal state with this value for the backup
     when a trajectory ends. this is helpful because it avoids having a ring of terminal states
-    around the target set. note that every terminal trajectory will use this as the value for the
+    around the failure set. note that every terminal trajectory will use this as the value for the
     backup
     :return: q_values, a numpy tensor of shape (buckets + (env.action_space.n,)) that contains the
     q_values value function
@@ -52,7 +52,7 @@ def learn(
         it = np.nditer(q_values, flags=['multi_index'])  # need to use multi index to iterate over variable rank tensor
         while not it.finished:
             # initialize q_values to l values for warm start
-            q_values[it.multi_index] = env.l_func(discrete_to_real(buckets,
+            q_values[it.multi_index] = env.l_function(discrete_to_real(buckets,
                                                                    state_bounds,
                                                                    it.multi_index[:-1]))  # chop off action
             it.iternext()

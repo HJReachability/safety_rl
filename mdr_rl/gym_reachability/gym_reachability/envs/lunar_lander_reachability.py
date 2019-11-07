@@ -98,7 +98,11 @@ class LunarLanderReachability(LunarLander):
         self.bounds[:, 0] = self.simulator_scale_to_obs_scale(self.bounds[:, 0].T)
         self.bounds[:, 1] = self.simulator_scale_to_obs_scale(self.bounds[:, 1].T)
 
-    def reset(self, uniform=None, random=True):
+    def reset(self):
+        """
+        resets the environment accoring to a uniform distribution
+        :return: current state as 6d NumPy array of floats
+        """
 
         s = super(LunarLanderReachability, self).reset()
 
@@ -137,6 +141,10 @@ class LunarLanderReachability(LunarLander):
         return s, r, done, info
 
     def l_function(self):
+        """
+
+        :return: the signed distance of the environment at state s to the failure set
+        """
         # all in simulation scale
         x = self.lander.position.x
         y = self.lander.position.y
@@ -149,7 +157,7 @@ class LunarLanderReachability(LunarLander):
                                   self.fly_max_y - y - LANDER_RADIUS,  # distance to ceiling
                                   y - self.fly_min_y - LANDER_RADIUS])  # distance to ground
 
-        # compute l_land from the paper
+        # compute l_land from [ICRA 2019]
         landing_distance = np.min([10 * (theta - self.theta_land_min),  # heading error multiply 10
                                    10 * (self.theta_land_max - theta),  # for similar scale of units
                                    x - self.land_min_x - LANDER_RADIUS,  # dist to left edge of landing pad

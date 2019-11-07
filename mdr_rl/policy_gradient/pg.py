@@ -5,7 +5,8 @@ from __future__ import print_function
 from ray.rllib.agents.trainer import with_common_config
 from ray.rllib.agents.trainer_template import build_trainer
 ###########################################################
-# NFL: import pg with sbe outcome
+# Replace the standard policy gradient policy graph with the policy gradient policy graph
+# corresponding to the SBE outcome from Equation (8) of [ICRA19].
 from mdr_rl.policy_gradient.pg_policy import PGTFPolicy  
 ###########################################################
 # yapf: disable

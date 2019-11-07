@@ -58,10 +58,10 @@ class DoubleIntegratorEnv(gym.Env):
         """
         # note that l must be computed before the environment steps. see readme for a simple proof
         if self.buckets is None:
-            r = self.l_func(self.state)
+            r = self.l_function(self.state)
         else:
             # provide consistent reward signal. same state always same reward from center of grid cell
-            r = self.l_func(nearest_real_grid_point(self.buckets, self.bounds, self.bins, self.state))
+            r = self.l_function(nearest_real_grid_point(self.buckets, self.bounds, self.bins, self.state))
 
         # move dynamics forward one step
         x, x_dot = self.state
@@ -79,10 +79,10 @@ class DoubleIntegratorEnv(gym.Env):
         self.seed_val = seed
         np.random.seed(self.seed_val)
 
-    def l_func(self, s):
+    def l_function(self, s):
         """
         :param s: state
-        :return: the signed distance function of the environment at state s to the target set
+        :return: the signed distance of the environment at state s to the failure set
         """
         x_in = s[0] < self.target_low[0] or s[0] > self.target_high[0]
         x_dist = min(s[0] - self.target_low[0], self.target_high[0] - s[0])

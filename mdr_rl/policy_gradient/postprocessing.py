@@ -7,7 +7,8 @@ import scipy.signal
 from ray.rllib.policy.sample_batch import SampleBatch
 from ray.rllib.utils.annotations import DeveloperAPI
 ###########################################################
-# NFL compute advantages by using trajectory outcome from equation 8
+# import function to compute SBE outcomes from Equation (8) of [ICRA19] to use instead of sum of
+# discounted rewards outcomes
 from mdr_rl.utils import sbe_outcome
 ###########################################################
 
@@ -27,7 +28,7 @@ class Postprocessing(object):
 ###########################################################
 def compute_advantages(rollout, last_r, gamma=0.9, lambda_=1.0, use_gae=True, 
     use_sbe=False):
-    # NFL: added use_sbe option
+    # added use_sbe option
     ###########################################################
     """Given a rollout, compute its value targets and the advantage.
 
@@ -53,7 +54,7 @@ def compute_advantages(rollout, last_r, gamma=0.9, lambda_=1.0, use_gae=True,
 
     if use_gae:
         ###########################################################
-        if use_sbe:  # NFL: added since GAE is not supported yet
+        if use_sbe:  # added since GAE is not supported yet
             raise NotImplementedError('Generalized Advantage Estimation with' 
                 'Safety Bellman Equation is not yet supported')
         ###########################################################
@@ -75,16 +76,19 @@ def compute_advantages(rollout, last_r, gamma=0.9, lambda_=1.0, use_gae=True,
              np.array([last_r])])
 
         ###########################################################
-        if use_sbe:  # NFL: This is the only change needed for Safety Bellman Equation
+        # This is the only change needed for Safety Bellman Equation with direct
+        # policy optimization algorithms. Instead of computing the outcome of a
+        # trajectory as a sum of discounted rewards, the outcome is a minimum of
+        # discounted rewards from Equation (8) of [ICRA19].
+        if use_sbe:
             traj[Postprocessing.ADVANTAGES] = sbe_outcome(rewards_plus_v,
                                                           gamma)[:-1]
         else:
             traj[Postprocessing.ADVANTAGES] = discount(rewards_plus_v,
                                                        gamma)[:-1]
 
-        # NFL: I have added this block to correctly compute advantages with critic without GAE
-        # see issue 3746 on ray for details. This isn't specific to SBE. I will get this
-        # merged soon
+        # I have added this block to correctly compute advantages with critic without GAE
+        # see issue 3746 on ray for details. This isn't specific to SBE.
         if SampleBatch.VF_PREDS in rollout:
             traj[Postprocessing.VALUE_TARGETS] = \
                 traj[Postprocessing.ADVANTAGES].copy().astype(np.float32)

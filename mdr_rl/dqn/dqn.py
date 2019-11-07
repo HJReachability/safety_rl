@@ -8,7 +8,7 @@ from ray import tune
 from ray.rllib.agents.trainer import with_common_config
 from ray.rllib.agents.trainer_template import build_trainer
 ###########################################################
-# NFL: have to use modified policy graph with SBE backup and q value evaluate
+# use modified policy graph with SBE backup and q value evaluate
 from mdr_rl.dqn.dqn_policy import DQNTFPolicy, get_estimate
 ###########################################################
 from ray.rllib.agents.dqn.simple_q_policy import SimpleQPolicy
@@ -283,17 +283,18 @@ def disable_exploration(trainer):
         lambda p, _: p.set_epsilon(0))
 
 ###########################################################
-# NFL: added to evaluate q network and compare value function
+# Added function to evaluate q network for use in comparing value function.
 def q_values(trainer, obs_batch, batched=False):
     """
-    evaluates q network of trainer on obs_batch
+    This function evaluates q network of trainer on obs_batch.
     :param trainer: trainer to compute forward pass of network
     :param obs_batch: batch of observations to run forward pass on
-    :param batched: if true obs_batch is of shape (m, n) where m is batch
-    size and n is shape of single obs and output is of shape (m, a). where
-    a is number of actions. if false obs_batch is of shape (n) and output is
-    shape (a). batching improves performance but can be easy to make mistake
-    with a single obs
+    :param batched: If true obs_batch is of shape (m, n) where m is batch
+    size and n is shape of single obs and output is of shape (m, a) where
+    a is number of actions. If false obs_batch is of shape (n) and output is
+    shape (a). Batching improves performance but batching on a single obs
+    requires adding and removing a dimension to the input and output which
+    can result in mistakes.
     :return:
     """
     if not batched:

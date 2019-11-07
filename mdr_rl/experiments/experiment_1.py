@@ -10,23 +10,23 @@ This experiment runs tabular q learning with the Safety Bellman Equation backup 
 integrator problem.  
 """
 
-# == env ==
-seed = 100
+# == Environment ==
 max_episode_length = 1
 env = gym.make("double_integrator-v0")
 fictitious_terminal_val = -10
 
-# == discretization ==
+# == Seeding ==
+seed = 100
+
+# == Discretization ==
 buckets = (81, 81)
 state_bounds = env.bounds
 
-# == optimization ==
+# == Optimization ==
+max_episodes = int(1e6)
 get_alpha = make_log_decay_schedule(0.3, 0.5)
 get_epsilon = make_linear_schedule(0.5, 0.2, int(5e3))
 get_gamma = make_stepped_schedule(0.7, int(5e5), 0.9999)
-
-# == scheduling
-max_episodes = int(1e6)
 
 q, stats = learn(
     get_learning_rate=get_alpha,

@@ -49,12 +49,14 @@ def learn(
             raise ValueError("start_episode is only to be used with a warmstart q_values")
 
         q_values = np.zeros(buckets + (env.action_space.n,))
-        it = np.nditer(q_values, flags=['multi_index'])  # need to use multi index to iterate over variable rank tensor
+        # need to use multi index to iterate over variable rank tensor
+        it = np.nditer(q_values, flags=['multi_index'])
         while not it.finished:
             # initialize q_values to l values for warm start
+            state = it.multi_index[:-1]  # chop off action from q index to get state
             q_values[it.multi_index] = env.l_function(discrete_to_real(buckets,
                                                                    state_bounds,
-                                                                   it.multi_index[:-1]))  # chop off action
+                                                                   state))
             it.iternext()
 
     elif not np.array_equal(np.shape(q_values)[:-1], buckets):
@@ -62,8 +64,8 @@ def learn(
                          "the shape of the discretization of states.")
     elif start_episode is None:
         import warnings
-        warnings.warn("used warm start q_values without a start_episode, hyper-parameter schedulers "
-                      "may produce undesired results")
+        warnings.warn("used warm start q_values without a start_episode, hyper-parameter "
+                      "schedulers may produce undesired results")
     # setting up stats
     stats = {
         "episode_lengths": np.zeros(max_episodes),
@@ -85,9 +87,8 @@ def learn(
 
     if start_episode is None:
         start_episode = 0
-    if get_gamma is None:
-        get_gamma = lambda x: gamma
 
+    # set starting exploration fraction, learning rate, and discount factor
     gamma = get_gamma(start_episode)
     alpha = get_learning_rate(start_episode)
     epsilon = get_epsilon(start_episode)
@@ -95,7 +96,8 @@ def learn(
     # main loop
     for episode in range(max_episodes):
         if not suppress_print and (episode + 1) % 100 == 0:
-            print("\rEpisode {}/{} alpha:{} gamma:{} epsilon:{}.".format(episode + 1, max_episodes, alpha, gamma, epsilon), end="")
+            message = "\rEpisode {}/{} alpha:{} gamma:{} epsilon:{}."
+            print(message.format(episode + 1, max_episodes, alpha, gamma, epsilon), end="")
             sys.stdout.flush()
         state_real_valued = env.reset()
         state = discretize_state(buckets, state_bounds, env.bins, state_real_valued)
@@ -167,17 +169,21 @@ def select_action(q_values, state, env, epsilon=0):
     return action
 
 
-def play(q_values, env, num_episodes, buckets, state_bounds, suppress_print=False, time_step_limit=None):
+def play(q_values, env, num_episodes, buckets, state_bounds, suppress_print=False,
+         episode_length=None):
     """
     renders gym environment with policy acting greedily according to q_values value function
-    NOTE: After you use an environment to play you'll need to make a new environment instance to use it again
-    because the close command is called
+    NOTE: After you use an environment to play you'll need to make a new environment instance to
+    use it again because the close function is called
     :param q_values: q_values value function
     :param env: Open AI gym environment that hasn't been closed yet
     :param num_episodes: how many episode to run for
-    :param buckets: tuple of ints where the ith value is the number of buckets for ith dimension of state
-    :param state_bounds: list of tuples where ith tuple contains the min and max value in that order of ith dimension
+    :param buckets: tuple of ints where the ith value is the number of buckets for ith dimension of
+    state
+    :param state_bounds: list of tuples where ith tuple contains the min and max value in that order
+     of ith dimension
     :param suppress_print: boolean whether to suppress print statements about current episode or not
+    :param episode_length: max length of episode
     :return: None
     """
     for i in range(num_episodes):
@@ -185,7 +191,7 @@ def play(q_values, env, num_episodes, buckets, state_bounds, suppress_print=Fals
         t = 0
         done = False
         while not done:
-            if time_step_limit is not None and t >= time_step_limit:
+            if episode_length and t >= episode_length:
                 break
             state = discretize_state(buckets, state_bounds, env.bins, obv)
             action = select_action(q_values, state, env, epsilon=0)
@@ -194,4 +200,4 @@ def play(q_values, env, num_episodes, buckets, state_bounds, suppress_print=Fals
             t += 1
         if not suppress_print:
             print("episode", i,  "lasted", t, "timesteps.")
-    env.close()  # this is required to prevent the script from crashing after trying to close the window
+    env.close()  # this is required to prevent the script from crashing after closing the window

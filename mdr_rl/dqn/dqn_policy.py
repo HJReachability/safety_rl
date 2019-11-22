@@ -51,7 +51,7 @@ class QLoss(object):
                  v_min=-10.0,
                  v_max=10.0,
 ###########################################################
-                 # NFL: param for whether to use safety bellman equation
+                 # param for whether to use safety bellman equation
                  sbe=False):
 ###########################################################
 
@@ -59,7 +59,7 @@ class QLoss(object):
 ###########################################################
             if sbe:
                 raise NotImplementedError('distributional q learning is not yet supported with '
-                                          'Safety Bellman Equation')  # NFL
+                                          'Safety Bellman Equation')
 ###########################################################
 
             # Distributional Q-learning which corresponds to an entropy loss
@@ -108,11 +108,11 @@ class QLoss(object):
 
             # compute RHS of bellman equation
 ###########################################################
-            if sbe:  # NFL: Safety Bellman Equation Backup from equation 7
+            if sbe:  # Safety Bellman Equation Backup from equation 7
                 done_case = done_mask * rewards
                 not_done_case = (1.0 - done_mask) * ((1.0 - gamma) * rewards + gamma * tf.minimum(rewards, q_tp1_best))
                 q_t_selected_target = done_case + not_done_case
-            else:   # NFL: sum of discounted rewards backup
+            else:   # sum of discounted rewards backup
                 q_t_selected_target = rewards + gamma**n_step * q_tp1_best_masked
 ###########################################################
 
@@ -374,7 +374,7 @@ def build_q_losses(policy, batch_tensors):
         batch_tensors[PRIO_WEIGHTS], batch_tensors[SampleBatch.REWARDS],
         tf.cast(batch_tensors[SampleBatch.DONES],
 ###########################################################
-                # NFL: gamma must be passed as tensor so it can be annealed
+                # gamma must be passed as tensor so it can be annealed
                 tf.float32), policy.gamma, config["n_step"],
 ###########################################################
         config["num_atoms"], config["v_min"], config["v_max"])
@@ -420,7 +420,7 @@ def setup_early_mixins(policy, obs_space, action_space, config):
     if gamma_schedule == 'stepped':
         gamma_schedule = SteppedSchedule(config['gamma'], config['final_gamma'], config['gamma_half_life'])
 ###########################################################
-    GammaSchedule.__init__(policy, config["gamma"], gamma_schedule)  # NFL: gamma annealing
+    GammaSchedule.__init__(policy, config["gamma"], gamma_schedule)  # gamma annealing
 ###########################################################
 
 def setup_late_mixins(policy, obs_space, action_space, config):
@@ -514,7 +514,7 @@ def _postprocess_dqn(policy, batch):
             np.abs(td_errors) + policy.config["prioritized_replay_eps"])
         batch.data[PRIO_WEIGHTS] = new_priorities
 ###########################################################
-    # NFL allows for infinite horizon with short episodes. this is important because you can use
+    # allows for infinite horizon with short episodes. this is important because you can use
     # short episodes with uniform resets to get samples all over the state space instead of just
     # on trajectories taken by the current policy
     batch[SampleBatch.DONES] = np.zeros(len(batch[SampleBatch.DONES]), dtype=bool)
@@ -522,7 +522,7 @@ def _postprocess_dqn(policy, batch):
     return batch
 
 ###########################################################
-# NFL: this class is to anneal gamma
+# this class is to anneal gamma
 @DeveloperAPI
 class GammaSchedule(object):
     """Mixin for TFPolicy that adds a discount rate schedule. Note that gamma
@@ -556,7 +556,7 @@ class GammaSchedule(object):
             session=self._sess)
 
 
-# NFL: added to compute q values to compare value functions
+# added to compute q values to compare value functions
 def get_estimate(policy, obs_batch):
     '''
 
@@ -592,6 +592,6 @@ DQNTFPolicy = build_tf_policy(
         ComputeTDErrorMixin,
         LearningRateSchedule,
 ###########################################################
-        GammaSchedule  # NFL: add gamma annealing mixin
+        GammaSchedule  # add gamma annealing mixin
 ###########################################################
     ])

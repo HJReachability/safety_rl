@@ -205,6 +205,11 @@ class LunarLanderReachability(LunarLander):
 
     @staticmethod
     def simulator_scale_to_obs_scale(state):
+        """
+        converts from simulator scale to observation scale see comment at top of class
+        :param state: length 6 array of x, y, x_dot, y_dot, theta, theta_dot in simulator scale
+        :return: length 6 array of x, y, x_dot, y_dot, theta, theta_dot in obs scale
+        """
         x, y, x_dot, y_dot, theta, theta_dot = state
         return np.array([(x - VIEWPORT_W / SCALE / 2) / (VIEWPORT_W / SCALE / 2),
                          (y - (HELIPAD_Y + LEG_DOWN/SCALE)) / (VIEWPORT_H / SCALE / 2),
@@ -214,6 +219,10 @@ class LunarLanderReachability(LunarLander):
                          theta_dot])
 
     def get_state(self):
+        """
+        gets the current state of the environment
+        :return: length 6 array of x, y, x_dot, y_dot, theta, theta_dot in simulator scale
+        """
         return np.array([self.lander.position.x,
                         self.lander.position.y,
                         self.lander.linearVelocity.x,

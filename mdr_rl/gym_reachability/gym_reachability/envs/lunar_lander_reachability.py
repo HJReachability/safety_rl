@@ -187,7 +187,7 @@ class LunarLanderReachability(LunarLander):
         y_dot = self.lander.linearVelocity.y
         theta = self.lander.angle
 
-        # compute l_fly from the paper, use vectorized min for performance
+        # compute l_fly from [ICRA 2019], use vectorized min for performance
         flying_distance = np.min([x - self.fly_min_x - LANDER_RADIUS,  # distance to left wall
                                   self.fly_max_x - x - LANDER_RADIUS,  # distance to right wall
                                   self.fly_max_y - y - LANDER_RADIUS,  # distance to ceiling

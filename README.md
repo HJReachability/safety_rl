@@ -2,12 +2,12 @@
 
 Jaime F. Fisac*, Neil F. Lugovoy*, Vicenc¸ Rubies-Royo, Shromona Ghosh, Claire J. Tomlin, "[Bridging Hamilton-Jacobi Safety Analysis and Reinforcement Learning](TODO arXiv link here)", ICRA 2019. (* Equal Contribution)
 
-This repository contains the code necessary to run all the experiments in [ICRA 2019].
+This repository contains the code necessary to run all the experiments in [ICRA 2019] in addition to core functions that can be either directly invoked by other reinforcement learning code or used as illustrative examples of how to adapt typical reinforcement learning methods to work with the Safety Bellman Equation.
 
 
 ## Some quick notes:
 
-1. If you want to use the Safety Bellman Equation with your reinforcement learning algorithm you will need the functions `sbe_backup` and/or `sbe_outcome` in the `utils.py` file. The former computes the backup for value function learning (Q-learning, DQN, SAC, etc.) from equation (7) in [ICRA19] and the latter computes the outcome of a trajectory equation (8) in [ICRA19] used in policy optimization methods (policy gradient, TRPO, PPO, etc.).
+1. If you want to use the Safety Bellman Equation with your own reinforcement learning algorithm you will need the functions `sbe_backup` and/or `sbe_outcome` in the `utils.py` file. The former computes the backup for value function learning (Q-learning, DQN, SAC, etc.) from equation (7) in [ICRA19] and the latter computes the outcome of a trajectory from equation (8) in [ICRA19] used in policy optimization methods (policy gradient, TRPO, PPO, etc.).
 2. The DQN and Policy Gradient algorithms are modified versions of the implementation from the [Ray library](https://github.com/ray-project/ray). Modifications are enclosed by a line of hashtags marking the start and end of the changes.
 3. The Soft Actor Critic algorithm is a modified version from the implementation in [Spinning Up](https://github.com/openai/spinningup) (Ray does not have a working implementation currently). Similarly hashtags indicate changes.
 4. The inverted pendulum and lunar lander environments are subclasses of environments implemented in [Open AI's Gym](https://github.com/openai/gym). The major changes from the parent classes are documented in the files.

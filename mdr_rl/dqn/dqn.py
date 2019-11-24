@@ -1,3 +1,12 @@
+"""
+This file is a modified version of Ray's implementation of Deep Q Network Learning (DQN) which can
+be found @ https://github.com/ray-project/ray/blob/releases/0.7.3/python/ray/rllib/agents/dqn/dqn.py
+
+This file is modified such that DQN can be used with the Safety Bellman Equation (SBE) from equation
+(7) in [ICRA19] and so that the q network can be evaluated. All modifications are marked with a
+line of hashtags.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -8,7 +17,8 @@ from ray import tune
 from ray.rllib.agents.trainer import with_common_config
 from ray.rllib.agents.trainer_template import build_trainer
 ###########################################################
-# use modified policy graph with SBE backup and q value evaluate
+# Replace the standard policy graph import with the one corresponding to the
+# SBE backup, as in Theorem 2 of [ICRA19] and import function to get q values
 from mdr_rl.dqn.dqn_policy import DQNTFPolicy, get_estimate
 ###########################################################
 from ray.rllib.agents.dqn.simple_q_policy import SimpleQPolicy
@@ -284,6 +294,7 @@ def disable_exploration(trainer):
 
 ###########################################################
 # Added function to evaluate q network for use in comparing value function.
+# Used in experiment 2 and 3 and called in run_dqn_experiment.py
 def q_values(trainer, obs_batch, batched=False):
     """
     This function evaluates q network of trainer on obs_batch.

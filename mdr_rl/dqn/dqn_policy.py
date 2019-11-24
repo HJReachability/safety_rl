@@ -1,3 +1,13 @@
+"""
+This file is a modified version of Ray's implementation of Deep Q Network Learning (DQN) which can
+be found @
+https://github.com/ray-project/ray/blob/releases/0.7.3/python/ray/rllib/agents/dqn/dqn_policy.py
+
+This file is modified such that DQN can be used with the Safety Bellman Equation (SBE) from equation
+(7) in [ICRA19] and so that the q network can be evaluated. All modifications are marked with a
+line of hashtags.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -51,7 +61,7 @@ class QLoss(object):
                  v_min=-10.0,
                  v_max=10.0,
 ###########################################################
-                 # param for whether to use safety bellman equation
+                 # param for whether to use Safety Bellman Equation
                  sbe=False):
 ###########################################################
 
@@ -109,9 +119,9 @@ class QLoss(object):
             # compute RHS of bellman equation
 ###########################################################
             if sbe:  # Safety Bellman Equation Backup from equation 7
-                done_case = done_mask * rewards
-                not_done_case = (1.0 - done_mask) * ((1.0 - gamma) * rewards + gamma * tf.minimum(rewards, q_tp1_best))
-                q_t_selected_target = done_case + not_done_case
+                q_terminal = rewards
+                q_non_terminal = (1.0 - gamma) * rewards + gamma * tf.minimum(rewards, q_tp1_best)
+                q_t_selected_target = done_mask * q_terminal + (1.0 - done_mask) * q_non_terminal
             else:   # sum of discounted rewards backup
                 q_t_selected_target = rewards + gamma**n_step * q_tp1_best_masked
 ###########################################################

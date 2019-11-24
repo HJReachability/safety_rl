@@ -7,7 +7,7 @@ from mdr_rl.utils import discrete_to_real, discretize_state, sbe_outcome
 def learn(
         get_learning_rate, get_epsilon, get_gamma, max_episodes, buckets, state_bounds, env,
         max_episode_length=None, q_values=None, start_episode=None, suppress_print=False, seed=0,
-        fictitious_terminal_val=None):
+        fictitious_terminal_val=None, use_sbe=True):
     """
 
     :param get_learning_rate: function of current episode number returns learning rate
@@ -30,6 +30,8 @@ def learn(
     when a trajectory ends. this is helpful because it avoids having a ring of terminal states
     around the failure set. note that every terminal trajectory will use this as the value for the
     backup
+    :param whether to use the Safety Bellman Equation backup from equation (7) in [ICRA19]. If false
+    the standard sum of discounted rewards backup is used.
     :return: q_values, a numpy tensor of shape (buckets + (env.action_space.n,)) that contains the
     q_values value function
     for example in cartpole the dimensions are q_values[x][x_dot][theta][theta_dot][action]
@@ -118,13 +120,22 @@ def learn(
             t += 1
 
             # perform bellman update and move along state variables
-            if fictitious_terminal_val:
-                done_case = (1.0 - gamma) * reward + gamma * min(reward, fictitious_terminal_val)
-            else:
-                done_case = reward
-            not_done_case = (1.0 - gamma) * reward + \
-                            gamma * min(reward, np.amax(q_values[next_state]))
-            new_q = done * done_case + (1.0 - done) * not_done_case
+            if use_sbe:  # Safety Bellman Equation backup
+                if fictitious_terminal_val:
+                    q_terminal = (1.0 - gamma) * reward + gamma * min(reward, fictitious_terminal_val)
+                else:
+                    q_terminal = reward
+                q_non_terminal = (1.0 - gamma) * reward + \
+                                gamma * min(reward, np.amax(q_values[next_state]))
+            else:  # sum of discounted rewards backup
+                if fictitious_terminal_val:
+                    q_terminal = reward + gamma * fictitious_terminal_val
+                else:
+                    q_terminal = reward
+                q_non_terminal = reward + gamma * np.amax(q_values[next_state])
+
+            # update q values
+            new_q = done * q_terminal + (1.0 - done) * q_non_terminal
             q_values[state + (action,)] = (1 - alpha) * q_values[state + (action,)] + alpha * new_q
             state = next_state
 

@@ -65,12 +65,12 @@ def sbe_backup(rewards, dones, next_state_val, gamma, tensorflow=False):
     :param tensorflow: whether the tensor is a tensorflow tensor
     :return: the value for the backup
     """
-    done_case = rewards
+    v_terminal = rewards
     if tensorflow:
-        not_done_case = (1.0 - gamma) * rewards + gamma * tf.minimum(rewards, next_state_val)
+        v_non_terminal = (1.0 - gamma) * rewards + gamma * tf.minimum(rewards, next_state_val)
     else:
-        not_done_case = (1.0 - gamma) * rewards + gamma * np.minimum(rewards, next_state_val)
-    return dones * done_case + (1.0 - dones) * not_done_case
+        v_non_terminal = (1.0 - gamma) * rewards + gamma * np.minimum(rewards, next_state_val)
+    return dones * v_terminal + (1.0 - dones) * v_non_terminal
 
 
 def sbe_outcome(rewards, gamma):
@@ -155,6 +155,12 @@ def nearest_real_grid_point(buckets, state_bounds, bins, state):
 
 
 def v_from_q(q_values):
+    """
+    Compute the state value function from the state-action value function by taking the maximum
+    over available actions at each state.
+    :param q_values: q value function tensor numpy array
+    :return: value function numpy array
+    """
     v = np.zeros(np.shape(q_values)[:-1])
     it = np.nditer(q_values, flags=['multi_index', 'refs_ok'])
     while not it.finished:
@@ -164,6 +170,14 @@ def v_from_q(q_values):
 
 
 def q_values_from_q_func(q_func, num_buckets, state_bounds, action_n):
+    """
+    computes q value tensor from a q value function
+    :param q_func: function from state to q value
+    :param num_buckets: number of buckets for resulting q value tensor
+    :param state_bounds: state bounds for resulting q value tensor
+    :param action_n: number of actions in action space
+    :return: q value tensor as numpy array
+    """
     q_values = np.zeros(num_buckets + (action_n,))
     it = np.nditer(q_values, flags=['multi_index'])
     while not it.finished:

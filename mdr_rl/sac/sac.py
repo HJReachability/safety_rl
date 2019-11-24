@@ -1,3 +1,13 @@
+"""
+This file is a modified version of Open AI's implementation of Soft Actor Critic (SAC) in Spinning
+Up which can be found at https://github.com/openai/spinningup/blob/master/spinup/algos/sac/sac.py
+
+This file is modified such that SAC can be used with the Safety Bellman Equation (SBE) from equation
+(7) in [ICRA19]. All modifications are marked with a line of hashtags. The parameter use_sbe for the
+function sac() determines whether to use the SBE backup or the traditional sum of discounted rewards
+ backup.
+"""
+
 ###########################################################
 from mdr_rl.utils import sbe_outcome  # added to log SBE stats
 ###########################################################
@@ -177,9 +187,9 @@ def sac(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     # Targets for Q and V regression
     ###########################################################
     if use_sbe:  # This is the backup for SBE from Equation (7) in [IRCA19].
-        done_case = r_ph  # terminal state
-        not_done_case = (1 - gamma) * r_ph + gamma * tf.minimum(r_ph, v_targ)
-        q_backup = d_ph * done_case + (1 - d_ph) * not_done_case
+        q_terminal = r_ph  # terminal state
+        q_non_terminal = (1 - gamma) * r_ph + gamma * tf.minimum(r_ph, v_targ)
+        q_backup = d_ph * q_terminal + (1 - d_ph) * q_non_terminal
     else:
         q_backup = tf.stop_gradient(r_ph + gamma * (1 - d_ph) * v_targ)
     ###########################################################
@@ -235,6 +245,10 @@ def sac(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         for j in range(n):
             o, r, d, ep_ret, ep_len = test_env.reset(), 0, False, 0, 0
             ###########################################################
+            # This is used to log min reward from trajectory and SBE outcome. A list of rewards
+            # is required because SBE outcome must be computed from the end of the the trajectory.
+            #  A sum of discounted rewards can be computed from the start so it does not need to
+            # keep track of previous rewards and thus does not need this list.
             rewards = []
             ###########################################################
             while not (d or (ep_len == max_ep_len)):
@@ -253,7 +267,7 @@ def sac(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
     total_steps = steps_per_epoch * epochs
     ###########################################################
-    rewards = []  # used to log min and SBE outcome
+    rewards = []  # used to log min reward from trajectory and SBE outcome
     ###########################################################
     # Main loop: collect experience in env and update/log each epoch
     for t in range(total_steps):
@@ -306,7 +320,7 @@ def sac(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                              LossV=outs[3], Q1Vals=outs[4], Q2Vals=outs[5],
                              VVals=outs[6], LogPi=outs[7])
             ###########################################################
-            # log episode min and SBE outcome
+            # used to log min reward from trajectory and SBE outcome
             logger.store(EpRet=ep_ret, EpLen=ep_len,
                          EpMin=np.min(rewards),
                          EpSBEOutcome=sbe_outcome(rewards, gamma)[0])

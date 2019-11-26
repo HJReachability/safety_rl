@@ -6,6 +6,8 @@ This file is modified such that SAC can be used with the Safety Bellman Equation
 (7) in [ICRA19]. All modifications are marked with a line of hashtags. The parameter use_sbe for the
 function sac() determines whether to use the SBE backup or the traditional sum of discounted rewards
  backup.
+
+See the LICENSE in the root directory of this repo for license info.
 """
 
 ###########################################################

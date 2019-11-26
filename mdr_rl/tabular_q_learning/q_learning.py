@@ -1,3 +1,12 @@
+"""
+This file is based on
+https://github.com/dennybritz/reinforcement-learning/blob/master/TD/Q-Learning%20Solution.ipynb
+
+Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
+
+See the LICENSE in the root directory of this repo for license info.
+"""
+
 import sys
 import numpy as np
 import time

@@ -1,3 +1,17 @@
+"""
+This file is a modified version of Ray's implementation of Policy Gradient (PG) which can
+be found @
+https://github.com/ray-project/ray/blob/releases/0.7.3/python/ray/rllib/evaluation/postprocessing.py
+
+This file is modified such that PG can be used with the Safety Bellman Equation (SBE) outcome from
+equation (8) in [ICRA19]. All modifications are marked with a line of hashtags.
+
+Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
+
+See the LICENSE in the root directory of this repo for license info.
+"""
+
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function

@@ -5,6 +5,10 @@ be found @ https://github.com/ray-project/ray/blob/releases/0.7.3/python/ray/rll
 This file is modified such that DQN can be used with the Safety Bellman Equation (SBE) from equation
 (7) in [ICRA19] and so that the q network can be evaluated. All modifications are marked with a
 line of hashtags.
+
+Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
+
+See the LICENSE in the root directory of this repo for license info.
 """
 
 from __future__ import absolute_import

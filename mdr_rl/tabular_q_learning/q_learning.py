@@ -10,13 +10,13 @@ See the LICENSE in the root directory of this repo for license info.
 import sys
 import numpy as np
 import time
-from mdr_rl.utils import discrete_to_real, discretize_state, sbe_outcome
-
+from mdr_rl.utils import discrete_to_real, discretize_state, sbe_outcome, save
+from datetime import datetime
 
 def learn(
         get_learning_rate, get_epsilon, get_gamma, max_episodes, buckets, state_bounds, env,
         max_episode_length=None, q_values=None, start_episode=None, suppress_print=False, seed=0,
-        fictitious_terminal_val=None, use_sbe=True):
+        fictitious_terminal_val=None, use_sbe=True, save_freq=None):
     """
 
     :param get_learning_rate: function of current episode number returns learning rate
@@ -39,14 +39,15 @@ def learn(
     when a trajectory ends. this is helpful because it avoids having a ring of terminal states
     around the failure set. note that every terminal trajectory will use this as the value for the
     backup
-    :param whether to use the Safety Bellman Equation backup from equation (7) in [ICRA19]. If false
+    :param use_sbe: whether to use the Safety Bellman Equation backup from equation (7) in [ICRA19]. If false
     the standard sum of discounted rewards backup is used.
+    :param save_freq: how often to save q_values and stats
     :return: q_values, a numpy tensor of shape (buckets + (env.action_space.n,)) that contains the
     q_values value function
     for example in cartpole the dimensions are q_values[x][x_dot][theta][theta_dot][action]
     """
     start = time.process_time()  # used for time performance analysis
-
+    now = datetime.now()
     np.random.seed(seed)
 
     # argument checks
@@ -79,6 +80,7 @@ def learn(
                       "schedulers may produce undesired results")
     # setting up stats
     stats = {
+        "start_time": datetime.now().strftime("%b_%d_%y %H:%M:%S"),
         "episode_lengths": np.zeros(max_episodes),
         "average_episode_rewards": np.zeros(max_episodes),
         "true_min": np.zeros(max_episodes),
@@ -91,7 +93,8 @@ def learn(
         "gamma": np.zeros(max_episodes),
         "type": "tabular q_values-learning",
         "environment": env.spec.id,
-        "seed": seed
+        "seed": seed,
+        "episode": 0,
     }
 
     env.set_discretization(buckets=buckets, bounds=state_bounds)
@@ -137,7 +140,8 @@ def learn(
             # perform bellman update and move along state variables
             if use_sbe:  # Safety Bellman Equation backup
                 if fictitious_terminal_val:
-                    q_terminal = (1.0 - gamma) * reward + gamma * min(reward, fictitious_terminal_val)
+                    q_terminal = (1.0 - gamma) * reward + \
+                                 gamma * min(reward, fictitious_terminal_val)
                 else:
                     q_terminal = reward
                 q_non_terminal = (1.0 - gamma) * reward + \
@@ -168,6 +172,10 @@ def learn(
         stats["learning_rate"][episode] = alpha
         stats["epsilon"][episode] = epsilon
         stats["gamma"][episode] = gamma
+        stats["episode"] = episode
+
+        if save_freq and episode % save_freq == 0:
+            save(q_values, stats, env.unwrapped.spec.id)
 
     stats["time_elapsed"] = time.process_time() - start
     print("\n")

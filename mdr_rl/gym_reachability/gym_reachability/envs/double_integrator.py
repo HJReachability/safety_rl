@@ -77,7 +77,8 @@ class DoubleIntegratorEnv(gym.Env):
         self.state = np.array([x, x_dot])
 
         # calculate done
-        done = np.any(self.state < self.target_low) or np.any(self.state > self.target_high)
+        #done = np.any(self.state < self.target_low) or np.any(self.state > self.target_high)
+        done = x < self.target_low[0] or x > self.target_high[0]
         info = {}
         return np.copy(self.state), r, done, info
 
@@ -193,8 +194,6 @@ class DoubleIntegratorEnv(gym.Env):
         plots the curves defining the edge of the analytic safe set on top of v
         :param analytic: an output of double_integrator_analytic_range
         :param v: value function to compare against analytic
-        :param axes: axes input to visualize_matrix this is needed to make the curves come in the
-        right spot on the value function and label the matrix
         :return: None
         """
         import matplotlib
@@ -215,8 +214,7 @@ class DoubleIntegratorEnv(gym.Env):
         plt.plot(x_dot_negative_range, -1 * np.ones(len(x_dot_negative_range)), color="black")
 
         # visualize v on top of curves
-        axes = [np.append(self.bounds[1], self.bounds[0]), ["x dot", "x"]]
-        visualize_matrix(v, axes, no_show=False)
+        visualize_matrix(v, self.get_axes(), no_show=False)
 
     def analytic_v(self):
         v = np.zeros(self.buckets)
@@ -239,3 +237,6 @@ class DoubleIntegratorEnv(gym.Env):
             v[it.multi_index] = analytic_function(x, x_dot)
             it.iternext()
         return v
+
+    def get_axes(self):
+        return [np.append(self.bounds[1], self.bounds[0]), ["x dot", "x"]]

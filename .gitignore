@@ -3,3 +3,4 @@
 mdr_rl.egg*
 data/*
 .DS_Store
+*.pickle

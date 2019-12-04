@@ -7,10 +7,9 @@ See the LICENSE in the root directory of this repo for license info.
 import _pickle as cPickle
 import numpy as np
 import os
-import fnmatch
-import datetime
-import warnings
+from glob import glob
 import itertools
+from datetime import datetime
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
@@ -159,7 +158,7 @@ def q_values_from_q_func(q_func, num_buckets, state_bounds, action_n):
 
 def visualize_matrix(m, axes=None, no_show=False):
     if axes is not None:
-        f = plt.imshow(m.T, interpolation='none', extent=axes[0], origin="lower", cmap="plasma",
+        f = plt.imshow(m, interpolation='none', extent=axes[0], origin="lower", cmap="plasma",
                        vmin=-2, vmax=4)  # Transpose is necessary so that m[x,y] is (x,y) on plot
         a = plt.gca()
         a.set_aspect((axes[0][1]-axes[0][0])/(axes[0][3]-axes[0][2]))  # makes equal aspect ratio
@@ -181,7 +180,7 @@ def visualize_matrix(m, axes=None, no_show=False):
         a.set_xticklabels([])
         a.set_yticklabels([])
     else:
-        f = plt.imshow(m.T, interpolation='none', origin="lower", cmap="plasma")
+        f = plt.imshow(m, interpolation='none', origin="lower", cmap="plasma")
 
     if not no_show:
         plt.show()
@@ -323,98 +322,69 @@ def get_save_dir():
 
 # == saving and loading q functions == # TODO this still needs some cleanup
 
-def save(Q, stats, name, date_dir=True, directory="."):
+def save(q_values, stats, experiment_name, save_dir=None):
     """
-    saves Q and/or stats to directory with filename name.pickle and a metadata file nameMetaData.txt
-    if date_dir is True then will save to folder directory/month/day where month and day are the month and day at
-    the time of save in numbers
-    :param Q: Q value function to be saved
+    saves q_values and stats to a directory named experiment name concatenated with the date
+    inside of save_dir. The file is named time_iteration.pickle. The date, time and iteration are
+    taken from the stats dictionary. The date and time are the date and time the experiment started.
+    :param q_values: Q value function to be saved
     :param stats: stats to be saved
-    :param name: file name to save Q
-    :param date_dir: If set to true
-    :param directory: directory to save file
+    :param experiment_name: name of experiment. files will be saved to a directory named
+    experiment_name_date
+    :param save_dir: the parent directory of the experiment directory. If left as None will use
+    get_save_dir()
     :return: the directory saved in
     """
-    now = datetime.datetime.now()
-    if len(directory) >= 1 and directory[0] == "/":
-        directory = directory[1:]  # directory cannot lead with "/"
-    if Q is None and stats is None:
-        print("Need to give at least one thing to save")
-        return
-    if date_dir:
-        directory = directory + "/" + str(now.month) + "/" + str(now.day)
-    dictionary = {"Q": Q, "stats": stats}
+    if save_dir is None:
+        save_dir = get_save_dir()
+
+    # set up directory and file names
+    date, time = stats['start_time'].split()
+    directory = os.path.join(save_dir, experiment_name + '_' + date)
+    file_name = time + '_' + str(stats['episode']) + '.pickle'
+    path = os.path.join(directory, file_name)
+
     if not os.path.exists(directory):
         os.makedirs(directory)
-    if len(directory) >= 0:
-        directory += "/"
-    path = directory + name + ".pickle"
-    metadata_path = directory + name + "metadata.txt"
-    if os.path.isfile(path):
-        message = "The file " + path + " already exists please delete existing file or choose a different file name."
-        minute = now.minute
-        path = directory + name + "-" + str(now.hour) + ":"
-        path += str(minute) if minute >= 10 else "0" + str(minute)
-        path += ".pickle"
-        message += "\n Attempting to save to: " + path
-        warnings.warn(message)
-        if os.path.isfile(path):
-            message = path + " also exists. Q and stats were not saved."
-            warnings.warn(message)
-            return
-    if os.path.isfile(metadata_path):
-        message = "The file " + metadata_path + " already exists please delete existing file or choose a different file name."
-        minute = now.minute
-        metadata_path = directory + name + "-" + str(now.hour) + ":"
-        metadata_path += str(minute) if minute >= 10 else "0" + str(minute)
-        metadata_path += "metadata.txt"
-        message += "\n Attempting to save to: " + metadata_path
-        warnings.warn(message)
-        if os.path.isfile(metadata_path):
-            message = metadata_path + " also exists. Metadata was not saved."
-            warnings.warn(message)
-            return
+
+    # set up dictionary to save data
+    dictionary = {"q_values": q_values, "stats": stats}
+
     try:
         with open(path, 'wb') as handle:
             cPickle.dump(dictionary, handle)
-        print("Saved Q and stats to", path)
     except Exception as e:
-        print("Error saving Q and stats: \n", e)
-    try:
-        if stats is not None:
-            f = open(metadata_path, "w")
-            f.write(metadata_from_stats(stats, now))
-            f.close()
-            print("Saved metadata to", metadata_path)
-    except Exception as e:
-        print("Error making metadata file: \n", e)
-    return directory
+        print("Error saving q_values and stats: \n", e)
+    return path
 
 
-def load(name, directory="."):
+def load(path):
     """
 
     :param directory: directory to load from
     :return: Q and stats loaded from directory
     """
-    if len(directory) >= 1 and directory[0] == "/":
-        directory = directory[1:]  # directory cannot lead with "/"
-    files = []
-    for file in os.listdir(directory):
-        if fnmatch.fnmatch(file, name):  # allows use of wildcards
-            files.append(file)
-    if len(files) == 0:
-        raise FileNotFoundError("no files in", directory, "match", name)
-    elif len(files) > 1:
-        raise ValueError("multiple files match", name, "in", directory, "they are:", files)
-    file = files[0]
-    path = directory + "/" + file
     try:
         with open(path, 'rb') as handle:
             dictionary = cPickle.load(handle)
-        Q = dictionary["Q"]
+        q_values = dictionary["q_values"]
         stats = dictionary["stats"]
-        print("Loaded Q and stats from", path)
-        return Q, stats
+        return q_values, stats
     except Exception as e:
         print("Error loading: \n", e)
+
+
+def load_most_recent(directory):
+    files = glob(directory)
+    most_recent = None
+    most_recent_time = None
+    most_recent_iteration = None
+    for file in files:
+        file = os.path.splitext(file)[0]
+        time, iteration = file.split("_")
+        time = datetime.strptime(time, '%H:%M:%S')
+        if most_recent is None or (time > most_recent_time and iteration > most_recent_iteration):
+            most_recent = file
+            most_recent_time = time
+            most_recent_iteration = iteration
+    return load(os.path.join(directory, most_recent))

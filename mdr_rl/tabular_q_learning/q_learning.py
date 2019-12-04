@@ -83,7 +83,7 @@ def learn(
         "average_episode_rewards": np.zeros(max_episodes),
         "true_min": np.zeros(max_episodes),
         "episode_outcomes": np.zeros(max_episodes),
-        "state_visits": np.zeros(np.shape(q_values)[:-1]),
+        "state_action_visits": np.zeros(np.shape(q_values)),
         "epsilon": np.zeros(max_episodes),
         "learning_rate": np.zeros(max_episodes),
         "state_bounds": state_bounds,
@@ -100,9 +100,9 @@ def learn(
         start_episode = 0
 
     # set starting exploration fraction, learning rate, and discount factor
-    gamma = get_gamma(start_episode)
-    alpha = get_learning_rate(start_episode)
-    epsilon = get_epsilon(start_episode)
+    epsilon = get_epsilon(start_episode, 1)
+    alpha = get_learning_rate(start_episode, 1)
+    gamma = get_gamma(start_episode, 1)
 
     # main loop
     for episode in range(max_episodes):
@@ -124,9 +124,15 @@ def learn(
             next_state = discretize_state(buckets, state_bounds, env.bins, next_state_real_valued)
 
             # update episode statistics
-            stats["state_visits"][state] += 1
+            stats['state_action_visits'][state + (action,)] += 1
+            num_visits = stats['state_action_visits'][state + (action,)]
             episode_rewards.append(reward)
             t += 1
+
+            # update exploration fraction, learning rate, and discount factor
+            epsilon = get_epsilon(episode + start_episode, num_visits)
+            alpha = get_learning_rate(episode + start_episode, num_visits)
+            gamma = get_gamma(episode + start_episode, num_visits)
 
             # perform bellman update and move along state variables
             if use_sbe:  # Safety Bellman Equation backup
@@ -162,11 +168,6 @@ def learn(
         stats["learning_rate"][episode] = alpha
         stats["epsilon"][episode] = epsilon
         stats["gamma"][episode] = gamma
-
-        # update exploration fraction, learning rate, and discount factor
-        epsilon = get_epsilon(episode + start_episode)
-        alpha = get_learning_rate(episode + start_episode)
-        gamma = get_gamma(episode + start_episode)
 
     stats["time_elapsed"] = time.process_time() - start
     print("\n")

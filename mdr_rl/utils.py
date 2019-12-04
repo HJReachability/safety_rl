@@ -4,21 +4,17 @@ Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
 See the LICENSE in the root directory of this repo for license info.
 """
 
-import matplotlib
 import _pickle as cPickle
 import numpy as np
-import pandas as pd
 import os
 import fnmatch
 import datetime
 import warnings
 import itertools
-import scipy.io as sio
+import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
-matplotlib.style.use('ggplot')
 import tensorflow as tf
-from itertools import product
 
 # == backup and outcome functions ==
 
@@ -163,13 +159,13 @@ def q_values_from_q_func(q_func, num_buckets, state_bounds, action_n):
 
 def visualize_matrix(m, axes=None, no_show=False):
     if axes is not None:
-        f = plt.imshow(m.T, interpolation='none', extent=axes[0], origin="lower", cmap="plasma", vmin=-2, vmax=4)  # Transpose is necessary so that m[x,y] is (x,y) on plot
+        f = plt.imshow(m.T, interpolation='none', extent=axes[0], origin="lower", cmap="plasma",
+                       vmin=-2, vmax=4)  # Transpose is necessary so that m[x,y] is (x,y) on plot
         a = plt.gca()
         a.set_aspect((axes[0][1]-axes[0][0])/(axes[0][3]-axes[0][2]))  # makes equal aspect ratio
-        #a.set_xlabel(axes[1][0])
-        #a.set_ylabel(axes[1][1])
+        a.set_xlabel(axes[1][0])
+        a.set_ylabel(axes[1][1])
         a.grid(False)
-        #plt.locator_params(axis='y', nbins=3)
         plt.tick_params(
             axis='x',  # changes apply to the x-axis
             which='both',  # both major and minor ticks are affected
@@ -230,17 +226,21 @@ class SteppedSchedule(object):
 
 def make_stepped_schedule(start_value, half_life, max_gamma):
     c = 1 - start_value
-    return lambda t: np.minimum(max_gamma, 1 - c * 2 ** (-t // half_life))
+    return lambda t, n: np.minimum(max_gamma, 1 - c * 2 ** (-t // half_life))
 
 
 def make_linear_schedule(start_value, end_value, decay_steps):
     m = (end_value-start_value)/decay_steps
     b = start_value
-    return lambda t: m * t + b
+    return lambda t, n: max(m * t + b, end_value)
 
 
 def make_log_decay_schedule(initial, decay):
-    return lambda t: initial / (1 + decay * np.log(t + 1))
+    return lambda t, n: initial / (1 + decay * np.log(t + 1))
+
+
+def make_inverse_polynomial_visit_schedule(scale, power):
+    return lambda t, n: scale * 1 / (n ** power)
 
 
 # == data collection functions ==

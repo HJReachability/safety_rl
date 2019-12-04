@@ -188,8 +188,7 @@ class DoubleIntegratorEnv(gym.Env):
         x_positive_range = x_dot_positive(x_dot_positive_range)
         return [x_dot_negative_range, x_negative_range, x_dot_positive_range, x_positive_range]
 
-    @staticmethod
-    def visualize_analytic_comparison(analytic, v, axes=None):
+    def visualize_analytic_comparison(self, v):
         """
         plots the curves defining the edge of the analytic safe set on top of v
         :param analytic: an output of double_integrator_analytic_range
@@ -204,6 +203,7 @@ class DoubleIntegratorEnv(gym.Env):
         matplotlib.style.use('ggplot')
 
         # unpack values from analytic
+        analytic = self.analytic_range()
         x_dot_negative_range, x_negative_range, x_dot_positive_range, x_positive_range = analytic
 
         # plot analytic parabolas
@@ -215,7 +215,8 @@ class DoubleIntegratorEnv(gym.Env):
         plt.plot(x_dot_negative_range, -1 * np.ones(len(x_dot_negative_range)), color="black")
 
         # visualize v on top of curves
-        visualize_matrix(v, axes, no_show=False)  # TODO can probably construct axes in this func
+        axes = [np.append(self.bounds[1], self.bounds[0]), ["x dot", "x"]]
+        visualize_matrix(v, axes, no_show=False)
 
     def analytic_v(self):
         v = np.zeros(self.buckets)
@@ -225,19 +226,16 @@ class DoubleIntegratorEnv(gym.Env):
         x_high = self.target_high[0]
         u_max = self.control_bounds[1]  # assumes that negative of u_max is u_min
 
-        # curve for x_dot < 0
-        def x_dot_negative(x_dot):
-            return x_low + (x_dot ** 2) / (2 * u_max)
-
-        # curve for x_dot > 0
-        def x_dot_positive(x_dot):
-            return x_high - (x_dot ** 2) / (2 * u_max)
+        def analytic_function(x, x_dot):
+            if x_dot >= 0:
+                return min(x - x_low,
+                           x_high - x - x_dot ** 2 / (2 * u_max))
+            else:
+                return min(x_high - x,
+                           x - x_dot ** 2 / (2 * u_max) - x_low)
 
         while not it.finished:
             x, x_dot = discrete_to_real(self.buckets, self.bounds, it.multi_index)
-            if x_dot < 0:
-                v[it.multi_index] = 1 if x > x_dot_negative(x_dot) else -1
-            else:
-                v[it.multi_index] = 1 if x < x_dot_positive(x_dot) else -1
+            v[it.multi_index] = analytic_function(x, x_dot)
             it.iternext()
         return v

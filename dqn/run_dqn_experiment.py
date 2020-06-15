@@ -7,9 +7,9 @@ See the LICENSE in the root directory of this repo for license info.
 import ray
 from ray.tune import Trainable
 from ray.rllib.agents.trainer import Trainer
-from mdr_rl.dqn import dqn
-from mdr_rl.dqn.dqn import q_values
-from mdr_rl.utils import eval_violation, compare_against_rollout
+from dqn import dqn
+from dqn.dqn import q_values
+from utils import eval_violation, compare_against_rollout
 import numpy as np
 import json
 import gym

@@ -11,14 +11,14 @@ import gym
 from datetime import datetime
 from ray.rllib.agents.trainer import Trainer
 from ray.tune.registry import register_env
-from mdr_rl.dqn.run_dqn_experiment import TrainDQN
-from mdr_rl.utils import get_save_dir
+from dqn.run_dqn_experiment import TrainDQN
+from utils import get_save_dir
 
 # == Experiment 3 ==
 """
 This experiment runs DQN with the Safety Bellman Equation on lunar lander over 100 random seeds and
-compares the resulting policies against the simulator over the course of training to see how many 
-trajectories violate the safety constraints. At the end of training the q function is compared 
+compares the resulting policies against the simulator over the course of training to see how many
+trajectories violate the safety constraints. At the end of training the q function is compared
 against on-policy rollouts in the simulator.
 """
 
@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     # register env
     def double_int_env_creator(env_config):
-        from mdr_rl.gym_reachability import gym_reachability  # needed to use custom gym env
+        from gym_reachability import gym_reachability  # needed to use custom gym env
         return gym.make('lunar_lander_reachability-v0')
 
     register_env('lunar_lander_reachability-v0', double_int_env_creator)

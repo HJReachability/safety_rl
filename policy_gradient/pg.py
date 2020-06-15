@@ -19,7 +19,7 @@ from ray.rllib.agents.trainer_template import build_trainer
 ###########################################################
 # Replace the standard policy gradient policy graph with the policy gradient policy graph
 # corresponding to the SBE outcome from Equation (8) of [ICRA19].
-from mdr_rl.policy_gradient.pg_policy import PGTFPolicy  
+from policy_gradient.pg_policy import PGTFPolicy
 ###########################################################
 # yapf: disable
 # __sphinx_doc_begin__

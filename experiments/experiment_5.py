@@ -7,18 +7,18 @@ See the LICENSE in the root directory of this repo for license info.
 import ray
 from ray import tune
 from ray.tune import Experiment
-from mdr_rl.sac.sac import sac
+from sac.sac import sac
 from spinup.algos.sac import core
 import gym
 import os
 from datetime import datetime
-from mdr_rl.utils import get_save_dir
+from utils import get_save_dir
 
 # == Experiment 5 ==
 """
-This experiment runs Soft Actor Critic (SAC) with the Safety Bellman Equation backup on the cheetah 
-task and searches over hyper-parameters. This is compared against SAC optimizing for sum of 
-discounted rewards with the same reward function and sum of discounted rewards with only 
+This experiment runs Soft Actor Critic (SAC) with the Safety Bellman Equation backup on the cheetah
+task and searches over hyper-parameters. This is compared against SAC optimizing for sum of
+discounted rewards with the same reward function and sum of discounted rewards with only
 penalization for falling over.
 """
 
@@ -28,7 +28,7 @@ penalization for falling over.
 def run_sac(search_config, reporter):
 
     def env_fn():
-        from mdr_rl.gym_reachability import gym_reachability  # needed for custom env
+        from gym_reachability import gym_reachability  # needed for custom env
         return gym.make(search_config['env'])
 
     # ray changes the working directory to be a folder named the hyperparams used for the file

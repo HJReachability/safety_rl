@@ -38,7 +38,7 @@ from ray.rllib.policy.policy import Policy
 from ray.rllib.utils.schedules import ConstantSchedule
 ###########################################################
 # import stepped schedule for gamma scheduling
-from mdr_rl.utils import SteppedSchedule
+from utils import SteppedSchedule
 ###########################################################
 
 tf = try_import_tf()

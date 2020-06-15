@@ -1,6 +1,6 @@
 *.pyc
 *.idea
-mdr_rl.egg*
+*.egg*
 data/*
 .DS_Store
 *.pickle

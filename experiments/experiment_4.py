@@ -7,12 +7,12 @@ See the LICENSE in the root directory of this repo for license info.
 import ray
 from ray import tune
 from ray.tune import Experiment
-from mdr_rl.policy_gradient.pg import PGTrainer as PGTrainerSBE
+from policy_gradient.pg import PGTrainer as PGTrainerSBE
 from ray.rllib.agents.pg.pg import PGTrainer
 from datetime import datetime
 from ray.tune.registry import register_env
 import gym
-from mdr_rl.utils import get_save_dir
+from utils import get_save_dir
 
 # == Experiment 4 ==
 """
@@ -24,12 +24,12 @@ function and sum of discounted rewards with only penalization for falling over.
 
 
 def cheetah_penalize_env_creator(env_config):
-    from mdr_rl.gym_reachability import gym_reachability  # needed to use custom gym env
+    from gym_reachability import gym_reachability  # needed to use custom gym env
     return gym.make('cheetah_balance-v0')
 
 
 def cheetah_env_creator(env_config):
-    from mdr_rl.gym_reachability import gym_reachability  # needed to use custom gym env
+    from gym_reachability import gym_reachability  # needed to use custom gym env
     return gym.make('cheetah_balance_penalize-v0')
 
 

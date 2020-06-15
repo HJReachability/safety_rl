@@ -23,7 +23,7 @@ from ray.rllib.utils import try_import_tf
 ###########################################################
 # import function to compute SBE advantages induced by SBE outcome from Equation (8) of [ICRA19]
 #  instead of sum of discounted rewards advantages
-from mdr_rl.policy_gradient.postprocessing import compute_advantages
+from policy_gradient.postprocessing import compute_advantages
 ###########################################################
 tf = try_import_tf()
 

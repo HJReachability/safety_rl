@@ -7,7 +7,7 @@ See the LICENSE in the root directory of this repo for license info.
 import gym.spaces
 import numpy as np
 import gym
-from mdr_rl.utils import nearest_real_grid_point, visualize_matrix, q_values_from_q_func, \
+from utils import nearest_real_grid_point, visualize_matrix, q_values_from_q_func, \
     discrete_to_real, v_from_q
 
 

@@ -23,7 +23,7 @@ from ray.rllib.agents.trainer_template import build_trainer
 ###########################################################
 # Replace the standard policy graph import with the one corresponding to the
 # SBE backup, as in Theorem 2 of [ICRA19] and import function to get q values
-from mdr_rl.dqn.dqn_policy import DQNTFPolicy, get_estimate
+from dqn.dqn_policy import DQNTFPolicy, get_estimate
 ###########################################################
 from ray.rllib.agents.dqn.simple_q_policy import SimpleQPolicy
 from ray.rllib.optimizers import SyncReplayOptimizer

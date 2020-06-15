@@ -10,7 +10,7 @@ See the LICENSE in the root directory of this repo for license info.
 import sys
 import numpy as np
 import time
-from mdr_rl.utils import discrete_to_real, discretize_state, sbe_outcome, save
+from utils import discrete_to_real, discretize_state, sbe_outcome, save
 from datetime import datetime
 
 def learn(

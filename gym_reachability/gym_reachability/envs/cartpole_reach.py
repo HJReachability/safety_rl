@@ -10,7 +10,7 @@ from gym.envs.classic_control.cartpole import CartPoleEnv
 from ray.rllib.utils.annotations import override
 import math
 import scipy.io as sio
-from mdr_rl.utils import q_values_from_q_func, offsets
+from utils import q_values_from_q_func, offsets
 
 
 class CartPoleReachabilityEnv(CartPoleEnv):

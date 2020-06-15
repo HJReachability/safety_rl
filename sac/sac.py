@@ -11,7 +11,7 @@ See the LICENSE in the root directory of this repo for license info.
 """
 
 ###########################################################
-from mdr_rl.utils import sbe_outcome  # added to log SBE stats
+from utils import sbe_outcome  # added to log SBE stats
 ###########################################################
 import numpy as np
 import tensorflow as tf
@@ -276,8 +276,8 @@ def sac(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
 
         """
         Until start_steps have elapsed, randomly sample actions
-        from a uniform distribution for better exploration. Afterwards, 
-        use the learned policy. 
+        from a uniform distribution for better exploration. Afterwards,
+        use the learned policy.
         """
         if t > start_steps:
             a = get_action(o)

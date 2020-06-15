@@ -23,7 +23,7 @@ from ray.rllib.utils.annotations import DeveloperAPI
 ###########################################################
 # import function to compute SBE outcomes from Equation (8) of [ICRA19] to use instead of sum of
 # discounted rewards outcomes
-from mdr_rl.utils import sbe_outcome
+from utils import sbe_outcome
 ###########################################################
 
 
@@ -40,7 +40,7 @@ class Postprocessing(object):
 
 @DeveloperAPI
 ###########################################################
-def compute_advantages(rollout, last_r, gamma=0.9, lambda_=1.0, use_gae=True, 
+def compute_advantages(rollout, last_r, gamma=0.9, lambda_=1.0, use_gae=True,
     use_sbe=False):
     # added use_sbe option
     ###########################################################
@@ -69,7 +69,7 @@ def compute_advantages(rollout, last_r, gamma=0.9, lambda_=1.0, use_gae=True,
     if use_gae:
         ###########################################################
         if use_sbe:  # added since GAE is not supported yet
-            raise NotImplementedError('Generalized Advantage Estimation with' 
+            raise NotImplementedError('Generalized Advantage Estimation with'
                 'Safety Bellman Equation is not yet supported')
         ###########################################################
         assert SampleBatch.VF_PREDS in rollout, "Values not found!"

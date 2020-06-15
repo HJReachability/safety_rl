@@ -11,28 +11,28 @@ import gym
 from datetime import datetime
 from ray.rllib.agents.trainer import Trainer
 from ray.tune.registry import register_env
-from mdr_rl.dqn.run_dqn_experiment import TrainDQN
-from mdr_rl.utils import get_save_dir
+from dqn.run_dqn_experiment import TrainDQN
+from utils import get_save_dir
 
 # == Experiment 2 ==
 """
-This experiment runs DQN with the Safety Bellman Equation on a double integrator and cartpole each 
-over 100 random seeds and compares the resulting policies against the simulator over the course of 
-training to see how many trajectories violate. At the end of training the q function is compared 
+This experiment runs DQN with the Safety Bellman Equation on a double integrator and cartpole each
+over 100 random seeds and compares the resulting policies against the simulator over the course of
+training to see how many trajectories violate. At the end of training the q function is compared
 against on-policy rollouts in the simulator. The v function is compared against the analytic value
-function or the value function computed with the level set toolbox for double integrator and 
-cartpole respectively  
+function or the value function computed with the level set toolbox for double integrator and
+cartpole respectively
 """
 
 
 if __name__ == '__main__':
     # register envs
     def double_int_env_creator(env_config):
-        from mdr_rl.gym_reachability import gym_reachability  # needed to use custom gym env
+        from gym_reachability import gym_reachability  # needed to use custom gym env
         return gym.make('double_integrator-v0')
 
     def cartpole_env_creater(env_config):
-        from mdr_rl.gym_reachability import gym_reachability
+        from gym_reachability import gym_reachability
         return gym.make('cartpole_reach-v0')
 
     register_env('double_integrator-v0', double_int_env_creator)

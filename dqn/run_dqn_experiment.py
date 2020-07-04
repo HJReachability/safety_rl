@@ -1,8 +1,11 @@
-"""
-Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
-
-See the LICENSE in the root directory of this repo for license info.
-"""
+# Copyright (c) 2019–2020, The Regents of the University of California.
+# All rights reserved.
+#
+# This file is subject to the terms and conditions defined in the LICENSE file
+# included in this repository.
+#
+# Please contact the author(s) of this library if you have any questions.
+# Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
 
 import ray
 from ray.tune import Trainable
@@ -20,49 +23,54 @@ class TrainDQN(Trainable):
 
     def _setup(self, config=None, logger_creator=None):
 
-        # set up trainer
-        Trainer._allow_unknown_configs = True  # need to allow use of SBE config option
+        # Set up trainer object.
+        Trainer._allow_unknown_configs = True  # Needed for SBE config option.
         dqn_config = config['dqn_config']
         self.trainer = dqn.DQNTrainer(config=dqn_config, env=dqn_config['env'])
 
         self.env = gym.make(dqn_config['env'])
 
-        # data collection parameters
+        # Data collection parameters.
         self.violations_horizon = config['violations_horizon']
         self.violations_samples = config['violations_samples']
         self.num_violation_collections = config['num_violation_collections']
         self.rollout_samples = config['rollout_samples']
         self.rollout_horizon = config['rollout_horizon']
 
-        # whether to compare against ground truth value function at end of experiment
+        # Whether to compare with ground truth value function after training.
         self.ground_truth_compare = config.get('ground_truth_compare', False)
         if self.ground_truth_compare:
             self.env.set_discretization(config['buckets'], self.env.bounds)
 
-        # function to evaluate q network
+        # Function to evaluate Q-network.
         self.q_func = lambda s: q_values(self.trainer, s)
 
-        # list of violations data
+        # List of data for safety violations.
         self.violations = []
 
-        # steps
+        # Training steps.
         self.total_steps = config['max_iterations']
         self.step = 0
 
-        # seeding
-        np.random.seed(dqn_config['seed'])  # NOTE I need to check if this will see the numpy in env
+        # Random seed for the experiment.
+        # NOTE I need to check if this will see the numpy in env
+        np.random.seed(dqn_config['seed'])
 
     def _train(self):
         result = self.trainer.train()
-        if self.step % (self.total_steps // self.num_violation_collections) == 0:
+        if self.step % (self.total_steps //
+                        self.num_violation_collections) == 0:
             print('getting violations data')
             # runs policy in environment and gathers data
-            num_violations = eval_violation(self.violations_horizon, self.violations_samples,
+            num_violations = eval_violation(self.violations_horizon,
+                                            self.violations_samples,
                                             self.q_func, self.env)
-            self.violations.append((int(self.step), int(num_violations), self.violations_samples))
+            self.violations.append(
+                (int(self.step), int(num_violations), self.violations_samples))
 
-            # save data to json file
-            with open(os.path.join(self.logdir, 'violations.json'), 'w') as outfile:
+            # Save violations data to JSON file.
+            with open(os.path.join(self.logdir, 'violations.json'),
+                      'w') as outfile:
                 data = {'data': self.violations}
                 json.dump(data, outfile)
 
@@ -73,17 +81,21 @@ class TrainDQN(Trainable):
                                                    self.q_func,
                                                    self.env)
 
-            # save data to json file
-            with open(os.path.join(self.logdir, 'rollout_comparison.json'), 'w') as outfile:
+            # Save Q-function/rollout comparison data to JSON file.
+            with open(os.path.join(self.logdir, 'rollout_comparison.json'),
+                      'w') as outfile:
                 data = {'data': rollout_data}
                 json.dump(data, outfile)
 
             if self.ground_truth_compare:
                 print('comparing against ground truth')
-                ground_truth_data = self.env.ground_truth_comparison(self.q_func)
+                ground_truth_data = self.env.ground_truth_comparison(
+                    self.q_func)
 
-                # save data to json file
-                with open(os.path.join(self.logdir, 'ground_truth_comparison.json'), 'w') as outfile:
+                # Save Q-function/ground-truth comparison data to JSON file.
+                logpath = os.path.join(self.logdir,
+                                       'ground_truth_comparison.json')
+                with open(logpath, 'w') as outfile:
                     data = {'data': ground_truth_data}
                     json.dump(data, outfile)
 

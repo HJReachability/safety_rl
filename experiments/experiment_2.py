@@ -1,8 +1,11 @@
-"""
-Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
-
-See the LICENSE in the root directory of this repo for license info.
-"""
+# Copyright (c) 2019–2020, The Regents of the University of California.
+# All rights reserved.
+#
+# This file is subject to the terms and conditions defined in the LICENSE file
+# included in this code repository.
+#
+# Please contact the author(s) of this library if you have any questions.
+# Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
 
 import ray
 import ray.tune as tune
@@ -16,19 +19,23 @@ from utils import get_save_dir
 
 # == Experiment 2 ==
 """
-This experiment runs DQN with the Safety Bellman Equation on a double integrator and cartpole each
-over 100 random seeds and compares the resulting policies against the simulator over the course of
-training to see how many trajectories violate. At the end of training the q function is compared
-against on-policy rollouts in the simulator. The v function is compared against the analytic value
-function or the value function computed with the level set toolbox for double integrator and
-cartpole respectively
+This experiment runs the DQN reinforcement learning algorithm with the Safety
+Bellman Equation (SBE) proposed in [ICRA19] on a 2-dimensional double integrator
+and a 4-dimensional cart-pole system. It performs 100 independent training runs
+with different random seeds, and evaluates the learned safety policies using the
+simulator over the course of the training process to determine the fraction of
+trajectories violating safety at the different stages. At the end of training
+the learned state-action safety Q-function is compared against policy rollouts
+in the simulator. The state safety value function (V) is compared against the
+analytic value function (double integrator) or the numerical value function
+computed with the Level Set Toolbox (cart-pole).
 """
 
 
 if __name__ == '__main__':
-    # register envs
+    # Register environments (need custom gym environments for safety problem).
     def double_int_env_creator(env_config):
-        from gym_reachability import gym_reachability  # needed to use custom gym env
+        from gym_reachability import gym_reachability
         return gym.make('double_integrator-v0')
 
     def cartpole_env_creater(env_config):
@@ -81,16 +88,16 @@ if __name__ == '__main__':
     dqn_config['num_envs_per_worker'] = 1
 
     # == Seeding ==
-    # TODO does this need to be in exp config? I will check with ray documentation about seeding
+    # TODO Does this need to be in exp config? Check with ray doc about seeding.
     dqn_config['seed'] = tune.grid_search(list(range(100)))
 
     # == Custom Safety Bellman Equation configs ==
-    Trainer._allow_unknown_configs = True  # need to allow use of SBE config option
+    Trainer._allow_unknown_configs = True  # Needed for SBE config option.
     dqn_config['gamma_schedule'] = 'stepped'
     dqn_config['final_gamma'] = 0.999999
-    dqn_config['gamma'] = 0.8  # initial gamma
-    dqn_config['gamma_half_life'] = int(4e4)  # measured relative to steps taken in the environment
-    dqn_config['sbe'] = True
+    dqn_config['gamma'] = 0.8  # Initial discount factor.
+    dqn_config['gamma_half_life'] = int(4e4)  # Measured in environment steps.
+    dqn_config['use_sbe'] = True
 
     # == Data Collection Parameters ==
 

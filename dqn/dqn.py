@@ -1,30 +1,32 @@
-"""
-This file is a modified version of Ray's implementation of Deep Q Network Learning (DQN) which can
-be found @ https://github.com/ray-project/ray/blob/releases/0.7.3/python/ray/rllib/agents/dqn/dqn.py
-
-This file is modified such that DQN can be used with the Safety Bellman Equation (SBE) from equation
-(7) in [ICRA19] and so that the q network can be evaluated. All modifications are marked with a
-line of hashtags.
-
-Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
-
-See the LICENSE in the root directory of this repo for license info.
-"""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+# Copyright (c) 2019–2020, The Regents of the University of California.
+# All rights reserved.
+#
+# This file is a modified version of Ray's Deep Q Network (DQN) implementation,
+# available at:
+#
+# https://github.com/ray-project/ray/blob/releases/0.7.3/python/ray/rllib/agents/dqn/dqn.py
+#
+# The code is modified to allow using DQN with the Safety Bellman Equation (SBE)
+# from equation (7) in [ICRA19] and explicitly evaluating the Q Network output.
+# Modifications with respect to the original code are enclosed between two lines
+# of '<<<<' and '>>>>' markers.
+#
+# This file is subject to the terms and conditions defined in the LICENSE file
+# included in this code repository.
+#
+# Please contact the author(s) of this library if you have any questions.
+# Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
 
 import logging
 
 from ray import tune
 from ray.rllib.agents.trainer import with_common_config
 from ray.rllib.agents.trainer_template import build_trainer
-###########################################################
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< SBE Begin.
 # Replace the standard policy graph import with the one corresponding to the
-# SBE backup, as in Theorem 2 of [ICRA19] and import function to get q values
-from dqn.dqn_policy import DQNTFPolicy, get_estimate
-###########################################################
+# SBE backup, as in Theorem 2 of [ICRA19], and import function to evaluate DQN.
+from dqn.dqn_policy import DQNTFPolicy, evaluate_dqn
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SBE End.
 from ray.rllib.agents.dqn.simple_q_policy import SimpleQPolicy
 from ray.rllib.optimizers import SyncReplayOptimizer
 from ray.rllib.policy.sample_batch import DEFAULT_POLICY_ID
@@ -32,8 +34,6 @@ from ray.rllib.utils.schedules import ConstantSchedule, LinearSchedule
 
 logger = logging.getLogger(__name__)
 
-# yapf: disable
-# __sphinx_doc_begin__
 DEFAULT_CONFIG = with_common_config({
     # === Model ===
     # Number of atoms for representing the distribution of return. When
@@ -136,8 +136,6 @@ DEFAULT_CONFIG = with_common_config({
     # Prevent iterations from going lower than this time span
     "min_iter_time_s": 1,
 })
-# __sphinx_doc_end__
-# yapf: enable
 
 
 def make_optimizer(workers, config):
@@ -225,18 +223,17 @@ def make_exploration_schedule(config, worker_index):
             "This requires multiple workers"
         if worker_index >= 0:
             # Exploration constants from the Ape-X paper
-            exponent = (
-                1 + worker_index / float(config["num_workers"] - 1) * 7)
+            exponent = (1 +
+                        worker_index / float(config["num_workers"] - 1) * 7)
             return ConstantSchedule(0.4**exponent)
         else:
             # local ev should have zero exploration so that eval rollouts
             # run properly
             return ConstantSchedule(0.0)
-    return LinearSchedule(
-        schedule_timesteps=int(
-            config["exploration_fraction"] * config["schedule_max_timesteps"]),
-        initial_p=1.0,
-        final_p=config["exploration_final_eps"])
+    return LinearSchedule(schedule_timesteps=int(
+        config["exploration_fraction"] * config["schedule_max_timesteps"]),
+                          initial_p=1.0,
+                          final_p=config["exploration_final_eps"])
 
 
 def setup_exploration(trainer):
@@ -264,11 +261,12 @@ def add_trainer_metrics(trainer, result):
     global_timestep = trainer.optimizer.num_steps_sampled
     result.update(
         timesteps_this_iter=global_timestep - trainer.train_start_timestep,
-        info=dict({
-            "min_exploration": min(trainer.cur_exp_vals),
-            "max_exploration": max(trainer.cur_exp_vals),
-            "num_target_updates": trainer.state["num_target_updates"],
-        }, **trainer.optimizer.stats()))
+        info=dict(
+            {
+                "min_exploration": min(trainer.cur_exp_vals),
+                "max_exploration": max(trainer.cur_exp_vals),
+                "num_target_updates": trainer.state["num_target_updates"],
+            }, **trainer.optimizer.stats()))
 
 
 def update_target_if_needed(trainer, fetches):
@@ -285,8 +283,8 @@ def collect_metrics(trainer):
     if trainer.config["per_worker_exploration"]:
         # Only collect metrics from the third of workers with lowest eps
         result = trainer.collect_metrics(
-            selected_workers=trainer.workers.remote_workers()[
-                -len(trainer.workers.remote_workers()) // 3:])
+            selected_workers=trainer.workers.remote_workers()
+            [-len(trainer.workers.remote_workers()) // 3:])
     else:
         result = trainer.collect_metrics()
     return result
@@ -296,29 +294,37 @@ def disable_exploration(trainer):
     trainer.evaluation_workers.local_worker().foreach_policy(
         lambda p, _: p.set_epsilon(0))
 
-###########################################################
-# Added function to evaluate q network for use in comparing value function.
-# Used in experiment 2 and 3 and called in run_dqn_experiment.py
-def q_values(trainer, obs_batch, batched=False):
-    """
-    This function evaluates q network of trainer on obs_batch.
-    :param trainer: trainer to compute forward pass of network
-    :param obs_batch: batch of observations to run forward pass on
-    :param batched: If true obs_batch is of shape (m, n) where m is batch
-    size and n is shape of single obs and output is of shape (m, a) where
-    a is number of actions. If false obs_batch is of shape (n) and output is
-    shape (a). Batching improves performance but batching on a single obs
-    requires adding and removing a dimension to the input and output which
-    can result in mistakes.
-    :return:
+
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< SBE Begin.
+# Added function to evaluate the Q-network for use in value function comparison.
+# Used in experiments 2 and 3 and called in run_dqn_experiment.py.
+def q_values(trainer, states, batched=False):
+    """Evaluates Q-network of a given trainer object on the specified state(s).
+
+    Args:
+        trainer: The trainer object associated to the Q-network to evaluate.
+        states: A state or batch of states at which to evaluate the Q-network.
+            If batched is True, states is of shape (m, n), where m is the
+            batch size and n is the state dimension. If batched is False,
+            states is of shape (n,) and encodes a single state.
+        batched: A boolean determining if the states input and the output are
+            bundled into batches corresponding to multiple states.
+
+    Returns:
+        Value(s) of the Q-network at the specified state(s). If batched is True,
+        the output is of shape (m,a) where m is the state batch size and A is
+        the number of actions in the discrete action space. If batched is False,
+        the output is of shape (A,) and encodes the Q-values at a single state.
     """
     if not batched:
-        obs_batch = [obs_batch]
-    values = get_estimate(trainer.get_policy(), obs_batch)
+        states = [states]
+    values = evaluate_dqn(trainer.get_policy(), states)
     if not batched:
         return values[0]
-    return values
-###########################################################
+    else:
+        return values
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SBE End.
+
 
 GenericOffPolicyTrainer = build_trainer(
     name="GenericOffPolicyAlgorithm",

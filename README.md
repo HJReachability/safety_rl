@@ -1,8 +1,8 @@
 # safety_rl
 
-This repository contains the code necessary to run all the experiments in [SafetyRL'19] in addition to core functions that can be either directly invoked by other reinforcement learning code or used as illustrative examples of how to adapt typical reinforcement learning methods to work with the Safety Bellman Equation.
+This repository contains the code necessary to run all the experiments in [ICRA19] in addition to core functions that can be either directly invoked by other reinforcement learning code or used as illustrative examples of how to adapt typical reinforcement learning methods to work with the Safety Bellman Equation.
 
-*[SafetyRL'19]* J. F. Fisac\*, N. Lugovoy\*, V. Rubies-Royo, S. Ghosh, and C. J. Tomlin. “[Bridging Hamilton-Jacobi Safety Analysis and Reinforcement Learning](https://ieeexplore.ieee.org/document/8794107),” IEEE International Conference on Robotics and Automation (ICRA), 2019.
+*[ICRA19]* J. F. Fisac\*, N. Lugovoy\*, V. Rubies-Royo, S. Ghosh, and C. J. Tomlin. “[Bridging Hamilton-Jacobi Safety Analysis and Reinforcement Learning](https://ieeexplore.ieee.org/document/8794107),” IEEE International Conference on Robotics and Automation (ICRA), 2019.
 
 
 ## Some quick notes:
@@ -12,6 +12,7 @@ This repository contains the code necessary to run all the experiments in [Safet
 3. The Soft Actor Critic algorithm is a modified version from the implementation in [Spinning Up](https://github.com/openai/spinningup) (Ray does not have a working implementation currently). Similarly hashtags indicate changes.
 4. The inverted pendulum and lunar lander environments are subclasses of environments implemented in [Open AI's Gym](https://github.com/openai/gym). The major changes from the parent classes are documented in the files.
 5. The Q-learning algorithm is loosely based on [Denny Britz's implementation](https://github.com/dennybritz/reinforcement-learning/blob/master/TD/Q-Learning%20Solution.ipynb).
+6. The numerical safety value function used as ground truth in the cart-pole experiment is computed in MATLAB using the [Level Set Toolbox](https://www.cs.ubc.ca/~mitchell/ToolboxLS/), by Prof. Ian Mitchell at the University of British Columbia.
 
 ## Installation:
 
@@ -31,7 +32,7 @@ MacOS Catalina (reported [here]())
 
 ## Dependencies:
 
-`'numpy', 'matplotlib', 'spinup', 'tensorflow==1.9.0', 'gym', 'scipy', 'ray==0.7.3', 'pandas', 'opencv-python', 'psutil', 'lz4', 'Box2D', 'mujoco-py'`
+`'numpy', 'matplotlib', 'spinup', 'tensorflow==1.9.0', 'gym', 'scipy', 'requests', 'ray==0.7.3', 'pandas', 'opencv-python', 'psutil', 'lz4', 'Box2D', 'mujoco-py'`
 The versions for `ray` and `tensorflow` are locked because the APIs tend to change rapidly and that could break existing code.
 
 ## Run Experiments:

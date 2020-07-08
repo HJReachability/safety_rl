@@ -1,11 +1,19 @@
-"""
-This file is based on
-https://github.com/dennybritz/reinforcement-learning/blob/master/TD/Q-Learning%20Solution.ipynb
-
-Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
-
-See the LICENSE in the root directory of this repo for license info.
-"""
+# Copyright (c) 2019–2020, The Regents of the University of California.
+# All rights reserved.
+#
+# This file is based on Denny Britz's implementation of (tabular) Q-Learning,
+# available at:
+#
+# https://github.com/dennybritz/reinforcement-learning/blob/master/TD/Q-Learning%20Solution.ipynb
+#
+# The code in this file allows using Q-Learning with the Safety Bellman Equation
+# (SBE) from Equation (7) in [ICRA19].
+#
+# This file is subject to the terms and conditions defined in the LICENSE file
+# included in this code repository.
+#
+# Please contact the author(s) of this library if you have any questions.
+# Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
 
 import sys
 import numpy as np

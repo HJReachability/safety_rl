@@ -1,16 +1,20 @@
-"""
-This file is a modified version of Ray's implementation of Policy Gradient (PG) which can
-be found @
-https://github.com/ray-project/ray/blob/releases/0.7.3/python/ray/rllib/evaluation/postprocessing.py
-
-This file is modified such that PG can be used with the Safety Bellman Equation (SBE) outcome from
-equation (8) in [ICRA19]. All modifications are marked with a line of hashtags.
-
-Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
-
-See the LICENSE in the root directory of this repo for license info.
-"""
-
+# Copyright (c) 2019–2020, The Regents of the University of California.
+# All rights reserved.
+#
+# This file is a modified version of Ray's Policy Gradient (PG) implementation,
+# available at:
+#
+# https://github.com/ray-project/ray/blob/releases/0.7.3/python/ray/rllib/evaluation/postprocessing.py
+#
+# The code is modified to allow using PG with the Safety Bellman Equation (SBE)
+# outcome from equation (8) in [ICRA19]. Modifications with respect to the
+# original code are enclosed between two lines of asterisks.
+#
+# This file is subject to the terms and conditions defined in the LICENSE file
+# included in this code repository.
+#
+# Please contact the author(s) of this library if you have any questions.
+# Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
 
 from __future__ import absolute_import
 from __future__ import division
@@ -21,8 +25,8 @@ import scipy.signal
 from ray.rllib.policy.sample_batch import SampleBatch
 from ray.rllib.utils.annotations import DeveloperAPI
 ###########################################################
-# import function to compute SBE outcomes from Equation (8) of [ICRA19] to use instead of sum of
-# discounted rewards outcomes
+# Import function to compute SBE outcomes from Equation (8) of [ICRA19] instead
+# of the usual sum of discounted rewards.
 from utils import sbe_outcome
 ###########################################################
 

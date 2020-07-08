@@ -9,7 +9,7 @@
 # The code is modified to allow using DQN with the Safety Bellman Equation (SBE)
 # from equation (7) in [ICRA19] and explicitly evaluating the Q Network output.
 # Modifications with respect to the original code are enclosed between two lines
-# of '<<<<' and '>>>>' markers.
+# of asterisks.
 #
 # This file is subject to the terms and conditions defined in the LICENSE file
 # included in this code repository.
@@ -34,13 +34,13 @@ from ray.rllib.policy.tf_policy_template import build_tf_policy
 from ray.rllib.utils.tf_ops import huber_loss, reduce_mean_ignore_inf, \
     minimize_and_clip
 from ray.rllib.utils import try_import_tf
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< SBE Begin.
+# ******************************************************************* SBE Begin.
 # Import stepped schedule for gamma scheduling.
 from ray.rllib.utils.annotations import override, DeveloperAPI
 from ray.rllib.policy.policy import Policy
 from ray.rllib.utils.schedules import ConstantSchedule
 from utils import SteppedSchedule
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SBE End.
+# ******************************************************************* SBE End.
 
 tf = try_import_tf()
 
@@ -65,18 +65,18 @@ class QLoss(object):
                  num_atoms=1,
                  v_min=-10.0,
                  v_max=10.0,
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< SBE Begin.
+# ******************************************************************* SBE Begin.
                  # Optional input for whether to use Safety Bellman Equation.
                  use_sbe=False):
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SBE End.
+# ******************************************************************* SBE End.
 
         if num_atoms > 1:
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< SBE Begin.
+# ******************************************************************* SBE Begin.
             if use_sbe:
                 raise NotImplementedError(
                     'Distributional Q-learning is not currently supported for '
                     'the Safety Bellman Equation.')
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SBE End.
+# ******************************************************************* SBE End.
 
             # Distributional Q-learning which corresponds to an entropy loss
 
@@ -123,7 +123,7 @@ class QLoss(object):
             q_tp1_best_masked = (1.0 - done_mask) * q_tp1_best
 
             # compute RHS of bellman equation
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< SBE Begin.
+# ******************************************************************* SBE Begin.
             if use_sbe:  # Safety Bellman Equation Backup from equation 7
                 q_terminal = rewards
                 q_non_terminal = ((1.0 - gamma) * rewards +
@@ -133,7 +133,7 @@ class QLoss(object):
             else:   # sum of discounted rewards backup
                 q_t_selected_target = (rewards +
                                        gamma**n_step * q_tp1_best_masked)
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SBE End.
+# ******************************************************************* SBE End.
 
             # compute the error (potentially clipped)
             self.td_error = (
@@ -392,10 +392,10 @@ def build_q_losses(policy, batch_tensors):
         q_t_selected, q_logits_t_selected, q_tp1_best, q_dist_tp1_best,
         batch_tensors[PRIO_WEIGHTS], batch_tensors[SampleBatch.REWARDS],
         tf.cast(batch_tensors[SampleBatch.DONES],
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< SBE Begin.
+# ******************************************************************* SBE Begin.
                 # Gamma is passed as tensor so that can be annealed.
                 tf.float32), policy.gamma, config["n_step"],
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SBE End.
+# ******************************************************************* SBE End.
         config["num_atoms"], config["v_min"], config["v_max"])
     return policy.q_loss.loss
 
@@ -435,14 +435,14 @@ def build_q_stats(policy, batch_tensors):
 def setup_early_mixins(policy, obs_space, action_space, config):
     LearningRateSchedule.__init__(policy, config["lr"], config["lr_schedule"])
     ExplorationStateMixin.__init__(policy, obs_space, action_space, config)
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< SBE Begin.
+# ******************************************************************* SBE Begin.
     # Annealing schedule for the discount factor (gamma).
     gamma_schedule = config.get('gamma_schedule', None)
     if gamma_schedule == 'stepped':
         gamma_schedule = SteppedSchedule(config['gamma'], config['final_gamma'],
                                          config['gamma_half_life'])
     GammaSchedule.__init__(policy, config["gamma"], gamma_schedule)
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SBE End.
+# ******************************************************************* SBE End.
 
 def setup_late_mixins(policy, obs_space, action_space, config):
     TargetNetworkMixin.__init__(policy, obs_space, action_space, config)
@@ -534,15 +534,15 @@ def _postprocess_dqn(policy, batch):
         new_priorities = (
             np.abs(td_errors) + policy.config["prioritized_replay_eps"])
         batch.data[PRIO_WEIGHTS] = new_priorities
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< SBE Begin.
+# ******************************************************************* SBE Begin.
     # Enable short episodes with uniform resets across the state space.
     batch[SampleBatch.DONES] = np.zeros(len(batch[SampleBatch.DONES]),
                                         dtype=bool)
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SBE End.
+# ******************************************************************* SBE End.
     return batch
 
 
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< SBE Begin.
+# ******************************************************************* SBE Begin.
 # Annealing schedule class for the discount factor (gamma).
 @DeveloperAPI
 class GammaSchedule(object):
@@ -593,7 +593,7 @@ def evaluate_dqn(policy, state_batch):
     """
     return policy._sess.run(policy.q_values,
                             feed_dict={policy.input_dict['obs']: state_batch})
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SBE End.
+# ******************************************************************* SBE End.
 
 
 DQNTFPolicy = build_tf_policy(
@@ -618,7 +618,7 @@ DQNTFPolicy = build_tf_policy(
         TargetNetworkMixin,
         ComputeTDErrorMixin,
         LearningRateSchedule,
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< SBE Begin.
+# ******************************************************************* SBE Begin.
         GammaSchedule  # Add discount factor annealing schedule.
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SBE End.
+# ******************************************************************* SBE End.
     ])

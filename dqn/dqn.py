@@ -7,9 +7,9 @@
 # https://github.com/ray-project/ray/blob/releases/0.7.3/python/ray/rllib/agents/dqn/dqn.py
 #
 # The code is modified to allow using DQN with the Safety Bellman Equation (SBE)
-# from equation (7) in [ICRA19] and explicitly evaluating the Q Network output.
+# from Equation (7) in [ICRA19] and explicitly evaluating the Q Network output.
 # Modifications with respect to the original code are enclosed between two lines
-# of '<<<<' and '>>>>' markers.
+# of asterisks.
 #
 # This file is subject to the terms and conditions defined in the LICENSE file
 # included in this code repository.
@@ -22,11 +22,11 @@ import logging
 from ray import tune
 from ray.rllib.agents.trainer import with_common_config
 from ray.rllib.agents.trainer_template import build_trainer
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< SBE Begin.
+# ******************************************************************* SBE Begin.
 # Replace the standard policy graph import with the one corresponding to the
 # SBE backup, as in Theorem 2 of [ICRA19], and import function to evaluate DQN.
 from dqn.dqn_policy import DQNTFPolicy, evaluate_dqn
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SBE End.
+# ******************************************************************* SBE End.
 from ray.rllib.agents.dqn.simple_q_policy import SimpleQPolicy
 from ray.rllib.optimizers import SyncReplayOptimizer
 from ray.rllib.policy.sample_batch import DEFAULT_POLICY_ID
@@ -295,7 +295,7 @@ def disable_exploration(trainer):
         lambda p, _: p.set_epsilon(0))
 
 
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< SBE Begin.
+# ******************************************************************* SBE Begin.
 # Added function to evaluate the Q-network for use in value function comparison.
 # Used in experiments 2 and 3 and called in run_dqn_experiment.py.
 def q_values(trainer, states, batched=False):
@@ -323,7 +323,7 @@ def q_values(trainer, states, batched=False):
         return values[0]
     else:
         return values
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SBE End.
+# ******************************************************************* SBE End.
 
 
 GenericOffPolicyTrainer = build_trainer(

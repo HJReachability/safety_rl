@@ -1,18 +1,24 @@
-"""
-This file is a modified version of Open AI's implementation of Soft Actor Critic (SAC) in Spinning
-Up which can be found at https://github.com/openai/spinningup/blob/master/spinup/algos/sac/sac.py
+# Copyright (c) 2019–2020, The Regents of the University of California.
+# All rights reserved.
+#
+# This file is a modified version of Open AI's Soft Actor Critic (SAC)
+# implementation, available at:
+#
+# https://github.com/openai/spinningup/blob/master/spinup/algos/sac/sac.py
+#
+# The code is modified to allow using SAC with the Safety Bellman Equation (SBE)
+# from Equation (7) in [ICRA19]. Modifications with respect to the original code
+# are enclosed between two lines of asterisks.
+#
+# This file is subject to the terms and conditions defined in the LICENSE file
+# included in this code repository.
+#
+# Please contact the author(s) of this library if you have any questions.
+# Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
 
-This file is modified such that SAC can be used with the Safety Bellman Equation (SBE) from equation
-(7) in [ICRA19]. All modifications are marked with a line of hashtags. The parameter use_sbe for the
-function sac() determines whether to use the SBE backup or the traditional sum of discounted rewards
- backup.
-
-See the LICENSE in the root directory of this repo for license info.
-"""
-
-###########################################################
+# ******************************************************************* SBE Begin.
 from utils import sbe_outcome  # added to log SBE stats
-###########################################################
+# ******************************************************************* SBE End.
 import numpy as np
 import tensorflow as tf
 import gym
@@ -187,14 +193,14 @@ def sac(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
     min_q_pi = tf.minimum(q1_pi, q2_pi)
 
     # Targets for Q and V regression
-    ###########################################################
+# ******************************************************************* SBE Begin.
     if use_sbe:  # This is the backup for SBE from Equation (7) in [IRCA19].
         q_terminal = r_ph  # terminal state
         q_non_terminal = (1 - gamma) * r_ph + gamma * tf.minimum(r_ph, v_targ)
         q_backup = d_ph * q_terminal + (1 - d_ph) * q_non_terminal
     else:
         q_backup = tf.stop_gradient(r_ph + gamma * (1 - d_ph) * v_targ)
-    ###########################################################
+# ******************************************************************* SBE End.
     v_backup = tf.stop_gradient(min_q_pi - alpha * logp_pi)
 
     # Soft actor-critic losses
@@ -246,31 +252,32 @@ def sac(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         global sess, mu, pi, q1, q2, q1_pi, q2_pi
         for j in range(n):
             o, r, d, ep_ret, ep_len = test_env.reset(), 0, False, 0, 0
-            ###########################################################
-            # This is used to log min reward from trajectory and SBE outcome. A list of rewards
-            # is required because SBE outcome must be computed from the end of the the trajectory.
-            #  A sum of discounted rewards can be computed from the start so it does not need to
-            # keep track of previous rewards and thus does not need this list.
+# ******************************************************************* SBE Begin.
+            # This is used to log min reward from trajectory and SBE outcome.
+            # A list of rewards is required because SBE outcome must be computed
+            # from the end of the the trajectory. A sum of discounted rewards
+            # can be computed from the start so it does not need to keep track
+            # of previous rewards and thus does not need this list.
             rewards = []
-            ###########################################################
+# ******************************************************************* SBE End.
             while not (d or (ep_len == max_ep_len)):
                 # Take deterministic actions at test time
                 o, r, d, _ = test_env.step(get_action(o, True))
                 ep_ret += r
                 ep_len += 1
                 rewards.append(r)
-            ###########################################################
+# ******************************************************************* SBE Begin.
             # added min and SBE outcome stats
             logger.store(TestEpRet=ep_ret, TestEpLen=ep_len,
                          TestEpMin=np.min(rewards),
                          TestEpSBEOutcome=sbe_outcome(rewards, gamma)[0])
-            ###########################################################
+# ******************************************************************* SBE End.
     start_time = time.time()
     o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
     total_steps = steps_per_epoch * epochs
-    ###########################################################
+# ******************************************************************* SBE Begin.
     rewards = []  # used to log min reward from trajectory and SBE outcome
-    ###########################################################
+# ******************************************************************* SBE End.
     # Main loop: collect experience in env and update/log each epoch
     for t in range(total_steps):
 
@@ -288,9 +295,9 @@ def sac(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         o2, r, d, _ = env.step(a)
         ep_ret += r
         ep_len += 1
-        ###########################################################
-        rewards.append(r)  # for logging see below
-        ###########################################################
+# ******************************************************************* SBE Begin.
+        rewards.append(r)  # Logging.
+# ******************************************************************* SBE End.
         # Ignore the "done" signal if it comes from hitting the time
         # horizon (that is, when it's an artificial terminal signal
         # that isn't based on the agent's state)
@@ -321,16 +328,16 @@ def sac(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
                 logger.store(LossPi=outs[0], LossQ1=outs[1], LossQ2=outs[2],
                              LossV=outs[3], Q1Vals=outs[4], Q2Vals=outs[5],
                              VVals=outs[6], LogPi=outs[7])
-            ###########################################################
-            # used to log min reward from trajectory and SBE outcome
+# ******************************************************************* SBE Begin.
+            # Log min reward from trajectory and SBE outcome.
             logger.store(EpRet=ep_ret, EpLen=ep_len,
                          EpMin=np.min(rewards),
                          EpSBEOutcome=sbe_outcome(rewards, gamma)[0])
-            ###########################################################
+# ******************************************************************* SBE End.
             o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
-            ###########################################################
-            rewards = []  # for logging
-            ###########################################################
+# ******************************************************************* SBE Begin.
+            rewards = []  # Logging.
+# ******************************************************************* SBE End.
         # End of epoch wrap-up
         if t > 0 and t % steps_per_epoch == 0:
             epoch = t // steps_per_epoch
@@ -345,13 +352,13 @@ def sac(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             # Log info about epoch
             logger.log_tabular('Epoch', epoch)
             logger.log_tabular('EpRet', with_min_and_max=True)
-            ###########################################################
+# ******************************************************************* SBE Begin.
             # added logging for min and SBE outcome
             logger.log_tabular('EpMin', with_min_and_max=True)
             logger.log_tabular('EpSBEOutcome', with_min_and_max=True)
             logger.log_tabular('TestEpMin', with_min_and_max=True)
             logger.log_tabular('TestEpSBEOutcome', with_min_and_max=True)
-            ###########################################################
+# ******************************************************************* SBE End.
             logger.log_tabular('TestEpRet', with_min_and_max=True)
             logger.log_tabular('EpLen', average_only=True)
             logger.log_tabular('TestEpLen', average_only=True)

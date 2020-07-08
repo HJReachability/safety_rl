@@ -1,15 +1,20 @@
-"""
-This file is a modified version of Ray's implementation of Policy Gradient (PG) which can
-be found @
-https://github.com/ray-project/ray/blob/releases/0.7.3/python/ray/rllib/agents/pg/pg_policy.py
-
-This file is modified such that PG can be used with the Safety Bellman Equation (SBE) outcome from
-equation (8) in [ICRA19]. All modifications are marked with a line of hashtags.
-
-Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
-
-See the LICENSE in the root directory of this repo for license info.
-"""
+# Copyright (c) 2019–2020, The Regents of the University of California.
+# All rights reserved.
+#
+# This file is a modified version of Ray's Policy Gradient (PG) implementation,
+# available at:
+#
+# https://github.com/ray-project/ray/blob/releases/0.7.3/python/ray/rllib/agents/pg/pg_policy.py
+#
+# The code is modified to allow using PG with the Safety Bellman Equation (SBE)
+# outcome from Equation (8) in [ICRA19]. Modifications with respect to the
+# original code are enclosed between two lines of asterisks.
+#
+# This file is subject to the terms and conditions defined in the LICENSE file
+# included in this code repository.
+#
+# Please contact the author(s) of this library if you have any questions.
+# Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
 
 from __future__ import absolute_import
 from __future__ import division
@@ -20,11 +25,11 @@ from ray.rllib.evaluation.postprocessing import Postprocessing
 from ray.rllib.policy.tf_policy_template import build_tf_policy
 from ray.rllib.policy.sample_batch import SampleBatch
 from ray.rllib.utils import try_import_tf
-###########################################################
-# import function to compute SBE advantages induced by SBE outcome from Equation (8) of [ICRA19]
-#  instead of sum of discounted rewards advantages
+# ******************************************************************* SBE Begin.
+# Import function to compute SBE advantages induced by SBE outcome from Equation
+# (8) of [ICRA19] instead of advantages from the sum of discounted rewards.
 from policy_gradient.postprocessing import compute_advantages
-###########################################################
+# ******************************************************************* SBE End.
 tf = try_import_tf()
 
 
@@ -42,11 +47,11 @@ def postprocess_advantages(policy,
                            sample_batch,
                            other_agent_batches=None,
                            episode=None):
-    ###########################################################
-    # compute advantages by using trajectory outcome from Equation (8) of [ICRA19]
+# ******************************************************************* SBE Begin.
+    # Compute advantages using trajectory outcome from Equation (8) of [ICRA19].
     return compute_advantages(sample_batch, 0.0, policy.config["gamma"],
                               use_gae=False, use_sbe=True)
-    ###########################################################
+# ******************************************************************* SBE End.
 
 
 PGTFPolicy = build_tf_policy(

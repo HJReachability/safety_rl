@@ -18,41 +18,49 @@
 import sys
 import numpy as np
 import time
-from utils import discrete_to_real, discretize_state, sbe_outcome, save
+from utils import index_to_state, state_to_index, sbe_outcome, save
 from datetime import datetime
 
-def learn(
-        get_learning_rate, get_epsilon, get_gamma, max_episodes, buckets, state_bounds, env,
-        max_episode_length=None, q_values=None, start_episode=None, suppress_print=False, seed=0,
-        fictitious_terminal_val=None, use_sbe=True, save_freq=None):
-    """
+def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
+          state_bounds, env, max_episode_length=None, q_values=None,
+          start_episode=None, suppress_print=False, seed=0,
+          fictitious_terminal_val=None, use_sbe=True, save_freq=None):
+    """TODO{vrubes} write description
 
-    :param get_learning_rate: function of current episode number returns learning rate
-    :param get_epsilon: function of current episode number returns explore rate
-    :param get_gamma: a function of current episode returns gamma, remember to set gamma to None if
-    using this
-    :param max_episodes: maximum number of episodes to run for
-    :param buckets: tuple of ints where the ith value is the number of buckets for ith dimension of
-    state
-    :param state_bounds: list of tuples where ith tuple contains the min and max value in that order
-    of ith dimension
-    :param env: Open AI gym environment
-    :param max_episode_length: number of timesteps that counts as solving an episode, also acts as
-    max episode timesteps
-    :param q_values: precomputed q_values function for warm start
-    :param start_episode: what episode to start hyper-parameter schedulers at if warmstart
-    :param suppress_print: boolean whether to suppress print statements about current episode or not
-    :param seed: seed for random number generator
-    :param fictitious_terminal_val: whether to use a terminal state with this value for the backup
-    when a trajectory ends. this is helpful because it avoids having a ring of terminal states
-    around the failure set. note that every terminal trajectory will use this as the value for the
-    backup
-    :param use_sbe: whether to use the Safety Bellman Equation backup from equation (7) in [ICRA19]. If false
-    the standard sum of discounted rewards backup is used.
-    :param save_freq: how often to save q_values and stats
-    :return: q_values, a numpy tensor of shape (buckets + (env.action_space.n,)) that contains the
-    q_values value function
-    for example in cartpole the dimensions are q_values[x][x_dot][theta][theta_dot][action]
+    Args:
+        get_learning_rate: Function of current episode number returns learning
+            rate.
+        get_epsilon: Function of current episode number returns explore rate.
+        get_gamma: A function of current episode returns gamma, remember to set
+            gamma to None if using this.
+        max_episodes: Maximum number of episodes to run for.
+        grid_cells: Tuple of ints where the ith value is the number of grid_cells for
+            ith dimension of state.
+        state_bounds: List of tuples where ith tuple contains the min and max
+            value in that order of ith dimension.
+        env: OpenAI gym environment.
+        max_episode_length: Number of timesteps that counts as solving an
+            episode, also acts as max episode timesteps.
+        q_values: Precomputed q_values function for warm start.
+        start_episode: What episode to start hyper-parameter schedulers at if
+            warmstart.
+        suppress_print: Boolean whether to suppress print statements about
+            current episode or not.
+        seed: Seed for random number generator.
+        fictitious_terminal_val: Whether to use a terminal state with this value
+            for the backup when a trajectory ends. This is helpful because it
+            avoids having a ring of terminal states around the failure set. Note
+            that every terminal trajectory will use this as the value for the
+            backup.
+        use_sbe: Whether to use the Safety Bellman Equation backup from
+            equation (7) in [ICRA19]. If false the standard sum of discounted
+            rewards backup is used.
+        save_freq: How often to save q_values and stats.
+
+    Returns:
+        A numpy tensor of shape (grid_cells + (env.action_space.n,)) that contains
+        the q_values value function. For example in cartpole the dimensions are
+        q_values[x][x_dot][theta][theta_dot][action].
     """
     start = time.process_time()  # used for time performance analysis
     now = datetime.now()
@@ -61,32 +69,35 @@ def learn(
     # argument checks
     if max_episode_length is None:
         import warnings
-        warnings.warn("max_episode_length is None assuming infinite episode length")
+        warnings.warn(
+            "max_episode_length is None assuming infinite episode length.")
 
     # set up q_values
     if q_values is None:
         if start_episode is not None:
-            raise ValueError("start_episode is only to be used with a warmstart q_values")
+            raise ValueError(
+                "Start_episode is only to be used with a warmstart q_values.")
 
-        q_values = np.zeros(buckets + (env.action_space.n,))
-        # need to use multi index to iterate over variable rank tensor
+        q_values = np.zeros(grid_cells + (env.action_space.n,))
+        # Iterate over all state-action pairs and initialize Q-values.
         it = np.nditer(q_values, flags=['multi_index'])
         while not it.finished:
-            # initialize q_values to l values for warm start
-            state = it.multi_index[:-1]  # chop off action from q index to get state
-            q_values[it.multi_index] = env.l_function(discrete_to_real(buckets,
-                                                                   state_bounds,
-                                                                   state))
+            # Initialize Q(s,a) = l(s).
+            state = it.multi_index[:-1]
+            q_values[it.multi_index] = env.signed_distance(
+                index_to_state(grid_cells, state_bounds, state))
             it.iternext()
-
-    elif not np.array_equal(np.shape(q_values)[:-1], buckets):
-        raise ValueError("The shape of q_values excluding the last dimension must be the same as "
-                         "the shape of the discretization of states.")
+    elif not np.array_equal(np.shape(q_values)[:-1], grid_cells):
+        raise ValueError(
+            "The shape of q_values excluding the last dimension must be the "
+            "same as the shape of the discretization of states.")
     elif start_episode is None:
         import warnings
-        warnings.warn("used warm start q_values without a start_episode, hyper-parameter "
-                      "schedulers may produce undesired results")
-    # setting up stats
+        warnings.warn(
+            "Used warm start q_values without a start_episode, hyper-parameter "
+            "schedulers may produce undesired results.")
+
+    # Initialize experiment log.
     stats = {
         "start_time": datetime.now().strftime("%b_%d_%y %H:%M:%S"),
         "episode_lengths": np.zeros(max_episodes),
@@ -97,7 +108,7 @@ def learn(
         "epsilon": np.zeros(max_episodes),
         "learning_rate": np.zeros(max_episodes),
         "state_bounds": state_bounds,
-        "buckets": buckets,
+        "grid_cells": grid_cells,
         "gamma": np.zeros(max_episodes),
         "type": "tabular q_values-learning",
         "environment": env.spec.id,
@@ -105,38 +116,43 @@ def learn(
         "episode": 0,
     }
 
-    env.set_discretization(buckets=buckets, bounds=state_bounds)
+    env.set_grid_cells(grid_cells)
+    env.set_bounds(state_bounds)
 
     if start_episode is None:
         start_episode = 0
 
-    # set starting exploration fraction, learning rate, and discount factor
+    # Set starting exploration fraction, learning rate and discount factor.
     epsilon = get_epsilon(start_episode, 1)
     alpha = get_learning_rate(start_episode, 1)
     gamma = get_gamma(start_episode, 1)
 
-    # main loop
+    # Main learning loop: Run episodic trajectories from random initial states.
     for episode in range(max_episodes):
         if not suppress_print and (episode + 1) % 100 == 0:
             message = "\rEpisode {}/{} alpha:{} gamma:{} epsilon:{}."
-            print(message.format(episode + 1, max_episodes, alpha, gamma, epsilon), end="")
+            print(message.format(
+                episode + 1, max_episodes, alpha, gamma, epsilon), end="")
             sys.stdout.flush()
-        state_real_valued = env.reset()
-        state = discretize_state(buckets, state_bounds, env.bins, state_real_valued)
+        state = env.reset()
+        state_ix = state_to_index(grid_cells, state_bounds, state)
         done = False
         t = 0
         episode_rewards = []
-        while not done:
-            # determine action to use based on epsilon greedy schedule
-            action = select_action(q_values, state, epsilon)
 
-            # take step and discretize state
-            next_state_real_valued, reward, done, _ = env.step(action)
-            next_state = discretize_state(buckets, state_bounds, env.bins, next_state_real_valued)
+        # Execute a single rollout.
+        while not done:
+            # Determine action to use based on epsilon-greedy decision rule.
+            action_ix = select_action(q_values, state_ix, epsilon)
+
+            # Take step and map state to corresponding grid index.
+            next_state, reward, done, _ = env.step(action_ix)
+            next_state_ix = state_to_index(grid_cells, state_bounds,
+                                           next_state)
 
             # update episode statistics
-            stats['state_action_visits'][state + (action,)] += 1
-            num_visits = stats['state_action_visits'][state + (action,)]
+            stats['state_action_visits'][state_ix + (action_ix,)] += 1
+            num_visits = stats['state_action_visits'][state_ix + (action_ix,)]
             episode_rewards.append(reward)
             t += 1
 
@@ -153,18 +169,18 @@ def learn(
                 else:
                     q_terminal = reward
                 q_non_terminal = (1.0 - gamma) * reward + \
-                                gamma * min(reward, np.amax(q_values[next_state]))
+                                gamma * min(reward, np.amax(q_values[next_state_ix]))
             else:  # sum of discounted rewards backup
                 if fictitious_terminal_val:
                     q_terminal = reward + gamma * fictitious_terminal_val
                 else:
                     q_terminal = reward
-                q_non_terminal = reward + gamma * np.amax(q_values[next_state])
+                q_non_terminal = reward + gamma * np.amax(q_values[next_state_ix])
 
             # update q values
             new_q = done * q_terminal + (1.0 - done) * q_non_terminal
-            q_values[state + (action,)] = (1 - alpha) * q_values[state + (action,)] + alpha * new_q
-            state = next_state
+            q_values[state_ix + (action_ix,)] = (1 - alpha) * q_values[state_ix + (action_ix,)] + alpha * new_q
+            state_ix = next_state_ix
 
             # end episode if max episode length reached
             if max_episode_length is not None and t >= max_episode_length:
@@ -190,38 +206,45 @@ def learn(
     return q_values, stats
 
 
-def select_action(q_values, state, env, epsilon=0):
-    """
+def select_action(q_values, state_ix, env, epsilon=0):
+    """ Selects an action at random or based on the state-action value function.
 
-    :param q_values: value function to select action greedily according to
-    :param state: state
-    :param env: Open AI gym environment
-    :param epsilon: explore rate
-    :return:
+    Args:
+        q_values: State-action value function.
+        state: State.
+        env: OpenAI gym environment.
+        epsilon: Exploration rate.
+
+    Returns:
+        The action chosen for this state.
     """
     if np.random.random() < epsilon:
-        action = env.action_space.sample()
+        action_ix = env.action_space.sample()
     else:
-        action = np.argmax(q_values[state])
-    return action
+        action_ix = np.argmax(q_values[state_ix])
+    return action_ix
 
 
-def play(q_values, env, num_episodes, buckets, state_bounds, suppress_print=False,
-         episode_length=None):
-    """
-    renders gym environment with policy acting greedily according to q_values value function
-    NOTE: After you use an environment to play you'll need to make a new environment instance to
-    use it again because the close function is called
-    :param q_values: q_values value function
-    :param env: Open AI gym environment that hasn't been closed yet
-    :param num_episodes: how many episode to run for
-    :param buckets: tuple of ints where the ith value is the number of buckets for ith dimension of
-    state
-    :param state_bounds: list of tuples where ith tuple contains the min and max value in that order
-     of ith dimension
-    :param suppress_print: boolean whether to suppress print statements about current episode or not
-    :param episode_length: max length of episode
-    :return: None
+def play(q_values, env, num_episodes, grid_cells, state_bounds,
+         suppress_print=False, episode_length=None):
+    """ Renders gym environment under greedy policy.
+
+    The gym environment will be rendered and executed according to the greedy
+    policy induced by the state-action value function. NOTE: After you use an
+    environment to play you'll need to make a new environment instance to
+    use it again because the close function is called.
+
+    Args:
+        q_values: State-action value function.
+        env: OpenAI gym environment that hasn't been closed yet.
+        num_episodes: How many episode to run for.
+        grid_cells: tuple of ints where the ith value is the number of grid_cells for
+            ith dimension of state.
+        state_bounds: List of tuples where ith tuple contains the min and max
+            value in that order of ith dimension.
+        suppress_print: Boolean whether to suppress print statements about
+            current episode or not.
+        episode_length: Max length of episode.
     """
     for i in range(num_episodes):
         obv = env.reset()
@@ -230,7 +253,7 @@ def play(q_values, env, num_episodes, buckets, state_bounds, suppress_print=Fals
         while not done:
             if episode_length and t >= episode_length:
                 break
-            state = discretize_state(buckets, state_bounds, env.bins, obv)
+            state = state_to_index(grid_cells, state_bounds, obv)
             action = select_action(q_values, state, env, epsilon=0)
             obv, reward, done, _ = env.step(action)
             env.render()

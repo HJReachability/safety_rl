@@ -138,7 +138,7 @@ class LunarLanderReachability(LunarLander):
             r = None  # can't be computed
         else:
             # note that l function must be computed before environment steps see reamdme for proof
-            r = self.l_function()
+            r = self.signed_distance()
 
         s, _, done, info = super(LunarLanderReachability, self).step(action)
 
@@ -149,7 +149,7 @@ class LunarLanderReachability(LunarLander):
         done = x < self.fly_min_x or x > self.fly_max_x or y > self.fly_max_y
         return s, r, done, info
 
-    def l_function(self):
+    def signed_distance(self):
         """
 
         :return: the signed distance of the environment at state s to the failure set

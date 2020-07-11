@@ -61,63 +61,66 @@ def sbe_outcome(rewards, gamma):
 # == discretization functions ==
 
 
-def discretize_state(buckets, state_bounds, bins, state):
+def state_to_index(grid_cells, state_bounds, state):
     """
 
-    :param buckets: tuple of ints where the ith value is the number of buckets for ith dimension of
+    :param grid_cells: tuple of ints where the ith value is the number of grid_cells for ith dimension of
     state
     :param state_bounds: list of tuples where ith tuple contains the min and max value in that order
      of ith dimension
     :param state: state to discretize
-    :return: state discretized into appropriate buckets
+    :return: state discretized into appropriate grid_cells
     """
-    discrete = []
+    index = []
     for i in range(len(state)):
-        if state[i] <= state_bounds[i][0]:
-            discrete.append(0)
-        elif state[i] >= state_bounds[i][1]:
-            discrete.append(buckets[i] - 1)
+        lower_bound = state_bounds[i][0]
+        upper_bound = state_bounds[i][1]
+        if state[i] <= lower_bound:
+            index.append(0)
+        elif state[i] >= upper_bound:
+            index.append(grid_cells[i] - 1)
         else:
-            discrete.append(np.digitize(state[i], bins[i]) - 1)
-    return tuple(discrete)
+            index.append(int(
+                ((state[i] - lower_bound) * grid_cells[i]) //
+                (upper_bound - lower_bound)))
+    return tuple(index)
 
 
-def discrete_to_real(buckets, state_bounds, discrete):
+def index_to_state(grid_cells, state_bounds, discrete):
     """
 
-    :param buckets: tuple of ints where the ith value is the number of buckets for ith dimension of
+    :param grid_cells: tuple of ints where the ith value is the number of grid_cells for ith dimension of
     state
     :param state_bounds: list of tuples where ith tuple contains the min and max value in that order
      of ith dimension
     :param discrete: discrete state to approximate to nearest real value
-    :return: the real valued state at the center of the buckets of the discrete state, an "inverse"
-    of discretize_state
+    :return: the real valued state at the center of the grid_cells of the discrete state, an "inverse"
+    of state_to_index
     """
     state = np.zeros(len(discrete))
     for i in range(len(discrete)):
-        if buckets[i] == 1:
+        if grid_cells[i] == 1:
             state[i] = ((state_bounds[i][1] - state_bounds[i][0]) / 2) + state_bounds[i][0]
         else:
-            scaling = (buckets[i] - 1) / (state_bounds[i][1] - state_bounds[i][0])
+            scaling = (grid_cells[i] - 1) / (state_bounds[i][1] - state_bounds[i][0])
             offset = scaling * state_bounds[i][0]
             state[i] = (discrete[i] + offset) / scaling
     return state
 
 
-def nearest_real_grid_point(buckets, state_bounds, bins, state):
+def nearest_real_grid_point(grid_cells, state_bounds, state):
     """
 
-    :param buckets: tuple of ints where the ith value is the number of buckets for ith dimension of
+    :param grid_cells: tuple of ints where the ith value is the number of grid_cells for ith dimension of
      state
     :param state_bounds: list of tuples where ith tuple contains the min and max value in that order
     of ith dimension
     :param state: state to convert to center of bucket
     :return: the real valued state at the center of the bucket that state would go into
     """
-    return discrete_to_real(buckets, state_bounds, discretize_state(buckets,
-                                                                    state_bounds,
-                                                                    bins,
-                                                                    state))
+    return index_to_state(grid_cells, state_bounds, state_to_index(grid_cells,
+                                                                   state_bounds,
+                                                                   state))
 
 # == q value and value function utils ==
 
@@ -137,19 +140,19 @@ def v_from_q(q_values):
     return v
 
 
-def q_values_from_q_func(q_func, num_buckets, state_bounds, action_n):
+def q_values_from_q_func(q_func, num_grid_cells, state_bounds, action_n):
     """
     computes q value tensor from a q value function
     :param q_func: function from state to q value
-    :param num_buckets: number of buckets for resulting q value tensor
+    :param num_grid_cells: number of grid_cells for resulting q value tensor
     :param state_bounds: state bounds for resulting q value tensor
     :param action_n: number of actions in action space
     :return: q value tensor as numpy array
     """
-    q_values = np.zeros(num_buckets + (action_n,))
+    q_values = np.zeros(num_grid_cells + (action_n,))
     it = np.nditer(q_values, flags=['multi_index'])
     while not it.finished:
-        qs = q_func(discrete_to_real(num_buckets, state_bounds=state_bounds,
+        qs = q_func(index_to_state(num_grid_cells, state_bounds=state_bounds,
                                      discrete=it.multi_index[:-1]))
         q_values[it.multi_index] = qs[0]
         it.iternext()

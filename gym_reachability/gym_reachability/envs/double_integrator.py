@@ -11,7 +11,7 @@ import gym.spaces
 import numpy as np
 import gym
 from utils import nearest_real_grid_point, visualize_matrix, q_values_from_q_func, \
-    discrete_to_real, v_from_q
+    index_to_state, v_from_q
 
 
 class DoubleIntegratorEnv(gym.Env):
@@ -37,8 +37,7 @@ class DoubleIntegratorEnv(gym.Env):
         self.viewer = None
 
         # discretization
-        self.buckets = None
-        self.bins = []
+        self.grid_cells = None
 
         # internal state
         self.state = np.zeros(2)
@@ -66,11 +65,11 @@ class DoubleIntegratorEnv(gym.Env):
         :return: tuple of (resulting state, l of current state, whether the episode is done, info dictionary)
         """
         # note that l must be computed before the environment steps. see readme for a simple proof
-        if self.buckets is None:
-            r = self.l_function(self.state)
+        if self.grid_cells is None:
+            r = self.signed_distance(self.state)
         else:
             # provide consistent reward signal. same state always same reward from center of grid cell
-            r = self.l_function(nearest_real_grid_point(self.buckets, self.bounds, self.bins, self.state))
+            r = self.signed_distance(nearest_real_grid_point(self.grid_cells, self.bounds, self.state))
 
         # move dynamics forward one step
         x, x_dot = self.state
@@ -89,7 +88,7 @@ class DoubleIntegratorEnv(gym.Env):
         self.seed_val = seed
         np.random.seed(self.seed_val)
 
-    def l_function(self, s):
+    def signed_distance(self, s):
         """
         :param s: state
         :return: the signed distance of the environment at state s to the failure set
@@ -100,31 +99,33 @@ class DoubleIntegratorEnv(gym.Env):
             return -1 * x_dist
         return x_dist
 
-    def set_discretization(self, buckets, bounds):
+    def set_grid_cells(self, grid_cells):
         """
 
-        :param buckets:
+        :param grid_cells:
         :param bounds:
         :return:
         """
+        self.grid_cells = grid_cells
 
-        self.buckets = buckets
+    def set_bounds(self, bounds):
+        """
+
+        :param grid_cells:
+        :param bounds:
+        :return:
+        """
         self.bounds = bounds
 
         # slice low and high from bounds
         self.low = np.array(self.bounds)[:, 0]
         self.high = np.array(self.bounds)[:, 1]
 
-        # gym uses this for algorithms to determine what dimension and range the input to
-        # their models are. I'm multiplying by 2 to give buffer since ray will crash if outside box
-        self.observation_space = gym.spaces.Box(2 * self.low, 2 * self.high)
-
-        # construct bins for use discretizing states
-        self.bins = []
-        for i in range(len(self.buckets)):
-            a = self.bounds[i][0]  # low
-            b = self.bounds[i][1]  # high
-            self.bins.append(np.arange(start=a, stop=b, step=(b - a) / self.buckets[i]))
+        # Double the range in each state dimension for Gym interface.
+        midpoint = (self.low + self.high)/2.0
+        interval = self.high - self.low
+        self.observation_space = gym.spaces.Box(midpoint - interval,
+                                                midpoint + interval)
 
     def render(self, mode='human'):
         pass
@@ -136,7 +137,7 @@ class DoubleIntegratorEnv(gym.Env):
         at that state
         :return: tuple of (misclassified_safe, misclassified_unsafe)
         """
-        computed_v = v_from_q(q_values_from_q_func(q_func, self.buckets, self.bounds, 2))
+        computed_v = v_from_q(q_values_from_q_func(q_func, self.grid_cells, self.bounds, 2))
         return self.ground_truth_comparison_v(computed_v)
 
     def ground_truth_comparison_v(self, computed_v):
@@ -169,7 +170,7 @@ class DoubleIntegratorEnv(gym.Env):
         x_low = self.target_low[0]
         x_high = self.target_high[0]
         u_max = self.control_bounds[1]  # assumes that negative of u_max is u_min
-        x_dot_num_points = self.buckets[1]
+        x_dot_num_points = self.grid_cells[1]
 
         # edge of range
         x_dot_high = (((x_high - x_low) * (2 * u_max)) ** 0.5)
@@ -220,7 +221,7 @@ class DoubleIntegratorEnv(gym.Env):
         visualize_matrix(v, self.get_axes(), no_show=False)
 
     def analytic_v(self):
-        v = np.zeros(self.buckets)
+        v = np.zeros(self.grid_cells)
         it = np.nditer(v, flags=['multi_index'])
 
         x_low = self.target_low[0]
@@ -236,7 +237,7 @@ class DoubleIntegratorEnv(gym.Env):
                            x - x_dot ** 2 / (2 * u_max) - x_low)
 
         while not it.finished:
-            x, x_dot = discrete_to_real(self.buckets, self.bounds, it.multi_index)
+            x, x_dot = index_to_state(self.grid_cells, self.bounds, it.multi_index)
             v[it.multi_index] = analytic_function(x, x_dot)
             it.iternext()
         return v

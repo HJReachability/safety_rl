@@ -14,8 +14,8 @@ from utils import v_from_q
 from utils import visualize_matrix
 from utils import make_inverse_polynomial_visit_schedule
 from gym_reachability import gym_reachability  # Custom Gym env.
-import numpy as np
 import gym
+import numpy as np
 
 # == Experiment 1 ==
 """
@@ -32,13 +32,15 @@ fictitious_terminal_val = -10
 seed = 55
 
 # == Discretization ==
-buckets = (50, 101)
+grid_cells = (50, 101)
 state_bounds = env.bounds
-env.set_discretization(buckets=buckets, bounds=state_bounds)
-visualize_matrix(env.analytic_v())
-visualize_matrix(np.sign(env.analytic_v()))
-env.visualize_analytic_comparison(env.analytic_v())
-env.visualize_analytic_comparison(np.sign(env.analytic_v()))
+env.set_grid_cells(grid_cells)
+env.set_bounds(state_bounds)
+analytic_v = env.analytic_v()
+# visualize_matrix(analytic_v)
+# visualize_matrix(np.sign(analytic_v))
+# env.visualize_analytic_comparison(analytic_v)
+# env.visualize_analytic_comparison(np.sign(analytic_v))
 
 # == Optimization ==
 max_episodes = int(1e6)
@@ -51,7 +53,7 @@ q, stats = learn(get_learning_rate=get_alpha,
                  get_gamma=get_gamma,
                  max_episodes=max_episodes,
                  env=env,
-                 buckets=buckets,
+                 grid_cells=grid_cells,
                  state_bounds=state_bounds,
                  seed=seed,
                  max_episode_length=max_episode_length,

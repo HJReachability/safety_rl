@@ -21,6 +21,6 @@ through penalization
 class CheetahBalancePenalizeEnv(CheetahBalanceEnv):
 
     @override(CheetahBalanceEnv)
-    def l_function(self):
+    def signed_distance(self):
         return -1.0 if self.detect_contact() else 0.0
 

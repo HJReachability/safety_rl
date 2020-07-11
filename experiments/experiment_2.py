@@ -103,7 +103,7 @@ if __name__ == '__main__':
 
     # compare to ground truth value function at end of training
     exp_config['ground_truth_compare'] = True
-    exp_config['buckets'] = (100, 100)
+    exp_config['grid_cells'] = (100, 100)
 
     # violations data collected throughout training
     exp_config['violations_horizon'] = 120
@@ -153,7 +153,7 @@ if __name__ == '__main__':
 
     # == Data Collection Parameters ==
     # NOTE need to check with shape from output of level set toolbox code we use for release
-    cartpole_exp_config['buckets'] = (31, 31, 31, 31)
+    cartpole_exp_config['grid_cells'] = (31, 31, 31, 31)
 
     # == Optimization ==
     cartpole_dqn_config['schedule_max_timesteps'] = int(2e6)

@@ -53,7 +53,7 @@ class CheetahBalanceEnv(HalfCheetahEnv):
         """
 
         ob, reward, done, info = super(CheetahBalanceEnv, self).step(action)
-        r = self.l_function()
+        r = self.signed_distance()
         return ob, r, done, info
 
     def detect_contact(self):
@@ -65,7 +65,7 @@ class CheetahBalanceEnv(HalfCheetahEnv):
         # 'fshin':7, 'ffoot':8]
         return any([self.data.contact[i].geom2 in [2, 7, 8] for i in range(self.data.ncon)])
 
-    def l_function(self):
+    def signed_distance(self):
         """
         :return: the signed distance of the environment at the current state to the failure
          set. For this problem the failure set is the set of all states where the cheetah's head,

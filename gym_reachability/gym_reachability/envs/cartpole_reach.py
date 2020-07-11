@@ -65,14 +65,14 @@ class CartPoleReachabilityEnv(CartPoleEnv):
         dictionary
         """
         # reward must be computed before the environment steps see readme for a proof
-        r = self.l_function(self.state)
+        r = self.signed_distance(self.state)
         s, _, done, info = super(CartPoleReachabilityEnv, self).step(action)
 
         # allow the environment to run into failure set to let negative values propagate
         info['done'] = done  # done info is provided in case algorithm wants to use it
         return s, r, False, info
 
-    def l_function(self, s):
+    def signed_distance(self, s):
         """
         :param s: state
         :return: the signed distance of the environment at state s to the failure set. For
@@ -112,7 +112,7 @@ class CartPoleReachabilityEnv(CartPoleEnv):
         """
 
         ground_truth_v = self.ground_truth_v()
-        computed_v = q_values_from_q_func(q_func, self.buckets, self.bounds, 2)
+        computed_v = q_values_from_q_func(q_func, self.grid_cells, self.bounds, 2)
         misclassified_safe = 0
         misclassified_unsafe = 0
         misclassified_safe_adjusted = 0

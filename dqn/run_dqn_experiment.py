@@ -40,7 +40,7 @@ class TrainDQN(Trainable):
         # Whether to compare with ground truth value function after training.
         self.ground_truth_compare = config.get('ground_truth_compare', False)
         if self.ground_truth_compare:
-            self.env.set_discretization(config['buckets'], self.env.bounds)
+            self.env.set_discretization(config['grid_cells'], self.env.bounds)
 
         # Function to evaluate Q-network.
         self.q_func = lambda s: q_values(self.trainer, s)

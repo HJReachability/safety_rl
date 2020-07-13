@@ -32,7 +32,7 @@ fictitious_terminal_val = -10
 seed = 55
 
 # == Discretization ==
-grid_cells = (50, 101)
+grid_cells = (51, 101)
 state_bounds = env.bounds
 env.set_grid_cells(grid_cells)
 env.set_bounds(state_bounds)

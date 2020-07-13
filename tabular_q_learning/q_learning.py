@@ -25,7 +25,7 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
           state_bounds, env, max_episode_length=None, q_values=None,
           start_episode=None, suppress_print=False, seed=0,
           fictitious_terminal_val=None, use_sbe=True, save_freq=None):
-    """TODO{vrubes} write description
+    """ Computes state-action value function in tabular form.
 
     Args:
         get_learning_rate: Function of current episode number returns learning
@@ -34,8 +34,8 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
         get_gamma: A function of current episode returns gamma, remember to set
             gamma to None if using this.
         max_episodes: Maximum number of episodes to run for.
-        grid_cells: Tuple of ints where the ith value is the number of grid_cells for
-            ith dimension of state.
+        grid_cells: Tuple of ints where the ith value is the number of
+            grid_cells for ith dimension of state.
         state_bounds: List of tuples where ith tuple contains the min and max
             value in that order of ith dimension.
         env: OpenAI gym environment.
@@ -58,21 +58,23 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
         save_freq: How often to save q_values and stats.
 
     Returns:
-        A numpy tensor of shape (grid_cells + (env.action_space.n,)) that contains
-        the q_values value function. For example in cartpole the dimensions are
-        q_values[x][x_dot][theta][theta_dot][action].
+        A numpy tensor of shape (grid_cells + (env.action_space.n,)) that
+        contains the q_values value function. For example in cartpole the
+        dimensions are q_values[x][x_dot][theta][theta_dot][action].
     """
-    start = time.process_time()  # used for time performance analysis
+    # Time-related variables for performace analysis.
+    start = time.process_time()
     now = datetime.now()
+
     np.random.seed(seed)
 
-    # argument checks
+    # Argument checks.
     if max_episode_length is None:
         import warnings
         warnings.warn(
             "max_episode_length is None assuming infinite episode length.")
 
-    # set up q_values
+    # Set up state-action value function.
     if q_values is None:
         if start_episode is not None:
             raise ValueError(
@@ -150,39 +152,41 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
             next_state_ix = state_to_index(grid_cells, state_bounds,
                                            next_state)
 
-            # update episode statistics
+            # Update episode experiment log.
             stats['state_action_visits'][state_ix + (action_ix,)] += 1
             num_visits = stats['state_action_visits'][state_ix + (action_ix,)]
             episode_rewards.append(reward)
             t += 1
 
-            # update exploration fraction, learning rate, and discount factor
+            # Update exploration fraction, learning rate and discount factor.
             epsilon = get_epsilon(episode + start_episode, num_visits)
             alpha = get_learning_rate(episode + start_episode, num_visits)
             gamma = get_gamma(episode + start_episode, num_visits)
 
-            # perform bellman update and move along state variables
-            if use_sbe:  # Safety Bellman Equation backup
+            # Perform Bellman backup.
+            if use_sbe:  # Safety Bellman Equation backup.
                 if fictitious_terminal_val:
-                    q_terminal = (1.0 - gamma) * reward + \
-                                 gamma * min(reward, fictitious_terminal_val)
+                    q_terminal = ((1.0 - gamma) * reward + gamma *
+                                  min(reward, fictitious_terminal_val))
                 else:
                     q_terminal = reward
-                q_non_terminal = (1.0 - gamma) * reward + \
-                                gamma * min(reward, np.amax(q_values[next_state_ix]))
-            else:  # sum of discounted rewards backup
+                q_non_terminal = ((1.0 - gamma) * reward + gamma *
+                                  min(reward, np.amax(q_values[next_state_ix])))
+            else:       # Sum of discounted rewards backup.
                 if fictitious_terminal_val:
                     q_terminal = reward + gamma * fictitious_terminal_val
                 else:
                     q_terminal = reward
-                q_non_terminal = reward + gamma * np.amax(q_values[next_state_ix])
+                q_non_terminal = (reward + gamma *
+                                  np.amax(q_values[next_state_ix]))
 
-            # update q values
+            # Update state-action values.
             new_q = done * q_terminal + (1.0 - done) * q_non_terminal
-            q_values[state_ix + (action_ix,)] = (1 - alpha) * q_values[state_ix + (action_ix,)] + alpha * new_q
+            q_values[state_ix + (action_ix,)] = (
+                (1 - alpha) * q_values[state_ix + (action_ix,)] + alpha * new_q)
             state_ix = next_state_ix
 
-            # end episode if max episode length reached
+            # End episode if max episode length is reached.
             if max_episode_length is not None and t >= max_episode_length:
                 break
 
@@ -238,8 +242,8 @@ def play(q_values, env, num_episodes, grid_cells, state_bounds,
         q_values: State-action value function.
         env: OpenAI gym environment that hasn't been closed yet.
         num_episodes: How many episode to run for.
-        grid_cells: tuple of ints where the ith value is the number of grid_cells for
-            ith dimension of state.
+        grid_cells: tuple of ints where the ith value is the number of
+            grid_cells for ith dimension of state.
         state_bounds: List of tuples where ith tuple contains the min and max
             value in that order of ith dimension.
         suppress_print: Boolean whether to suppress print statements about
@@ -260,4 +264,6 @@ def play(q_values, env, num_episodes, grid_cells, state_bounds,
             t += 1
         if not suppress_print:
             print("episode", i,  "lasted", t, "timesteps.")
-    env.close()  # this is required to prevent the script from crashing after closing the window
+    # This is required to prevent the script from crashing after closing the
+    # window.
+    env.close()

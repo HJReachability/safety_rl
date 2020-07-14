@@ -18,8 +18,12 @@
 import sys
 import numpy as np
 import time
-from utils import index_to_state, state_to_index, sbe_outcome, save
 from datetime import datetime
+
+from utils import index_to_state
+from utils import state_to_index
+from utils import sbe_outcome
+from utils import save
 
 def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
           state_bounds, env, max_episode_length=None, q_values=None,

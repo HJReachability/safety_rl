@@ -16,9 +16,10 @@
 # Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
 
 import sys
-import numpy as np
 import time
 from datetime import datetime
+
+import numpy as np
 
 from utils import index_to_state
 from utils import state_to_index

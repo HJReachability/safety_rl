@@ -7,15 +7,16 @@
 # Please contact the author(s) of this library if you have any questions.
 # Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
 
+from gym_reachability import gym_reachability  # Custom Gym env.
+import gym
+import numpy as np
+
 from tabular_q_learning.q_learning import learn
 from utils import make_linear_schedule
 from utils import make_stepped_schedule
 from utils import v_from_q
 from utils import visualize_matrix
 from utils import make_inverse_polynomial_visit_schedule
-from gym_reachability import gym_reachability  # Custom Gym env.
-import gym
-import numpy as np
 
 # == Experiment 1 ==
 """

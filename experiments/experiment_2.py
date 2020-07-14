@@ -7,14 +7,16 @@
 # Please contact the author(s) of this library if you have any questions.
 # Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
 
+from datetime import datetime
+
 import ray
 import ray.tune as tune
 from ray.tune import Experiment
-import gym
-from datetime import datetime
 from ray.rllib.agents.trainer import Trainer
 from ray.tune.registry import register_env
+import gym
 from dqn.run_dqn_experiment import TrainDQN
+
 from utils import get_save_dir
 
 # == Experiment 2 ==

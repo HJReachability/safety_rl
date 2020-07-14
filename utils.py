@@ -8,11 +8,12 @@
 # Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
 
 import _pickle as cPickle
-import numpy as np
 import os
-from glob import glob
-import itertools
 from datetime import datetime
+import itertools
+from glob import glob
+
+import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt

@@ -67,7 +67,7 @@ if __name__ == '__main__':
 
     # == Exploration ==
     dqn_config['schedule_max_timesteps'] = int(1e6)
-    # how many steps are sampled per call to agent.train()
+    # How many steps are sampled per call to agent.train().
     dqn_config['timesteps_per_iteration'] = int(1e3)
     dqn_config['exploration_fraction'] = 0.5
     dqn_config['exploration_final_eps'] = 0.3
@@ -94,29 +94,29 @@ if __name__ == '__main__':
     dqn_config['seed'] = tune.grid_search(list(range(100)))
 
     # == Custom Safety Bellman Equation configs ==
-    Trainer._allow_unknown_configs = True  # Needed for SBE config option.
+    Trainer._allow_unknown_configs = True     # Needed for SBE config option.
     dqn_config['gamma_schedule'] = 'stepped'
     dqn_config['final_gamma'] = 0.999999
-    dqn_config['gamma'] = 0.8  # Initial discount factor.
+    dqn_config['gamma'] = 0.8                 # Initial discount factor.
     dqn_config['gamma_half_life'] = int(4e4)  # Measured in environment steps.
     dqn_config['use_sbe'] = True
 
     # == Data Collection Parameters ==
 
-    # compare to ground truth value function at end of training
+    # Compare to ground truth value function at end of training.
     exp_config['ground_truth_compare'] = True
     exp_config['grid_cells'] = (100, 100)
 
-    # violations data collected throughout training
+    # Violations data collected throughout training.
     exp_config['violations_horizon'] = 120
     exp_config['violations_samples'] = 1000
     exp_config['num_violation_collections'] = 10
 
-    # rollout comparison done at end of training
+    # Rollout comparison done at end of training.
     exp_config['rollout_samples'] = int(1e4)
     exp_config['rollout_horizon'] = 100
 
-    # experiment timing
+    # Experiment timing.
     exp_config['max_iterations'] = int(dqn_config['schedule_max_timesteps'] /
                                        dqn_config['timesteps_per_iteration'])
     exp_config['checkpoint_freq'] = int(exp_config['max_iterations'] /
@@ -124,13 +124,15 @@ if __name__ == '__main__':
 
     exp_config['dqn_config'] = dqn_config
 
-    # This Experiment will call TrainDQN._setup() once at the beginning of the experiment and call
-    # TrainDQN._train() until the condition specified by the argument stop is met. In this case
-    # once the training_iteration reaches exp_config["max_iterations"] the experiment will stop.
-    # Every checkpoint_freq it will call TrainDQN._save() and at the end of the experiment. Each
-    # trial is a seed in this case since the config specifies to grid search over seeds and no other
-    # config options. The data for each trial will be saved in local_dir/name/trial_name where
-    # local_dir and name are the arguments to Experiment() and trial_name is produced by ray based
+    # This Experiment will call TrainDQN._setup() once at the beginning of the
+    # experiment and call TrainDQN._train() until the condition specified by the
+    # argument stop is met. In this case once the training_iteration reaches
+    # exp_config["max_iterations"] the experiment will stop. Every
+    # checkpoint_freq it will call TrainDQN._save() and at the end of the
+    # experiment. Each trial is a seed in this case since the config specifies
+    # to grid search over seeds and no other config options. The data for each
+    # trial will be saved in local_dir/name/trial_name where local_dir and name
+    # are the arguments to Experiment() and trial_name is produced by ray based
     # on the hyper-parameters of the trial and time of the Experiment.
     train_double_integrator = Experiment(
         name='dqn_double_integrator_' + date,
@@ -143,18 +145,17 @@ if __name__ == '__main__':
         checkpoint_freq=exp_config['checkpoint_freq'],
         checkpoint_at_end=True)
 
-    # super important to copy dictionary before making changes or else prev experiment will be
-    # changed
+    # Copying dictionary before making changes. Otherwise the previous
+    # experiment would be changed.
     cartpole_exp_config = exp_config.copy()
     cartpole_dqn_config = dqn_config.copy()
 
-    # cartpole specific parameters
+    # Cartpole specific parameters.
 
     # == Environment ==
     cartpole_dqn_config['env'] = 'cartpole_reach-v0'
 
     # == Data Collection Parameters ==
-    # NOTE need to check with shape from output of level set toolbox code we use for release
     cartpole_exp_config['grid_cells'] = (31, 31, 31, 31)
 
     # == Optimization ==
@@ -162,10 +163,12 @@ if __name__ == '__main__':
     cartpole_dqn_config['gamma_half_life'] = int(5e4)
 
     # == Scheduling ==
-    cartpole_exp_config['max_iterations'] = int(dqn_config['schedule_max_timesteps'] /
-                                       dqn_config['timesteps_per_iteration'])
-    cartpole_exp_config['checkpoint_freq'] = int(exp_config['max_iterations'] /
-                                        exp_config['num_violation_collections'])
+    cartpole_exp_config['max_iterations'] = int(
+        dqn_config['schedule_max_timesteps'] /
+        dqn_config['timesteps_per_iteration'])
+    cartpole_exp_config['checkpoint_freq'] = int(
+        exp_config['max_iterations'] /
+        exp_config['num_violation_collections'])
 
     cartpole_exp_config['dqn_config'] = cartpole_dqn_config
 

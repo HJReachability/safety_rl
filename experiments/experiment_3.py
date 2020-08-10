@@ -19,10 +19,11 @@ from utils import get_save_dir
 
 # == Experiment 3 ==
 """
-This experiment runs DQN with the Safety Bellman Equation on lunar lander over 100 random seeds and
-compares the resulting policies against the simulator over the course of training to see how many
-trajectories violate the safety constraints. At the end of training the q function is compared
-against on-policy rollouts in the simulator.
+This experiment runs DQN with the Safety Bellman Equation on lunar lander over
+100 random seeds and compares the resulting policies against the simulator over
+the course of training to see how many trajectories violate the safety
+constraints. At the end of training the q function is compared against on-policy
+rollouts in the simulator.
 """
 
 if __name__ == "__main__":
@@ -30,9 +31,9 @@ if __name__ == "__main__":
     now = datetime.now()
     date = now.strftime("%b") + str(now.day)
 
-    # register env
+    # Register environments (need custom gym environments for safety problem).
     def double_int_env_creator(env_config):
-        from gym_reachability import gym_reachability  # needed to use custom gym env
+        from gym_reachability import gym_reachability
         return gym.make('lunar_lander_reachability-v0')
 
     register_env('lunar_lander_reachability-v0', double_int_env_creator)
@@ -54,7 +55,8 @@ if __name__ == "__main__":
 
     # == Exploration ==
     dqn_config["schedule_max_timesteps"] = int(3e6)
-    dqn_config["timesteps_per_iteration"] = int(1e3)  # num steps sampled per call to agent.train()
+    # How many steps are sampled per call to agent.train().
+    dqn_config["timesteps_per_iteration"] = int(1e3)
     dqn_config["exploration_fraction"] = 2 / 3
     dqn_config["exploration_final_eps"] = 0.1
     dqn_config["target_network_update_freq"] = int(15e3)
@@ -79,25 +81,25 @@ if __name__ == "__main__":
     dqn_config["seed"] = tune.grid_search(list(range(100)))
 
     # == Custom Safety Bellman Equation configs ==
-    Trainer._allow_unknown_configs = True  # need to allow use of SBE config option
+    Trainer._allow_unknown_configs = True     # Needed for SBE config option.
     dqn_config["gamma_schedule"] = "stepped"
     dqn_config["final_gamma"] = 0.999999
-    dqn_config["gamma"] = 0.7  # initial gamma
-    dqn_config["gamma_half_life"] = int(6e4)  # measured relative to steps taken in the environment
+    dqn_config["gamma"] = 0.7                 # Initial discount factor.
+    dqn_config["gamma_half_life"] = int(6e4)  # Measured in environment steps.
     dqn_config["sbe"] = True
 
     # == Data Collection Parameters ==
 
-    # violations data collected throughout training
+    # Violations data collected throughout training.
     exp_config["violations_horizon"] = 120
     exp_config["violations_samples"] = 1000
     exp_config["num_violation_collections"] = 10
 
-    # rollout comparison done at end of training
+    # Rollout comparison done at end of training.
     exp_config["rollout_samples"] = int(1e4)
     exp_config["rollout_horizon"] = 100
 
-    # experiment timing
+    # Experiment timing.
     exp_config["max_iterations"] = int(dqn_config["schedule_max_timesteps"]
                                        / dqn_config["timesteps_per_iteration"])
     exp_config["checkpoint_freq"] = int(exp_config["max_iterations"]
@@ -105,13 +107,15 @@ if __name__ == "__main__":
 
     exp_config["dqn_config"] = dqn_config
 
-    # This Experiment will call TrainDQN._setup() once at the beginning of the experiment and call
-    # TrainDQN._train() until the condition specified by the argument stop is met. In this case
-    # once the training_iteration reaches exp_config["max_iterations"] the experiment will stop.
-    # Every checkpoint_freq it will call TrainDQN._save() and at the end of the experiment. Each
-    # trial is a seed in this case since the config specifies to grid search over seeds and no other
-    # config options. The data for each trial will be saved in local_dir/name/trial_name where
-    # local_dir and name are the arguments to Experiment() and trial_name is produced by ray based
+    # This Experiment will call TrainDQN._setup() once at the beginning of the
+    # experiment and call TrainDQN._train() until the condition specified by the
+    # argument stop is met. In this case once the training_iteration reaches
+    # exp_config["max_iterations"] the experiment will stop. Every
+    # checkpoint_freq it will call TrainDQN._save() and at the end of the
+    # experiment. Each trial is a seed in this case since the config specifies
+    # to grid search over seeds and no other config options. The data for each
+    # trial will be saved in local_dir/name/trial_name where local_dir and name
+    # are the arguments to Experiment() and trial_name is produced by ray based
     # on the hyper-parameters of the trial and time of the Experiment.
     train_double_integrator = Experiment(
         name="dqn_lunar_lander_" + date,

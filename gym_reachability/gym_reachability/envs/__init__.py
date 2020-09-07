@@ -13,6 +13,8 @@ from gym_reachability.gym_reachability.envs.lunar_lander_reachability import Lun
 
 from gym_reachability.gym_reachability.envs.double_integrator import DoubleIntegratorEnv
 
+from gym_reachability.gym_reachability.envs.dubins_car import DubinsCarEnv
+
 from gym_reachability.gym_reachability.envs.cheetah_balance import CheetahBalanceEnv
 
 from gym_reachability.gym_reachability.envs.cheetah_balance_penalize import CheetahBalancePenalizeEnv

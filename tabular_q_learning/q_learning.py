@@ -26,6 +26,7 @@ from utils import state_to_index
 from utils import sbe_outcome
 from utils import save
 
+
 def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
           state_bounds, env, max_episode_length=None, q_values=None,
           start_episode=None, suppress_print=False, seed=0,
@@ -89,10 +90,12 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
         # Iterate over all state-action pairs and initialize Q-values.
         it = np.nditer(q_values, flags=['multi_index'])
         while not it.finished:
-            # Initialize Q(s,a) = l(s).
+            # Initialize Q(s,a) = max{l(s),g(s)}.
             state = it.multi_index[:-1]
-            q_values[it.multi_index] = env.signed_distance(
-                index_to_state(grid_cells, state_bounds, state))
+            idx_2_state = index_to_state(grid_cells, state_bounds, state)
+            g_x = env.safety_margin(idx_2_state)
+            l_x = env.target_margin(idx_2_state)
+            q_values[it.multi_index] = max(l_x, g_x)
             it.iternext()
     elif not np.array_equal(np.shape(q_values)[:-1], grid_cells):
         raise ValueError(
@@ -153,7 +156,8 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
             action_ix = select_action(q_values, state_ix, epsilon)
 
             # Take step and map state to corresponding grid index.
-            next_state, reward, done, _ = env.step(action_ix)
+            next_state, reward, done, info = env.step(action_ix)
+            g_x = info['g_x'] if 'g_x' in info else -np.inf
             next_state_ix = state_to_index(grid_cells, state_bounds,
                                            next_state)
 
@@ -170,23 +174,29 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
 
             # Perform Bellman backup.
             if use_sbe:  # Safety Bellman Equation backup.
-                if fictitious_terminal_val:
-                    q_terminal = ((1.0 - gamma) * reward + gamma *
-                                  min(reward, fictitious_terminal_val))
+                if done:
+                    min_term = min(reward, np.amin(q_values[next_state_ix]))
+                    new_q = (
+                        (1.0 - gamma) * max(reward, g_x) +
+                        gamma * max(min_term, g_x))
                 else:
-                    q_terminal = reward
-                q_non_terminal = ((1.0 - gamma) * reward + gamma *
-                                  min(reward, np.amax(q_values[next_state_ix])))
+                    if fictitious_terminal_val:
+                        min_term = min(reward, fictitious_terminal_val)
+                        new_q = ((1.0 - gamma) * max(reward, g_x) +
+                                 gamma * max(min_term, g_x))
+                    else:
+                        new_q = max(reward, g_x)
             else:       # Sum of discounted rewards backup.
-                if fictitious_terminal_val:
-                    q_terminal = reward + gamma * fictitious_terminal_val
+                if done:
+                    new_q = (reward + gamma *
+                             np.amax(q_values[next_state_ix]))
                 else:
-                    q_terminal = reward
-                q_non_terminal = (reward + gamma *
-                                  np.amax(q_values[next_state_ix]))
+                    if fictitious_terminal_val:
+                        new_q = reward + gamma * fictitious_terminal_val
+                    else:
+                        new_q = reward
 
             # Update state-action values.
-            new_q = done * q_terminal + (1.0 - done) * q_non_terminal
             q_values[state_ix + (action_ix,)] = (
                 (1 - alpha) * q_values[state_ix + (action_ix,)] + alpha * new_q)
             state_ix = next_state_ix

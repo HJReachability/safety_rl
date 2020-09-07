@@ -6,6 +6,7 @@
 #
 # Please contact the author(s) of this library if you have any questions.
 # Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
+#          Vicenc Rubies-Royo  ( vrubies@berkeley.edu )
 
 from gym.envs.registration import register
 
@@ -25,10 +26,18 @@ register(
     entry_point="gym_reachability.gym_reachability.envs:DoubleIntegratorEnv"
 )
 
+
+register(
+    id="dubins_car-v0",
+    entry_point="gym_reachability.gym_reachability.envs:DubinsCarEnv"
+)
+
+
 register(
     id="cheetah_balance-v0",
     entry_point="gym_reachability.gym_reachability.envs:CheetahBalanceEnv"
 )
+
 
 register(
     id="cheetah_balance_penalize-v0",

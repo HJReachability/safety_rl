@@ -103,7 +103,7 @@ if __name__ == "__main__":
     exp_config["max_iterations"] = int(dqn_config["schedule_max_timesteps"]
                                        / dqn_config["timesteps_per_iteration"])
     exp_config["checkpoint_freq"] = int(exp_config["max_iterations"]
-                                        / exp_config["num_violation_collections"])
+                                      / exp_config["num_violation_collections"])
 
     exp_config["dqn_config"] = dqn_config
 

@@ -52,11 +52,11 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
         suppress_print: Boolean whether to suppress print statements about
             current episode or not.
         seed: Seed for random number generator.
-        fictitious_terminal_val: Whether to use a terminal state with this value
-            for the backup when a trajectory ends. This is helpful because it
-            avoids having a ring of terminal states around the failure set. Note
-            that every terminal trajectory will use this as the value for the
-            backup.
+        violation_terminal_val: Whether to use a terminal state with this value
+            for the backup when a trajectory *ends with a violation*. This
+            avoids the need of adding grid cells inside the failure set. Note
+            that we are assuming that gym steps returning done==True correspond
+            to violations of the constraints.
         use_sbe: Whether to use the Safety Bellman Equation backup from
             equation (7) in [ICRA19]. If false the standard sum of discounted
             rewards backup is used.

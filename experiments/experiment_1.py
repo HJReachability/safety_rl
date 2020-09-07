@@ -20,8 +20,12 @@ from utils import make_inverse_polynomial_visit_schedule
 
 # == Experiment 1 ==
 """
-This experiment runs tabular Q-learning with the Safety Bellman Equation backup
-on a double integrator problem.
+This experiment runs tabular Q-learning with the Safety Bellman Equation (SBE)
+backup proposed in [ICRA19] on a 2-dimensional double integrator problem. The
+accuracy of the tabular solution is contingent on the number of episodes and
+the degree of exploration set through the opimization parameters in the code.
+Upon completion, the tabular values are compared to the analytic solution of
+the value function.
 """
 
 # == Environment ==

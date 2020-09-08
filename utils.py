@@ -136,7 +136,7 @@ def v_from_q(q_values):
     v = np.zeros(np.shape(q_values)[:-1])
     it = np.nditer(q_values, flags=['multi_index', 'refs_ok'])
     while not it.finished:
-        v[it.multi_index[:-1]] = max(q_values[it.multi_index[:-1]])
+        v[it.multi_index[:-1]] = min(q_values[it.multi_index[:-1]])
         it.iternext()
     return v
 
@@ -238,7 +238,7 @@ def make_stepped_schedule(start_value, half_life, max_gamma):
 def make_linear_schedule(start_value, end_value, decay_steps):
     m = (end_value-start_value)/decay_steps
     b = start_value
-    return lambda t, n: max(m * t + b, end_value)
+    return lambda t: max(m * t + b, end_value)
 
 
 def make_log_decay_schedule(initial, decay):

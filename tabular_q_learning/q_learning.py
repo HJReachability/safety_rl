@@ -133,7 +133,7 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
         start_episode = 0
 
     # Set starting exploration fraction, learning rate and discount factor.
-    epsilon = get_epsilon(start_episode, 1)
+    epsilon = get_epsilon(start_episode)
     alpha = get_learning_rate(start_episode, 1)
     gamma = get_gamma(start_episode, 1)
 
@@ -153,7 +153,7 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
         # Execute a single rollout.
         while not done:
             # Determine action to use based on epsilon-greedy decision rule.
-            action_ix = select_action(q_values, state_ix, epsilon)
+            action_ix = select_action(q_values, state_ix, env, epsilon)
 
             # Take step and map state to corresponding grid index.
             next_state, reward, done, info = env.step(action_ix)
@@ -168,7 +168,7 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
             t += 1
 
             # Update exploration fraction, learning rate and discount factor.
-            epsilon = get_epsilon(episode + start_episode, num_visits)
+            epsilon = get_epsilon(episode + start_episode)
             alpha = get_learning_rate(episode + start_episode, num_visits)
             gamma = get_gamma(episode + start_episode, num_visits)
 

@@ -20,7 +20,7 @@ from utils import make_inverse_polynomial_visit_schedule
 
 # == Experiment 1 ==
 """
-(vrubies TODO: Update comment)
+TODO{vrubies : Update comment}
 This experiment runs tabular Q-learning with the Safety Bellman Equation (SBE)
 backup proposed in [ICRA19] on a 2-dimensional double integrator problem. The
 accuracy of the tabular solution is contingent on the number of episodes and
@@ -28,6 +28,8 @@ the degree of exploration set through the opimization parameters in the code.
 Upon completion, the tabular values are compared to the analytic solution of
 the value function.
 """
+
+# TODO{vrubies: }
 
 # == Environment ==
 max_episode_length = 1
@@ -69,6 +71,10 @@ v = v_from_q(q)
 #print(env.ground_truth_comparison_v(v))
 visualize_matrix(v[:, :, 0])
 visualize_matrix(np.sign(v[:, :, 0]))
+visualize_matrix(v[:, :, 3])
+visualize_matrix(np.sign(v[:, :, 3]))
+visualize_matrix(v[:, :, 7])
+visualize_matrix(np.sign(v[:, :, 7]))
 #print(np.shape(v))
 #print(np.shape(env.analytic_v()))
 #visualize_matrix(env.analytic_v())

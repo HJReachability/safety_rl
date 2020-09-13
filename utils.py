@@ -241,6 +241,17 @@ def make_linear_schedule(start_value, end_value, decay_steps):
     return lambda t, n: max(m * t + b, end_value)
 
 
+def make_stepped_linear_schedule(start_value, end_value, total_time,
+                                 steps=1):
+    width = total_time/steps
+    m = (end_value-start_value)/total_time
+    b = start_value
+    stair_values = np.array([m * (i * width) + b for i in range(steps+1)])
+    width2 = total_time/(steps+1)
+    times_values = np.array([(i * width2) for i in range(steps+1)])
+    return lambda t, n: stair_values[times_values <= t][-1]
+
+
 def make_log_decay_schedule(initial, decay):
     return lambda t, n: initial / (1 + decay * np.log(t + 1))
 
@@ -248,6 +259,9 @@ def make_log_decay_schedule(initial, decay):
 def make_inverse_polynomial_visit_schedule(scale, power):
     return lambda t, n: scale * 1 / (n ** power)
 
+
+def make_inverse_visit_schedule(episodic_length):
+    return lambda t, n: (episodic_length + 1) / (episodic_length + n)
 
 # == data collection functions ==
 

@@ -234,7 +234,7 @@ class DoubleIntegratorEnv(gym.Env):
         return [x_dot_negative_range, x_negative_range,
                 x_dot_positive_range, x_positive_range]
 
-    def visualize_analytic_comparison(self, v):
+    def visualize_analytic_comparison(self, v, no_show=False):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
@@ -263,7 +263,7 @@ class DoubleIntegratorEnv(gym.Env):
                  color="black")
 
         # Visualize state value.
-        visualize_matrix(v, self.get_axes(), no_show=False)
+        visualize_matrix(v, self.get_axes(), no_show)
 
     def analytic_v(self):
         """ Computes the discretized analytic value function.

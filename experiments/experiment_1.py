@@ -10,6 +10,7 @@
 from gym_reachability import gym_reachability  # Custom Gym env.
 import gym
 import numpy as np
+import matplotlib.pyplot as plt
 
 from tabular_q_learning.q_learning import learn
 from utils import make_linear_schedule
@@ -17,6 +18,8 @@ from utils import make_stepped_schedule
 from utils import v_from_q
 from utils import visualize_matrix
 from utils import make_inverse_polynomial_visit_schedule
+from utils import make_stepped_linear_schedule
+from utils import make_inverse_visit_schedule
 
 # == Experiment 1 ==
 """
@@ -38,6 +41,7 @@ seed = 55
 
 # == Discretization ==
 grid_cells = (51, 101)
+num_states = np.cumprod(grid_cells)[-1]
 state_bounds = env.bounds
 env.set_grid_cells(grid_cells)
 env.set_bounds(state_bounds)
@@ -48,10 +52,10 @@ analytic_v = env.analytic_v()
 # env.visualize_analytic_comparison(np.sign(analytic_v))
 
 # == Optimization ==
-max_episodes = int(1e6)
-get_alpha = make_inverse_polynomial_visit_schedule(1.0, 0.8)
-get_epsilon = make_linear_schedule(0.5, 0.2, int(5e3))
-get_gamma = make_stepped_schedule(0.5, int(5e5), 0.9999)
+max_episodes = int(3e6)
+get_alpha = make_inverse_visit_schedule(max_episodes/num_states)#make_linear_schedule(0.9, 0.1, max_episodes)#make_inverse_polynomial_visit_schedule(1.0, 0.51)
+get_epsilon = make_linear_schedule(0.95, 0.1, max_episodes)
+get_gamma = make_stepped_schedule(0.999, int(max_episodes / 5), 0.9999999)
 
 q, stats = learn(get_learning_rate=get_alpha,
                  get_epsilon=get_epsilon,
@@ -68,9 +72,11 @@ v = v_from_q(q)
 print(env.ground_truth_comparison_v(v))
 visualize_matrix(v)
 visualize_matrix(np.sign(v))
-print(np.shape(v))
-print(np.shape(env.analytic_v()))
-visualize_matrix(env.analytic_v())
-visualize_matrix(np.sign(env.analytic_v()))
+# print(np.shape(v))
+# print(np.shape(env.analytic_v()))
+# visualize_matrix(env.analytic_v())
+# visualize_matrix(np.sign(env.analytic_v()))
 env.visualize_analytic_comparison(v)
 visualize_matrix(np.sum(stats['state_action_visits'], axis=2))
+plt.plot(stats["max_change"])
+plt.show()

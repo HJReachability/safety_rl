@@ -20,11 +20,14 @@ import time
 from datetime import datetime
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 from utils import index_to_state
 from utils import state_to_index
 from utils import sbe_outcome
 from utils import save
+from utils import v_from_q
+from utils import visualize_matrix
 
 
 def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
@@ -124,6 +127,7 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
         "environment": env.spec.id,
         "seed": seed,
         "episode": 0,
+        "max_change": np.zeros(max_episodes)
     }
 
     env.set_grid_cells(grid_cells)
@@ -144,14 +148,21 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
             print(message.format(
                 episode + 1, max_episodes, alpha, gamma, epsilon), end="")
             sys.stdout.flush()
+        if not suppress_print and (episode + 1) % 10000 == 0:
+            env.visualize_analytic_comparison(v_from_q(q_values), True)
+            plt.pause(0.01)
         state = env.reset()
         state_ix = state_to_index(grid_cells, state_bounds, state)
         done = False
         t = 0
         episode_rewards = []
 
+        # Make a copy of Q
+        q_values_old = q_values.copy()
+
         # Execute a single rollout.
         while not done:
+
             # Determine action to use based on epsilon-greedy decision rule.
             action_ix = select_action(q_values, state_ix, env, epsilon)
 
@@ -216,12 +227,14 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
         stats["epsilon"][episode] = epsilon
         stats["gamma"][episode] = gamma
         stats["episode"] = episode
+        stats["max_change"][episode] = np.max(np.abs(q_values - q_values_old))
 
         if save_freq and episode % save_freq == 0:
             save(q_values, stats, env.unwrapped.spec.id)
 
     stats["time_elapsed"] = time.process_time() - start
     print("\n")
+
     return q_values, stats
 
 

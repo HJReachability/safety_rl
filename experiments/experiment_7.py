@@ -21,7 +21,7 @@ from utils import make_inverse_polynomial_visit_schedule
 from utils import make_stepped_linear_schedule
 from utils import make_inverse_visit_schedule
 
-# == Experiment 6 ==
+# == Experiment 1 ==
 """
 TODO{vrubies : Update comment}
 This experiment runs tabular Q-learning with the Safety Bellman Equation (SBE)
@@ -32,16 +32,18 @@ Upon completion, the tabular values are compared to the analytic solution of
 the value function.
 """
 
+# TODO{vrubies: }
+
 # == Environment ==
-max_episode_length = 10
-env = gym.make("point_mass-v0")
+max_episode_length = 1
+env = gym.make("dubins_car-v0")
 fictitious_terminal_val = 10
 
 # == Seeding ==
-seed = 1
+seed = 55
 
 # == Discretization ==
-grid_cells = (61, 61)
+grid_cells = (61, 61, 15)
 num_states = np.cumprod(grid_cells)[-1]
 state_bounds = env.bounds
 env.set_grid_cells(grid_cells)
@@ -53,13 +55,14 @@ env.set_bounds(state_bounds)
 # env.visualize_analytic_comparison(np.sign(analytic_v))
 
 # == Optimization ==
-max_episodes = int(1e6)
+max_episodes = int(3e6)
 get_alpha = make_inverse_visit_schedule(max_episodes/num_states)#make_linear_schedule(0.9, 0.1, max_episodes)#make_inverse_polynomial_visit_schedule(1.0, 0.51)
 get_epsilon = make_linear_schedule(0.95, 0.1, max_episodes)
 get_gamma = make_stepped_schedule(0.999, int(max_episodes / 5), 0.9999999)
 
 # Visualization states.
-viz_states = [np.array([0, 0])]
+viz_states = [np.array([0.5, 0, 0]), np.array([0.5, 0, 3.0*np.pi/2.0]),
+              np.array([0.5, 0, np.pi/2.0])]
 
 q, stats = learn(get_learning_rate=get_alpha,
                  get_epsilon=get_epsilon,
@@ -75,8 +78,12 @@ q, stats = learn(get_learning_rate=get_alpha,
 
 v = v_from_q(q)
 #print(env.ground_truth_comparison_v(v))
-visualize_matrix(v)
-visualize_matrix(np.sign(v))
+visualize_matrix(v[:, :, 0])
+visualize_matrix(np.sign(v[:, :, 0]))
+visualize_matrix(v[:, :, 3])
+visualize_matrix(np.sign(v[:, :, 3]))
+visualize_matrix(v[:, :, 7])
+visualize_matrix(np.sign(v[:, :, 7]))
 #print(np.shape(v))
 #print(np.shape(env.analytic_v()))
 #visualize_matrix(env.analytic_v())

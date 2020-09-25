@@ -33,7 +33,8 @@ from utils import visualize_matrix
 def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
           state_bounds, env, max_episode_length=None, q_values=None,
           start_episode=None, suppress_print=False, seed=0,
-          fictitious_terminal_val=None, use_sbe=True, save_freq=None):
+          fictitious_terminal_val=None, visualization_states=None,
+          num_rnd_traj=None, use_sbe=True, save_freq=None):
     """ Computes state-action value function in tabular form.
 
     Args:
@@ -71,6 +72,8 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
         contains the q_values value function. For example in cartpole the
         dimensions are q_values[x][x_dot][theta][theta_dot][action].
     """
+    # TODO(vrubies): sbe change
+    # TODO(vrubies): reach_margin, avoid_margin
     # Time-related variables for performace analysis.
     start = time.process_time()
     now = datetime.now()
@@ -90,6 +93,7 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
                 "Start_episode is only to be used with a warmstart q_values.")
 
         q_values = np.zeros(grid_cells + (env.action_space.n,))
+        viz_fail = np.zeros(grid_cells)
         # Iterate over all state-action pairs and initialize Q-values.
         it = np.nditer(q_values, flags=['multi_index'])
         while not it.finished:
@@ -99,7 +103,11 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
             g_x = env.safety_margin(idx_2_state)
             l_x = env.target_margin(idx_2_state)
             q_values[it.multi_index] = max(l_x, g_x)
+            viz_fail[it.multi_index[:-1]] = g_x
             it.iternext()
+        env.visualize_analytic_comparison(viz_fail * (viz_fail < 0) +
+                                          (viz_fail > 0), True)
+        plt.pause(1)
     elif not np.array_equal(np.shape(q_values)[:-1], grid_cells):
         raise ValueError(
             "The shape of q_values excluding the last dimension must be the "
@@ -126,8 +134,7 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
         "type": "tabular q_values-learning",
         "environment": env.spec.id,
         "seed": seed,
-        "episode": 0,
-        "max_change": np.zeros(max_episodes)
+        "episode": 0
     }
 
     env.set_grid_cells(grid_cells)
@@ -141,25 +148,28 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
     alpha = get_learning_rate(start_episode, 1)
     gamma = get_gamma(start_episode, 1)
 
+    cumulative_time = 0
     # Main learning loop: Run episodic trajectories from random initial states.
     for episode in range(max_episodes):
         if not suppress_print and (episode + 1) % 100 == 0:
-            message = "\rEpisode {}/{} alpha:{} gamma:{} epsilon:{}."
+            message = "\rEpisode {}/{} alpha:{} gamma:{} epsilon:{} avg_ep:{}."
             print(message.format(
-                episode + 1, max_episodes, alpha, gamma, epsilon), end="")
+                episode + 1, max_episodes, alpha, gamma, epsilon,
+                cumulative_time/(episode + 1.0)), end="")
             sys.stdout.flush()
-        if not suppress_print and (episode + 1) % 10000 == 0:
+        if ((num_rnd_traj is not None or visualization_states is not None)
+                and (episode + 1) % 10000 == 0):
             env.visualize_analytic_comparison(v_from_q(q_values), True)
-            plt.pause(0.01)
+            # env.plot_trajectories(q_values, T=100, num_rnd_traj=num_rnd_traj,
+            #                       states=visualization_states)
+            plt.pause(0.001)
         state = env.reset()
         state_ix = state_to_index(grid_cells, state_bounds, state)
         done = False
         t = 0
         episode_rewards = []
 
-        # Make a copy of Q
-        q_values_old = q_values.copy()
-
+        time_for_episode = time.time()
         # Execute a single rollout.
         while not done:
 
@@ -185,20 +195,21 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
 
             # Perform Bellman backup.
             if use_sbe:  # Safety Bellman Equation backup.
-                if done:
-                    min_term = min(reward, np.amin(q_values[next_state_ix]))
+                l_x = reward
+                if not done:
+                    min_term = min(l_x, np.amin(q_values[next_state_ix]))
                     new_q = (
-                        (1.0 - gamma) * max(reward, g_x) +
+                        (1.0 - gamma) * max(l_x, g_x) +
                         gamma * max(min_term, g_x))
                 else:
                     if fictitious_terminal_val:
-                        min_term = min(reward, fictitious_terminal_val)
-                        new_q = ((1.0 - gamma) * max(reward, g_x) +
-                                 gamma * max(min_term, g_x))
-                    else:
-                        new_q = max(reward, g_x)
+                        if g_x > 0:  # Safety violation.
+                            g_x = fictitious_terminal_val
+                        elif l_x < 0:  # Target reached.
+                            l_x = -fictitious_terminal_val
+                    new_q = max(l_x, g_x)
             else:       # Sum of discounted rewards backup.
-                if done:
+                if not done:
                     new_q = (reward + gamma *
                              np.amax(q_values[next_state_ix]))
                 else:
@@ -216,6 +227,8 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
             if max_episode_length is not None and t >= max_episode_length:
                 break
 
+        time_for_episode = time.time() - time_for_episode
+        cumulative_time += time_for_episode
         # save episode statistics
         episode_rewards = np.array(episode_rewards)
         outcome = sbe_outcome(episode_rewards, gamma)[0]
@@ -227,7 +240,6 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
         stats["epsilon"][episode] = epsilon
         stats["gamma"][episode] = gamma
         stats["episode"] = episode
-        stats["max_change"][episode] = np.max(np.abs(q_values - q_values_old))
 
         if save_freq and episode % save_freq == 0:
             save(q_values, stats, env.unwrapped.spec.id)
@@ -253,7 +265,7 @@ def select_action(q_values, state_ix, env, epsilon=0):
     if np.random.random() < epsilon:
         action_ix = env.action_space.sample()
     else:
-        action_ix = np.argmax(q_values[state_ix])
+        action_ix = np.argmin(q_values[state_ix])
     return action_ix
 
 

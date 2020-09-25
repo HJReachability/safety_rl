@@ -34,6 +34,12 @@ register(
 
 
 register(
+    id="point_mass-v0",
+    entry_point="gym_reachability.gym_reachability.envs:PointMassEnv"
+)
+
+
+register(
     id="cheetah_balance-v0",
     entry_point="gym_reachability.gym_reachability.envs:CheetahBalanceEnv"
 )

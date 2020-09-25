@@ -24,14 +24,13 @@ matplotlib.use("TkAgg")
 matplotlib.style.use('ggplot')
 
 
-class DubinsCarEnv(gym.Env):
+class PointMassEnv(gym.Env):
 
     def __init__(self):
 
         # State bounds.
-        self.bounds = np.array([[-2, 2],  # axis_0 = state, axis_1 = bounds.
-                                [-2, 2],
-                                [-np.pi, np.pi]])
+        self.bounds = np.array([[-1.8, 1.8],  # axis_0 = state, axis_1 = bounds.
+                                [-2, 10]])
         self.low = self.bounds[:, 0]
         self.high = self.bounds[:, 1]
 
@@ -39,35 +38,28 @@ class DubinsCarEnv(gym.Env):
         self.time_step = 0.01
 
         # Dubins car parameters.
-        self.speed = 1.0
+        self.upward_speed = 2.0
 
         # Control parameters.
-        # TODO{vrubies: Check proper rates.}
-        self.max_turning_rate = 2.0
-        self.discrete_controls = np.array([-self.max_turning_rate,
+        self.horizontal_rate = 1
+        self.discrete_controls = np.array([-self.horizontal_rate,
                                            0,
-                                           self.max_turning_rate])
+                                           self.horizontal_rate])
 
         # Constraint set parameters.
-        self.inner_radius = 0.25
-        self.outer_radius = 1.0
+        self.box1_x_y_length = np.array([1.25, 3, 1.5])
+        self.box2_x_y_length = np.array([-1.25, 3, 1.5])
+        self.box3_x_y_length = np.array([0, 7, 1.5])
 
         # Target set parameters.
-        self.target_radius = self.inner_radius
-        # self.target_radius = 1.0/16.0
-        self.target_center_x = (self.inner_radius + self.outer_radius) / 2.0
-        self.target_center_y = 0
-        # self.target_center = np.array([self.target_center_x,
-        #                                self.target_center_y])
-        self.target_center = np.array([0,
-                                       0])
+        self.box4_x_y_length = np.array([0, 7+1.5, 1.5])
 
         # Gym variables.
-        self.action_space = gym.spaces.Discrete(3)  # angular_rate = {-1,0,1}
-        midpoint = (self.low + self.high)/2.0
-        interval = self.high - self.low
-        self.observation_space = gym.spaces.Box(midpoint - interval,
-                                                midpoint + interval)
+        self.action_space = gym.spaces.Discrete(3)  # horizontal_rate = {-1,0,1}
+        self.midpoint = (self.low + self.high)/2.0
+        self.interval = self.high - self.low
+        self.observation_space = gym.spaces.Box(self.midpoint - self.interval,
+                                                self.midpoint + self.interval)
         self.viewer = None
 
         # Discretization.
@@ -79,8 +71,11 @@ class DubinsCarEnv(gym.Env):
         self.seed_val = 0
 
         # Visualization params
-        self.angle_slices = [7]
         self.vis_init_flag = True
+        (self.x_box1_pos, self.x_box2_pos,
+         self.x_box3_pos, self.y_box1_pos,
+         self.y_box2_pos, self.y_box3_pos) = self.constraint_set_boundary()
+        (self.x_box4_pos, self.y_box4_pos) = self.target_set_boundary()
 
         # Set random seed.
         np.random.seed(self.seed_val)
@@ -96,25 +91,19 @@ class DubinsCarEnv(gym.Env):
             The state the environment has been reset to.
         """
         if start is None:
-            x_rnd, y_rnd, theta_rnd = self.sample_random_state()
-            self.state = np.array([x_rnd, y_rnd, theta_rnd])
+            self.state = self.sample_random_state()
         else:
             self.state = start
         return np.copy(self.state)
 
     def sample_random_state(self):
-        # Sample between -pi to pi.
-        angle = (2.0 * np.random.uniform() - 1.0) * np.pi
-
-        # Sample within the contraint set K.
-        dist = np.sqrt(np.random.uniform() *
-                       (self.outer_radius**2 - self.inner_radius**2) +
-                       self.inner_radius**2)
-        assert (dist <= self.outer_radius and dist >= self.inner_radius)
-        x_rnd = dist * np.cos(angle)
-        y_rnd = dist * np.sin(angle)
-        theta_rnd = np.random.uniform(low=self.low[-1], high=self.high[-1])
-        return x_rnd, y_rnd, theta_rnd
+        # Sample states uniformly until one is found inside the constraint set
+        # but outside target.
+        rnd_state = np.random.uniform(low=self.low, high=self.high)
+        # while ((self.safety_margin(rnd_state) > 0) or (
+        #         self.target_margin(rnd_state) > 0)):
+        #     rnd_state = np.random.uniform(low=self.low, high=self.high)
+        return rnd_state
 
     def step(self, action):
         """ Evolve the environment one step forward under given input action.
@@ -138,20 +127,18 @@ class DubinsCarEnv(gym.Env):
             g_x = self.safety_margin(nearest_point)
 
         # Move dynamics one step forward.
-        x, y, theta = self.state
+        x, y = self.state
         u = self.discrete_controls[action]
 
-        x, y, theta = self.integrate_forward(x, y, theta, u)
-        self.state = np.array([x, y, theta])
+        x, y = self.integrate_forward(x, y, u)
+        self.state = np.array([x, y])
 
         # Calculate whether episode is done.
-        dist_origin = np.linalg.norm(self.state[:2])
-        done = ((dist_origin > self.outer_radius) or
-                (dist_origin <= self.inner_radius))
+        done = (g_x > 0)
         info = {"g_x": g_x}
         return np.copy(self.state), l_x, done, info
 
-    def integrate_forward(self, x, y, theta, u):
+    def integrate_forward(self, x, y, u):
         """ Integrate the dynamics forward by one step.
 
         Args:
@@ -163,10 +150,9 @@ class DubinsCarEnv(gym.Env):
         Returns:
             State variables (x,y,theta) integrated one step forward in time.
         """
-        x = x + self.time_step * self.speed * np.cos(theta)
-        y = y + self.time_step * self.speed * np.sin(theta)
-        theta = theta + self.time_step * u
-        return x, y, theta
+        x = x + self.time_step * u
+        y = y + self.time_step * self.upward_speed
+        return x, y
 
     def set_seed(self, seed):
         """ Set the random seed.
@@ -186,16 +172,23 @@ class DubinsCarEnv(gym.Env):
         Returns:
             Margin for the state s.
         """
-        dist_to_origin = np.linalg.norm(s[:2])
-        outer_dist = dist_to_origin - self.outer_radius
-        # inner_dist = self.inner_radius - dist_to_origin
-        # Note the "-" sign. This ensures x \in K \iff g(x) <= 0.
-        # safety_margin = maxmin?(outer_dist, inner_dist)
-        safety_margin = outer_dist
-        # if safety_margin > 0:
-        #     safety_margin = 10
-        # if x_in:
-        #     return -1 * x_dist
+        box1_safety_margin = -(np.linalg.norm(s - self.box1_x_y_length[:2],
+                               ord=np.inf) - self.box1_x_y_length[-1]/2.0)
+        box2_safety_margin = -(np.linalg.norm(s - self.box2_x_y_length[:2],
+                               ord=np.inf) - self.box2_x_y_length[-1]/2.0)
+        box3_safety_margin = -(np.linalg.norm(s - self.box3_x_y_length[:2],
+                               ord=np.inf) - self.box3_x_y_length[-1]/2.0)
+
+        vertical_margin = (np.abs(s[1] - (self.low[1] + self.high[1])/2.0)
+                           - self.interval[1]/2.0)
+        horizontal_margin = np.abs(s[0]) - 2.0
+        enclosure_safety_margin = max(horizontal_margin, vertical_margin)
+
+        safety_margin = max(box1_safety_margin,
+                            box2_safety_margin,
+                            box3_safety_margin,
+                            enclosure_safety_margin)
+
         return safety_margin
 
     def target_margin(self, s):
@@ -207,10 +200,10 @@ class DubinsCarEnv(gym.Env):
         Returns:
             Margin for the state s.
         """
-        dist_to_target = np.linalg.norm(s[:2] - self.target_center)
-        target_margin = dist_to_target - self.target_radius
-        # if x_in:
-        #     return -1 * x_dist
+        box4_target_margin = (np.linalg.norm(s - self.box4_x_y_length[:2],
+                              ord=np.inf) - self.box4_x_y_length[-1]/2.0)
+
+        target_margin = box4_target_margin
         return target_margin
 
     def set_grid_cells(self, grid_cells):
@@ -221,8 +214,8 @@ class DubinsCarEnv(gym.Env):
         """
         self.grid_cells = grid_cells
 
-        (self.x_opos, self.y_opos, self.x_ipos,
-         self.y_ipos) = self.constraint_set_boundary()
+        # (self.x_opos, self.y_opos, self.x_ipos,
+        #  self.y_ipos) = self.constraint_set_boundary()
 
     def set_bounds(self, bounds):
         """ Set state bounds.
@@ -298,19 +291,73 @@ class DubinsCarEnv(gym.Env):
             two elements of the list describe the set of coordinates for the
             first and second parabola respectively.
         """
-        num_points = self.grid_cells[0]
-        x_opos = np.zeros((num_points,))
-        y_opos = np.zeros((num_points,))
-        x_ipos = np.zeros((num_points,))
-        y_ipos = np.zeros((num_points,))
-        linspace = 2.1 * np.pi * np.arange(start=0, stop=1, step=1/num_points)
+        x_box1_pos = np.array([
+            self.box1_x_y_length[0] - self.box1_x_y_length[-1]/2.0,
+            self.box1_x_y_length[0] - self.box1_x_y_length[-1]/2.0,
+            self.box1_x_y_length[0] + self.box1_x_y_length[-1]/2.0,
+            self.box1_x_y_length[0] + self.box1_x_y_length[-1]/2.0,
+            self.box1_x_y_length[0] - self.box1_x_y_length[-1]/2.0])
+        x_box2_pos = np.array([
+            self.box2_x_y_length[0] - self.box2_x_y_length[-1]/2.0,
+            self.box2_x_y_length[0] - self.box2_x_y_length[-1]/2.0,
+            self.box2_x_y_length[0] + self.box2_x_y_length[-1]/2.0,
+            self.box2_x_y_length[0] + self.box2_x_y_length[-1]/2.0,
+            self.box2_x_y_length[0] - self.box2_x_y_length[-1]/2.0])
+        x_box3_pos = np.array([
+            self.box3_x_y_length[0] - self.box3_x_y_length[-1]/2.0,
+            self.box3_x_y_length[0] - self.box3_x_y_length[-1]/2.0,
+            self.box3_x_y_length[0] + self.box3_x_y_length[-1]/2.0,
+            self.box3_x_y_length[0] + self.box3_x_y_length[-1]/2.0,
+            self.box3_x_y_length[0] - self.box3_x_y_length[-1]/2.0])
 
-        x_opos = self.outer_radius * np.cos(linspace)
-        y_opos = self.outer_radius * np.sin(linspace)
-        x_ipos = self.inner_radius * np.cos(linspace)
-        y_ipos = self.inner_radius * np.sin(linspace)
+        y_box1_pos = np.array([
+            self.box1_x_y_length[1] - self.box1_x_y_length[-1]/2.0,
+            self.box1_x_y_length[1] + self.box1_x_y_length[-1]/2.0,
+            self.box1_x_y_length[1] + self.box1_x_y_length[-1]/2.0,
+            self.box1_x_y_length[1] - self.box1_x_y_length[-1]/2.0,
+            self.box1_x_y_length[1] - self.box1_x_y_length[-1]/2.0])
+        y_box2_pos = np.array([
+            self.box2_x_y_length[1] - self.box2_x_y_length[-1]/2.0,
+            self.box2_x_y_length[1] + self.box2_x_y_length[-1]/2.0,
+            self.box2_x_y_length[1] + self.box2_x_y_length[-1]/2.0,
+            self.box2_x_y_length[1] - self.box2_x_y_length[-1]/2.0,
+            self.box2_x_y_length[1] - self.box2_x_y_length[-1]/2.0])
+        y_box3_pos = np.array([
+            self.box3_x_y_length[1] - self.box3_x_y_length[-1]/2.0,
+            self.box3_x_y_length[1] + self.box3_x_y_length[-1]/2.0,
+            self.box3_x_y_length[1] + self.box3_x_y_length[-1]/2.0,
+            self.box3_x_y_length[1] - self.box3_x_y_length[-1]/2.0,
+            self.box3_x_y_length[1] - self.box3_x_y_length[-1]/2.0])
 
-        return (x_opos, y_opos, x_ipos, y_ipos)
+        return (x_box1_pos, x_box2_pos, x_box3_pos,
+                y_box1_pos, y_box2_pos, y_box3_pos)
+
+    def target_set_boundary(self):
+        """ Computes the safe set boundary based on the analytic solution.
+
+        The boundary of the safe set for the double integrator is determined by
+        two parabolas and two line segments.
+
+        Returns:
+            Set of discrete points describing each parabola. The first and last
+            two elements of the list describe the set of coordinates for the
+            first and second parabola respectively.
+        """
+        x_box4_pos = np.array([
+            self.box4_x_y_length[0] - self.box4_x_y_length[-1]/2.0,
+            self.box4_x_y_length[0] - self.box4_x_y_length[-1]/2.0,
+            self.box4_x_y_length[0] + self.box4_x_y_length[-1]/2.0,
+            self.box4_x_y_length[0] + self.box4_x_y_length[-1]/2.0,
+            self.box4_x_y_length[0] - self.box4_x_y_length[-1]/2.0])
+
+        y_box4_pos = np.array([
+            self.box4_x_y_length[1] - self.box4_x_y_length[-1]/2.0,
+            self.box4_x_y_length[1] + self.box4_x_y_length[-1]/2.0,
+            self.box4_x_y_length[1] + self.box4_x_y_length[-1]/2.0,
+            self.box4_x_y_length[1] - self.box4_x_y_length[-1]/2.0,
+            self.box4_x_y_length[1] - self.box4_x_y_length[-1]/2.0])
+
+        return (x_box4_pos, y_box4_pos)
 
     def visualize_analytic_comparison(self, v, no_show=False,
                                       labels=["x dot", "x"]):
@@ -320,25 +367,22 @@ class DubinsCarEnv(gym.Env):
             v: State value function.
         """
         plt.clf()
-        # Plot analytic parabolas.
-        plt.plot(self.x_opos, self.y_opos, color="black")
-        plt.plot(self.x_ipos, self.y_ipos, color="black")
+        boundary = ((v < 0.1) * (v > -0.1))
+        v[boundary] = np.max(v)
+        visualize_matrix(v.T, self.get_axes(labels), no_show)
 
-        # num_subfigs = len(self.angle_slices)
-        # if self.vis_init_flag:
-        #     fig, ax = plt.subplots(nrows=1, ncols=num_subfigs)
-        #     self.vis_init_flag = False
-        # for ii in range(num_subfigs):
-        #     plt.subplot(1, num_subfigs, ii+1)
-        #     # Visualize state value.
-        visualize_matrix(v[:, :, self.angle_slices[0]],
-                         self.get_axes(labels), no_show)
+        # # Plot bounadries of constraint set.
+        # plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
+        # plt.plot(self.x_box2_pos, self.y_box2_pos, color="black")
+        # plt.plot(self.x_box3_pos, self.y_box3_pos, color="black")
+        # # Plot boundaries of target set.
+        # plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
 
     def simulate_one_trajectory(self, q_func, T=10, state=None):
 
         if state is None:
             state = self.sample_random_state()
-        x, y, theta = state
+        x, y = state
         traj_x = [x]
         traj_y = [y]
 
@@ -347,7 +391,7 @@ class DubinsCarEnv(gym.Env):
             action_ix = np.argmin(q_func[state_ix])
             u = self.discrete_controls[action_ix]
 
-            x, y, theta = self.integrate_forward(x, y, theta, u)
+            x, y = self.integrate_forward(x, y, u)
             traj_x.append(x)
             traj_y.append(y)
 
@@ -411,7 +455,7 @@ class DubinsCarEnv(gym.Env):
     #         it.iternext()
     #     return v
 
-    def get_axes(self, labels=["x dot", "x"]):
+    def get_axes(self, labels=["x", "y"]):
         """ Gets the bounds for the environment.
 
         Returns:

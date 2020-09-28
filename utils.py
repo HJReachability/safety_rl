@@ -15,7 +15,7 @@ from glob import glob
 
 import numpy as np
 import matplotlib
-matplotlib.use("TkAgg")
+# matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
 import tensorflow as tf
 
@@ -104,8 +104,7 @@ def index_to_state(grid_cells, state_bounds, discrete):
             state[i] = ((state_bounds[i][1] - state_bounds[i][0]) / 2) + state_bounds[i][0]
         else:
             scaling = (grid_cells[i] - 1) / (state_bounds[i][1] - state_bounds[i][0])
-            offset = scaling * state_bounds[i][0]
-            state[i] = (discrete[i] + offset) / scaling
+            state[i] = discrete[i] / scaling + state_bounds[i][0]
     return state
 
 
@@ -165,8 +164,9 @@ def q_values_from_q_func(q_func, num_grid_cells, state_bounds, action_n):
 
 def visualize_matrix(m, axes=None, no_show=False):
     if axes is not None:
-        f = plt.imshow(m, interpolation='none', extent=axes[0], origin="lower", cmap="plasma",
-                       vmin=-2, vmax=4)  # Transpose is necessary so that m[x,y] is (x,y) on plot
+        # Transpose is necessary so that m[x,y] is (x,y) on plot.
+        f = plt.imshow(m, interpolation='none', extent=axes[0], origin="lower",
+                       cmap="plasma", vmin=-2, vmax=4)
         a = plt.gca()
         a.set_aspect((axes[0][1]-axes[0][0])/(axes[0][3]-axes[0][2]))  # makes equal aspect ratio
         a.set_xlabel(axes[1][0])

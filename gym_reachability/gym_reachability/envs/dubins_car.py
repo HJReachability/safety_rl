@@ -29,9 +29,9 @@ class DubinsCarEnv(gym.Env):
     def __init__(self):
 
         # State bounds.
-        self.bounds = np.array([[-2, 2],  # axis_0 = state, axis_1 = bounds.
-                                [-2, 2],
-                                [-np.pi, np.pi]])
+        self.bounds = np.array([[-1.1, 1.1],  # axis_0 = state, axis_1 = bounds.
+                                [-1.1, 1.1],
+                                [0, 2*np.pi]])
         self.low = self.bounds[:, 0]
         self.high = self.bounds[:, 1]
 
@@ -43,9 +43,8 @@ class DubinsCarEnv(gym.Env):
 
         # Control parameters.
         # TODO{vrubies: Check proper rates.}
-        self.max_turning_rate = 2.0
+        self.max_turning_rate = 0.01
         self.discrete_controls = np.array([-self.max_turning_rate,
-                                           0,
                                            self.max_turning_rate])
 
         # Constraint set parameters.
@@ -63,7 +62,7 @@ class DubinsCarEnv(gym.Env):
                                        0])
 
         # Gym variables.
-        self.action_space = gym.spaces.Discrete(3)  # angular_rate = {-1,0,1}
+        self.action_space = gym.spaces.Discrete(2)  # angular_rate = {-1,1}
         midpoint = (self.low + self.high)/2.0
         interval = self.high - self.low
         self.observation_space = gym.spaces.Box(midpoint - interval,
@@ -79,7 +78,7 @@ class DubinsCarEnv(gym.Env):
         self.seed_val = 0
 
         # Visualization params
-        self.angle_slices = [7]
+        self.angle_slices = [0]
         self.vis_init_flag = True
 
         # Set random seed.
@@ -106,7 +105,7 @@ class DubinsCarEnv(gym.Env):
         # Sample between -pi to pi.
         angle = (2.0 * np.random.uniform() - 1.0) * np.pi
 
-        # Sample within the contraint set K.
+        # Sample inside a ring uniformly at random.
         dist = np.sqrt(np.random.uniform() *
                        (self.outer_radius**2 - self.inner_radius**2) +
                        self.inner_radius**2)
@@ -146,8 +145,7 @@ class DubinsCarEnv(gym.Env):
 
         # Calculate whether episode is done.
         dist_origin = np.linalg.norm(self.state[:2])
-        done = ((dist_origin > self.outer_radius) or
-                (dist_origin <= self.inner_radius))
+        done = ((g_x > 0) or (l_x <= 0))
         info = {"g_x": g_x}
         return np.copy(self.state), l_x, done, info
 
@@ -165,7 +163,7 @@ class DubinsCarEnv(gym.Env):
         """
         x = x + self.time_step * self.speed * np.cos(theta)
         y = y + self.time_step * self.speed * np.sin(theta)
-        theta = theta + self.time_step * u
+        theta = np.mod(theta + self.time_step * u, 2*np.pi)
         return x, y, theta
 
     def set_seed(self, seed):
@@ -313,7 +311,7 @@ class DubinsCarEnv(gym.Env):
         return (x_opos, y_opos, x_ipos, y_ipos)
 
     def visualize_analytic_comparison(self, v, no_show=False,
-                                      labels=["x dot", "x"]):
+                                      labels=["x", "y"]):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
@@ -331,7 +329,7 @@ class DubinsCarEnv(gym.Env):
         # for ii in range(num_subfigs):
         #     plt.subplot(1, num_subfigs, ii+1)
         #     # Visualize state value.
-        visualize_matrix(v[:, :, self.angle_slices[0]],
+        visualize_matrix(v[:, :, self.angle_slices[0]].T,
                          self.get_axes(labels), no_show)
 
     def simulate_one_trajectory(self, q_func, T=10, state=None):
@@ -343,11 +341,14 @@ class DubinsCarEnv(gym.Env):
         traj_y = [y]
 
         for t in range(T):
+            if self.safety_margin(state) > 0 or self.target_margin(state) < 0:
+                break
             state_ix = state_to_index(self.grid_cells, self.bounds, state)
             action_ix = np.argmin(q_func[state_ix])
             u = self.discrete_controls[action_ix]
 
             x, y, theta = self.integrate_forward(x, y, theta, u)
+            state = np.array([x, y, theta])
             traj_x.append(x)
             traj_y.append(y)
 
@@ -411,11 +412,11 @@ class DubinsCarEnv(gym.Env):
     #         it.iternext()
     #     return v
 
-    def get_axes(self, labels=["x dot", "x"]):
+    def get_axes(self, labels=["x", "y"]):
         """ Gets the bounds for the environment.
 
         Returns:
             List containing a list of bounds for each state coordinate and a
             list for the name of each state coordinate.
         """
-        return [np.append(self.bounds[1], self.bounds[0]), labels]
+        return [np.append(self.bounds[0], self.bounds[1]), labels]

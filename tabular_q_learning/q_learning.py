@@ -34,7 +34,7 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
           state_bounds, env, max_episode_length=None, q_values=None,
           start_episode=None, suppress_print=False, seed=0,
           fictitious_terminal_val=None, visualization_states=None,
-          num_rnd_traj=None, use_sbe=True, save_freq=None):
+          num_rnd_traj=None, vis_T=10, use_sbe=True, save_freq=None):
     """ Computes state-action value function in tabular form.
 
     Args:
@@ -105,9 +105,9 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
             q_values[it.multi_index] = max(l_x, g_x)
             viz_fail[it.multi_index[:-1]] = g_x
             it.iternext()
-        env.visualize_analytic_comparison(viz_fail * (viz_fail < 0) +
-                                          (viz_fail > 0), True)
-        plt.pause(1)
+        # env.visualize_analytic_comparison(viz_fail * (viz_fail < 0) +
+        #                                   (viz_fail > 0), True)
+        # plt.pause(0.01)
     elif not np.array_equal(np.shape(q_values)[:-1], grid_cells):
         raise ValueError(
             "The shape of q_values excluding the last dimension must be the "
@@ -160,8 +160,8 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
         if ((num_rnd_traj is not None or visualization_states is not None)
                 and (episode + 1) % 10000 == 0):
             env.visualize_analytic_comparison(v_from_q(q_values), True)
-            # env.plot_trajectories(q_values, T=100, num_rnd_traj=num_rnd_traj,
-            #                       states=visualization_states)
+            env.plot_trajectories(q_values, T=vis_T, num_rnd_traj=num_rnd_traj,
+                                  states=visualization_states)
             plt.pause(0.001)
         state = env.reset()
         state_ix = state_to_index(grid_cells, state_bounds, state)
@@ -172,27 +172,31 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
         time_for_episode = time.time()
         # Execute a single rollout.
         while not done:
-
+            # time_to_run1 = time.time()
             # Determine action to use based on epsilon-greedy decision rule.
             action_ix = select_action(q_values, state_ix, env, epsilon)
-
+            # time_to_run1 = time.time() - time_to_run1
+            # time_to_run2 = time.time()
             # Take step and map state to corresponding grid index.
             next_state, reward, done, info = env.step(action_ix)
             g_x = info['g_x'] if 'g_x' in info else -np.inf
             next_state_ix = state_to_index(grid_cells, state_bounds,
                                            next_state)
-
+            # time_to_run2 = time.time() - time_to_run2
+            # time_to_run3 = time.time()
             # Update episode experiment log.
             stats['state_action_visits'][state_ix + (action_ix,)] += 1
             num_visits = stats['state_action_visits'][state_ix + (action_ix,)]
             episode_rewards.append(reward)
             t += 1
-
+            # time_to_run3 = time.time() - time_to_run3
+            # time_to_run4 = time.time()
             # Update exploration fraction, learning rate and discount factor.
             epsilon = get_epsilon(episode + start_episode)
             alpha = get_learning_rate(episode + start_episode, num_visits)
             gamma = get_gamma(episode + start_episode, num_visits)
-
+            # time_to_run4 = time.time() - time_to_run4
+            # print(time_to_run1, time_to_run2, time_to_run3, time_to_run4)
             # Perform Bellman backup.
             if use_sbe:  # Safety Bellman Equation backup.
                 l_x = reward
@@ -204,10 +208,11 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
                 else:
                     if fictitious_terminal_val:
                         if g_x > 0:  # Safety violation.
-                            g_x = fictitious_terminal_val
+                            new_q = fictitious_terminal_val
                         elif l_x < 0:  # Target reached.
-                            l_x = -fictitious_terminal_val
-                    new_q = max(l_x, g_x)
+                            new_q = -fictitious_terminal_val
+                    else:
+                        new_q = max(l_x, g_x)
             else:       # Sum of discounted rewards backup.
                 if not done:
                     new_q = (reward + gamma *

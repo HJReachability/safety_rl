@@ -33,7 +33,7 @@ the value function.
 """
 
 # == Environment ==
-max_episode_length = 10
+max_episode_length = 1
 env = gym.make("point_mass-v0")
 fictitious_terminal_val = 10
 
@@ -53,7 +53,7 @@ env.set_bounds(state_bounds)
 # env.visualize_analytic_comparison(np.sign(analytic_v))
 
 # == Optimization ==
-max_episodes = int(1e6)
+max_episodes = int(2e6)
 get_alpha = make_inverse_visit_schedule(max_episodes/num_states)#make_linear_schedule(0.9, 0.1, max_episodes)#make_inverse_polynomial_visit_schedule(1.0, 0.51)
 get_epsilon = make_linear_schedule(0.95, 0.1, max_episodes)
 get_gamma = make_stepped_schedule(0.999, int(max_episodes / 5), 0.9999999)
@@ -71,7 +71,9 @@ q, stats = learn(get_learning_rate=get_alpha,
                  seed=seed,
                  max_episode_length=max_episode_length,
                  fictitious_terminal_val=fictitious_terminal_val,
-                 visualization_states=viz_states)
+                 num_rnd_traj=None,
+                 visualization_states=env.visual_initial_states,
+                 vis_T=500)
 
 v = v_from_q(q)
 #print(env.ground_truth_comparison_v(v))

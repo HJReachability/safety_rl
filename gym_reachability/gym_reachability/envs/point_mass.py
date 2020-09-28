@@ -20,7 +20,7 @@ from utils import state_to_index
 from utils import index_to_state
 from utils import v_from_q
 
-matplotlib.use("TkAgg")
+# matplotlib.use("TkAgg")
 matplotlib.style.use('ggplot')
 
 
@@ -29,8 +29,10 @@ class PointMassEnv(gym.Env):
     def __init__(self):
 
         # State bounds.
-        self.bounds = np.array([[-1.8, 1.8],  # axis_0 = state, axis_1 = bounds.
-                                [-2, 10]])
+        self.bounds = np.array([[-1.9, 1.9],  # axis_0 = state, axis_1 = bounds.
+                                [-2, 9.25]])
+        # self.bounds = np.array([[-10, 10],  # axis_0 = state, axis_1 = bounds.
+        #                         [-10, 10]])
         self.low = self.bounds[:, 0]
         self.high = self.bounds[:, 1]
 
@@ -47,12 +49,31 @@ class PointMassEnv(gym.Env):
                                            self.horizontal_rate])
 
         # Constraint set parameters.
-        self.box1_x_y_length = np.array([1.25, 3, 1.5])
-        self.box2_x_y_length = np.array([-1.25, 3, 1.5])
-        self.box3_x_y_length = np.array([0, 7, 1.5])
+        # X,Y position and Side Length.
+        self.box1_x_y_length = np.array([1.25, 2, 1.5])  # Bottom right.
+        self.corners1 = np.array([
+                    (self.box1_x_y_length[0] - self.box1_x_y_length[2]/2.0),
+                    (self.box1_x_y_length[1] - self.box1_x_y_length[2]/2.0),
+                    (self.box1_x_y_length[0] + self.box1_x_y_length[2]/2.0),
+                    (self.box1_x_y_length[1] + self.box1_x_y_length[2]/2.0)
+                    ])
+        self.box2_x_y_length = np.array([-1.25, 2, 1.5])  # Bottom left.
+        self.corners2 = np.array([
+                    (self.box2_x_y_length[0] - self.box2_x_y_length[2]/2.0),
+                    (self.box2_x_y_length[1] - self.box2_x_y_length[2]/2.0),
+                    (self.box2_x_y_length[0] + self.box2_x_y_length[2]/2.0),
+                    (self.box2_x_y_length[1] + self.box2_x_y_length[2]/2.0)
+                    ])
+        self.box3_x_y_length = np.array([0, 6, 1.5])  # Top middle.
+        self.corners3 = np.array([
+                    (self.box3_x_y_length[0] - self.box3_x_y_length[2]/2.0),
+                    (self.box3_x_y_length[1] - self.box3_x_y_length[2]/2.0),
+                    (self.box3_x_y_length[0] + self.box3_x_y_length[2]/2.0),
+                    (self.box3_x_y_length[1] + self.box3_x_y_length[2]/2.0)
+                    ])
 
         # Target set parameters.
-        self.box4_x_y_length = np.array([0, 7+1.5, 1.5])
+        self.box4_x_y_length = np.array([0, 7+1.5, 1.5])  # Top.
 
         # Gym variables.
         self.action_space = gym.spaces.Discrete(3)  # horizontal_rate = {-1,0,1}
@@ -76,6 +97,11 @@ class PointMassEnv(gym.Env):
          self.x_box3_pos, self.y_box1_pos,
          self.y_box2_pos, self.y_box3_pos) = self.constraint_set_boundary()
         (self.x_box4_pos, self.y_box4_pos) = self.target_set_boundary()
+        self.visual_initial_states = [np.array([0, 0]),
+                                      np.array([-1, -1.9]),
+                                      np.array([1, -1.9]),
+                                      np.array([-1, 4]),
+                                      np.array([1, 4])]
 
         # Set random seed.
         np.random.seed(self.seed_val)
@@ -99,7 +125,24 @@ class PointMassEnv(gym.Env):
     def sample_random_state(self):
         # Sample states uniformly until one is found inside the constraint set
         # but outside target.
-        rnd_state = np.random.uniform(low=self.low, high=self.high)
+        # rnd_sector = np.random.randint(0, 3)
+        # if rnd_sector == 0:
+        #     rnd_state = np.random.uniform(low=self.low,
+        #                                   high=np.array([self.corners1[2],
+        #                                                  self.corners1[1]]))
+        # elif rnd_sector == 1:
+        #     rnd_state = np.random.uniform(low=np.array([self.corners2[0],
+        #                                                 self.corners2[3]]),
+        #                                   high=np.array([self.corners3[0],
+        #                                                  self.high[1]]))
+        # elif rnd_sector == 2:
+        #     rnd_state = np.random.uniform(low=np.array([self.corners3[2],
+        #                                                 self.corners1[3]]),
+        #                                   high=self.high)
+        # else:
+        #     print("ERROR rnd_sector needs to be 0, 1 or 2.")
+        rnd_state = np.random.uniform(low=self.low,
+                                      high=self.high)
         # while ((self.safety_margin(rnd_state) > 0) or (
         #         self.target_margin(rnd_state) > 0)):
         #     rnd_state = np.random.uniform(low=self.low, high=self.high)
@@ -134,7 +177,7 @@ class PointMassEnv(gym.Env):
         self.state = np.array([x, y])
 
         # Calculate whether episode is done.
-        done = (g_x > 0)
+        done = ((g_x > 0) or (l_x <= 0))
         info = {"g_x": g_x}
         return np.copy(self.state), l_x, done, info
 
@@ -371,12 +414,12 @@ class PointMassEnv(gym.Env):
         v[boundary] = np.max(v)
         visualize_matrix(v.T, self.get_axes(labels), no_show)
 
-        # # Plot bounadries of constraint set.
-        # plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
-        # plt.plot(self.x_box2_pos, self.y_box2_pos, color="black")
-        # plt.plot(self.x_box3_pos, self.y_box3_pos, color="black")
-        # # Plot boundaries of target set.
-        # plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
+        # Plot bounadries of constraint set.
+        plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
+        plt.plot(self.x_box2_pos, self.y_box2_pos, color="black")
+        plt.plot(self.x_box3_pos, self.y_box3_pos, color="black")
+        # Plot boundaries of target set.
+        plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
 
     def simulate_one_trajectory(self, q_func, T=10, state=None):
 
@@ -387,11 +430,14 @@ class PointMassEnv(gym.Env):
         traj_y = [y]
 
         for t in range(T):
+            if self.safety_margin(state) > 0 or self.target_margin(state) < 0:
+                break
             state_ix = state_to_index(self.grid_cells, self.bounds, state)
             action_ix = np.argmin(q_func[state_ix])
             u = self.discrete_controls[action_ix]
 
             x, y = self.integrate_forward(x, y, u)
+            state = np.array([x, y])
             traj_x.append(x)
             traj_y.append(y)
 
@@ -462,4 +508,4 @@ class PointMassEnv(gym.Env):
             List containing a list of bounds for each state coordinate and a
             list for the name of each state coordinate.
         """
-        return [np.append(self.bounds[1], self.bounds[0]), labels]
+        return [np.append(self.bounds[0], self.bounds[1]), labels]

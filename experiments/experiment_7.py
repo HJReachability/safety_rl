@@ -20,6 +20,7 @@ from utils import visualize_matrix
 from utils import make_inverse_polynomial_visit_schedule
 from utils import make_stepped_linear_schedule
 from utils import make_inverse_visit_schedule
+from utils import load
 
 # == Experiment 1 ==
 """
@@ -40,10 +41,10 @@ env = gym.make("dubins_car-v0")
 fictitious_terminal_val = 10
 
 # == Seeding ==
-seed = 55
+seed = 1
 
 # == Discretization ==
-grid_cells = (61, 61, 15)
+grid_cells = (31, 31, 31)
 num_states = np.cumprod(grid_cells)[-1]
 state_bounds = env.bounds
 env.set_grid_cells(grid_cells)
@@ -55,14 +56,14 @@ env.set_bounds(state_bounds)
 # env.visualize_analytic_comparison(np.sign(analytic_v))
 
 # == Optimization ==
-max_episodes = int(3e6)
+max_episodes = int(2e6)
 get_alpha = make_inverse_visit_schedule(max_episodes/num_states)#make_linear_schedule(0.9, 0.1, max_episodes)#make_inverse_polynomial_visit_schedule(1.0, 0.51)
 get_epsilon = make_linear_schedule(0.95, 0.1, max_episodes)
 get_gamma = make_stepped_schedule(0.999, int(max_episodes / 5), 0.9999999)
 
 # Visualization states.
-viz_states = [np.array([0.5, 0, 0]), np.array([0.5, 0, 3.0*np.pi/2.0]),
-              np.array([0.5, 0, np.pi/2.0])]
+viz_states = [np.array([0.5, 0, 0]), np.array([0, 0.5, 0]),
+              np.array([-0.5, 0, 0]), np.array([0, -0.5, 0])]
 
 q, stats = learn(get_learning_rate=get_alpha,
                  get_epsilon=get_epsilon,
@@ -74,16 +75,21 @@ q, stats = learn(get_learning_rate=get_alpha,
                  seed=seed,
                  max_episode_length=max_episode_length,
                  fictitious_terminal_val=fictitious_terminal_val,
-                 visualization_states=viz_states)
+                 visualization_states=None,  # viz_states,
+                 num_rnd_traj=4,
+                 save_freq=5e5,
+                 vis_T=100)
+
+# q, stats = load("/Users/cusgadmin/Documents/Berkeley/Research/Tomlin/RepoStuff/safety_rl/data/dubins_car-v0_Sep_28_20/11:34:21_4500000.pickle")
 
 v = v_from_q(q)
 #print(env.ground_truth_comparison_v(v))
-visualize_matrix(v[:, :, 0])
-visualize_matrix(np.sign(v[:, :, 0]))
-visualize_matrix(v[:, :, 3])
-visualize_matrix(np.sign(v[:, :, 3]))
-visualize_matrix(v[:, :, 7])
-visualize_matrix(np.sign(v[:, :, 7]))
+visualize_matrix(v[:, :, 0].T, env.get_axes())
+visualize_matrix(np.sign(v[:, :, 0].T), env.get_axes())
+visualize_matrix(v[:, :, 3].T, env.get_axes())
+visualize_matrix(np.sign(v[:, :, 3].T), env.get_axes())
+visualize_matrix(v[:, :, 7].T, env.get_axes())
+visualize_matrix(np.sign(v[:, :, 7].T), env.get_axes())
 #print(np.shape(v))
 #print(np.shape(env.analytic_v()))
 #visualize_matrix(env.analytic_v())

@@ -149,13 +149,15 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
     gamma = get_gamma(start_episode, 1)
 
     cumulative_time = 0
+    redundant_comp = 0
+    total_steps = 0
     # Main learning loop: Run episodic trajectories from random initial states.
     for episode in range(max_episodes):
         if not suppress_print and (episode + 1) % 100 == 0:
-            message = "\rEpisode {}/{} alpha:{} gamma:{} epsilon:{} avg_ep:{}."
+            message = "\rEpisode {}/{} alpha:{} gamma:{} epsilon:{} redund:{}."
             print(message.format(
                 episode + 1, max_episodes, alpha, gamma, epsilon,
-                cumulative_time/(episode + 1.0)), end="")
+                redundant_comp/(total_steps + 1.0)), end="")
             sys.stdout.flush()
         if ((num_rnd_traj is not None or visualization_states is not None)
                 and (episode + 1) % 10000 == 0):
@@ -172,31 +174,29 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
         time_for_episode = time.time()
         # Execute a single rollout.
         while not done:
-            # time_to_run1 = time.time()
+
             # Determine action to use based on epsilon-greedy decision rule.
             action_ix = select_action(q_values, state_ix, env, epsilon)
-            # time_to_run1 = time.time() - time_to_run1
-            # time_to_run2 = time.time()
+
             # Take step and map state to corresponding grid index.
             next_state, reward, done, info = env.step(action_ix)
             g_x = info['g_x'] if 'g_x' in info else -np.inf
             next_state_ix = state_to_index(grid_cells, state_bounds,
                                            next_state)
-            # time_to_run2 = time.time() - time_to_run2
-            # time_to_run3 = time.time()
+
+            if next_state_ix == state_ix:
+                redundant_comp += 1.0
             # Update episode experiment log.
             stats['state_action_visits'][state_ix + (action_ix,)] += 1
             num_visits = stats['state_action_visits'][state_ix + (action_ix,)]
             episode_rewards.append(reward)
             t += 1
-            # time_to_run3 = time.time() - time_to_run3
-            # time_to_run4 = time.time()
+
             # Update exploration fraction, learning rate and discount factor.
             epsilon = get_epsilon(episode + start_episode)
             alpha = get_learning_rate(episode + start_episode, num_visits)
             gamma = get_gamma(episode + start_episode, num_visits)
-            # time_to_run4 = time.time() - time_to_run4
-            # print(time_to_run1, time_to_run2, time_to_run3, time_to_run4)
+
             # Perform Bellman backup.
             if use_sbe:  # Safety Bellman Equation backup.
                 l_x = reward
@@ -206,11 +206,8 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
                         (1.0 - gamma) * max(l_x, g_x) +
                         gamma * max(min_term, g_x))
                 else:
-                    if fictitious_terminal_val:
-                        if g_x > 0:  # Safety violation.
-                            new_q = fictitious_terminal_val
-                        elif l_x < 0:  # Target reached.
-                            new_q = -fictitious_terminal_val
+                    if fictitious_terminal_val and g_x <= 0.0 and l_x <= 0.0:
+                        new_q = -fictitious_terminal_val
                     else:
                         new_q = max(l_x, g_x)
             else:       # Sum of discounted rewards backup.
@@ -231,6 +228,8 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
             # End episode if max episode length is reached.
             if max_episode_length is not None and t >= max_episode_length:
                 break
+
+        total_steps += t
 
         time_for_episode = time.time() - time_for_episode
         cumulative_time += time_for_episode

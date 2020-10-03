@@ -37,7 +37,7 @@ class PointMassEnv(gym.Env):
         self.high = self.bounds[:, 1]
 
         # Time step parameter.
-        self.time_step = 0.01
+        self.time_step = 0.05
 
         # Dubins car parameters.
         self.upward_speed = 2.0
@@ -102,6 +102,7 @@ class PointMassEnv(gym.Env):
                                       np.array([1, -1.9]),
                                       np.array([-1, 4]),
                                       np.array([1, 4])]
+        self.scaling = 4.0
 
         # Set random seed.
         np.random.seed(self.seed_val)
@@ -232,7 +233,7 @@ class PointMassEnv(gym.Env):
                             box3_safety_margin,
                             enclosure_safety_margin)
 
-        return safety_margin
+        return self.scaling * safety_margin
 
     def target_margin(self, s):
         """ Computes the margin (e.g. distance) between state and target set.
@@ -247,7 +248,7 @@ class PointMassEnv(gym.Env):
                               ord=np.inf) - self.box4_x_y_length[-1]/2.0)
 
         target_margin = box4_target_margin
-        return target_margin
+        return self.scaling * target_margin
 
     def set_grid_cells(self, grid_cells):
         """ Set number of grid cells.
@@ -410,8 +411,8 @@ class PointMassEnv(gym.Env):
             v: State value function.
         """
         plt.clf()
-        boundary = ((v < 0.1) * (v > -0.1))
-        v[boundary] = np.max(v)
+        # boundary = ((v < 0.1) * (v > -0.1))
+        # v[boundary] = np.max(v)
         visualize_matrix(v.T, self.get_axes(labels), no_show)
 
         # Plot bounadries of constraint set.

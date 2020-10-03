@@ -36,14 +36,14 @@ class DubinsCarEnv(gym.Env):
         self.high = self.bounds[:, 1]
 
         # Time step parameter.
-        self.time_step = 0.01
+        self.time_step = 0.05
 
         # Dubins car parameters.
         self.speed = 1.0
 
         # Control parameters.
         # TODO{vrubies: Check proper rates.}
-        self.max_turning_rate = 0.01
+        self.max_turning_rate = 1.5
         self.discrete_controls = np.array([-self.max_turning_rate,
                                            self.max_turning_rate])
 
@@ -80,6 +80,7 @@ class DubinsCarEnv(gym.Env):
         # Visualization params
         self.angle_slices = [0]
         self.vis_init_flag = True
+        self.scaling = 4.0
 
         # Set random seed.
         np.random.seed(self.seed_val)
@@ -145,7 +146,7 @@ class DubinsCarEnv(gym.Env):
 
         # Calculate whether episode is done.
         dist_origin = np.linalg.norm(self.state[:2])
-        done = ((g_x > 0) or (l_x <= 0))
+        done = ((g_x > 0.0) or (l_x <= 0.0))  # TODO(vrubies) more efficient in 142.
         info = {"g_x": g_x}
         return np.copy(self.state), l_x, done, info
 
@@ -194,7 +195,7 @@ class DubinsCarEnv(gym.Env):
         #     safety_margin = 10
         # if x_in:
         #     return -1 * x_dist
-        return safety_margin
+        return self.scaling * safety_margin
 
     def target_margin(self, s):
         """ Computes the margin (e.g. distance) between state and target set.
@@ -209,7 +210,7 @@ class DubinsCarEnv(gym.Env):
         target_margin = dist_to_target - self.target_radius
         # if x_in:
         #     return -1 * x_dist
-        return target_margin
+        return self.scaling * target_margin
 
     def set_grid_cells(self, grid_cells):
         """ Set number of grid cells.

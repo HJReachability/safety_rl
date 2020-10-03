@@ -41,7 +41,7 @@ fictitious_terminal_val = 10
 seed = 1
 
 # == Discretization ==
-grid_cells = (61, 61)
+grid_cells = (41, 121)
 num_states = np.cumprod(grid_cells)[-1]
 state_bounds = env.bounds
 env.set_grid_cells(grid_cells)
@@ -53,7 +53,7 @@ env.set_bounds(state_bounds)
 # env.visualize_analytic_comparison(np.sign(analytic_v))
 
 # == Optimization ==
-max_episodes = int(2e6)
+max_episodes = int(2e6) + 1
 get_alpha = make_inverse_visit_schedule(max_episodes/num_states)#make_linear_schedule(0.9, 0.1, max_episodes)#make_inverse_polynomial_visit_schedule(1.0, 0.51)
 get_epsilon = make_linear_schedule(0.95, 0.1, max_episodes)
 get_gamma = make_stepped_schedule(0.999, int(max_episodes / 5), 0.9999999)
@@ -73,12 +73,13 @@ q, stats = learn(get_learning_rate=get_alpha,
                  fictitious_terminal_val=fictitious_terminal_val,
                  num_rnd_traj=None,
                  visualization_states=env.visual_initial_states,
+                 save_freq=5e5,
                  vis_T=500)
 
 v = v_from_q(q)
 #print(env.ground_truth_comparison_v(v))
-visualize_matrix(v)
-visualize_matrix(np.sign(v))
+visualize_matrix(v.T)
+visualize_matrix(np.sign(v).T)
 #print(np.shape(v))
 #print(np.shape(env.analytic_v()))
 #visualize_matrix(env.analytic_v())

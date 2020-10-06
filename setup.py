@@ -20,5 +20,6 @@ setup(
     packages=find_packages(),
     install_requires=['numpy', 'matplotlib', 'spinup', 'tensorflow==1.9.0',
                       'gym', 'scipy', 'requests', 'ray==0.7.3', 'pandas',
-                      'opencv-python', 'psutil', 'lz4', 'Box2D', 'mujoco-py']
+                      'opencv-python', 'psutil', 'lz4', 'Box2D', 'mujoco-py',
+                      'setproctitle']
 )

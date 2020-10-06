@@ -241,6 +241,16 @@ class DubinsCarEnv(gym.Env):
         self.observation_space = gym.spaces.Box(midpoint - interval,
                                                 midpoint + interval)
 
+    def set_discretization(self, grid_cells, bounds):
+        """ Set number of grid cells and state bounds.
+
+        Args:
+            grid_cells: Number of grid cells as a tuple.
+            bounds: Bounds for the state.
+        """
+        self.set_grid_cells(grid_cells)
+        self.set_bounds(bounds)
+
     def render(self, mode='human'):
         pass
 

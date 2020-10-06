@@ -47,7 +47,7 @@ if __name__ == '__main__':
     register_env('double_integrator-v0', double_int_env_creator)
     register_env('cartpole_reach-v0', cartpole_env_creater)
 
-    ray.init()
+    ray.init(object_store_memory=10**8*5)
     now = datetime.now()
     date = now.strftime('%b') + str(now.day)
     dqn_config = {}
@@ -91,7 +91,7 @@ if __name__ == '__main__':
 
     # == Seeding ==
     # TODO Does this need to be in exp config? Check with ray doc about seeding.
-    dqn_config['seed'] = tune.grid_search(list(range(100)))
+    dqn_config['seed'] = tune.grid_search(list(range(1)))
 
     # == Custom Safety Bellman Equation configs ==
     Trainer._allow_unknown_configs = True     # Needed for SBE config option.
@@ -145,43 +145,43 @@ if __name__ == '__main__':
         checkpoint_freq=exp_config['checkpoint_freq'],
         checkpoint_at_end=True)
 
-    # Copying dictionary before making changes. Otherwise the previous
-    # experiment would be changed.
-    cartpole_exp_config = exp_config.copy()
-    cartpole_dqn_config = dqn_config.copy()
+    # # Copying dictionary before making changes. Otherwise the previous
+    # # experiment would be changed.
+    # cartpole_exp_config = exp_config.copy()
+    # cartpole_dqn_config = dqn_config.copy()
 
-    # Cartpole specific parameters.
+    # # Cartpole specific parameters.
 
-    # == Environment ==
-    cartpole_dqn_config['env'] = 'cartpole_reach-v0'
+    # # == Environment ==
+    # cartpole_dqn_config['env'] = 'cartpole_reach-v0'
 
-    # == Data Collection Parameters ==
-    cartpole_exp_config['grid_cells'] = (31, 31, 31, 31)
+    # # == Data Collection Parameters ==
+    # cartpole_exp_config['grid_cells'] = (31, 31, 31, 31)
 
-    # == Optimization ==
-    cartpole_dqn_config['schedule_max_timesteps'] = int(2e6)
-    cartpole_dqn_config['gamma_half_life'] = int(5e4)
+    # # == Optimization ==
+    # cartpole_dqn_config['schedule_max_timesteps'] = int(2e6)
+    # cartpole_dqn_config['gamma_half_life'] = int(5e4)
 
-    # == Scheduling ==
-    cartpole_exp_config['max_iterations'] = int(
-        dqn_config['schedule_max_timesteps'] /
-        dqn_config['timesteps_per_iteration'])
-    cartpole_exp_config['checkpoint_freq'] = int(
-        exp_config['max_iterations'] /
-        exp_config['num_violation_collections'])
+    # # == Scheduling ==
+    # cartpole_exp_config['max_iterations'] = int(
+    #     dqn_config['schedule_max_timesteps'] /
+    #     dqn_config['timesteps_per_iteration'])
+    # cartpole_exp_config['checkpoint_freq'] = int(
+    #     exp_config['max_iterations'] /
+    #     exp_config['num_violation_collections'])
 
-    cartpole_exp_config['dqn_config'] = cartpole_dqn_config
+    # cartpole_exp_config['dqn_config'] = cartpole_dqn_config
 
-    train_cartpole = Experiment(
-        name='dqn_cartpole_' + date,
-        config=exp_config,
-        run=TrainDQN,
-        num_samples=1,
-        stop={'training_iteration': exp_config['max_iterations']},
-        resources_per_trial={'cpu': 1, 'gpu': 0},
-        local_dir=get_save_dir(),
-        checkpoint_freq=exp_config['checkpoint_freq'],
-        checkpoint_at_end=True)
-    ray.tune.run_experiments([train_cartpole, train_cartpole], verbose=2)
+    # train_cartpole = Experiment(
+    #     name='dqn_cartpole_' + date,
+    #     config=exp_config,
+    #     run=TrainDQN,
+    #     num_samples=1,
+    #     stop={'training_iteration': exp_config['max_iterations']},
+    #     resources_per_trial={'cpu': 1, 'gpu': 0},
+    #     local_dir=get_save_dir(),
+    #     checkpoint_freq=exp_config['checkpoint_freq'],
+    #     checkpoint_at_end=True)
+    ray.tune.run_experiments([train_double_integrator], verbose=2)
 
 # TODO gather data into figures

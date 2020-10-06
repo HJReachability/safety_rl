@@ -47,8 +47,7 @@ seed = 1
 grid_cells = (41, 41, 41)
 num_states = np.cumprod(grid_cells)[-1]
 state_bounds = env.bounds
-env.set_grid_cells(grid_cells)
-env.set_bounds(state_bounds)
+env.set_discretization(grid_cells, state_bounds)
 # analytic_v = env.analytic_v()
 # visualize_matrix(analytic_v)
 # visualize_matrix(np.sign(analytic_v))

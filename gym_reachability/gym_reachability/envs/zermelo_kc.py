@@ -5,7 +5,9 @@
 # included in this repository.
 #
 # Please contact the author(s) of this library if you have any questions.
-# Authors: Vicenc Rubies-Royo   ( vrubies@berkeley.edu )
+# Authors: Kai-Chieh Hsu   ( kaichieh@princeton.edu )
+
+# Modified from `point_mass.py`, 
 
 import gym.spaces
 import numpy as np
@@ -15,24 +17,21 @@ import matplotlib.pyplot as plt
 
 from utils import nearest_real_grid_point
 from utils import visualize_matrix
-from utils import q_values_from_q_func
 from utils import state_to_index
 from utils import index_to_state
-from utils import v_from_q
 
 # matplotlib.use("TkAgg")
 matplotlib.style.use('ggplot')
 
 
-class PointMassEnv(gym.Env):
+class ZermeloKCEnv(gym.Env):
 
     def __init__(self):
 
         # State bounds.
         self.bounds = np.array([[-1.9, 1.9],  # axis_0 = state, axis_1 = bounds.
                                 [-2, 9.25]])
-        # self.bounds = np.array([[-10, 10],  # axis_0 = state, axis_1 = bounds.
-        #                         [-10, 10]])
+                                
         self.low = self.bounds[:, 0]
         self.high = self.bounds[:, 1]
 
@@ -79,8 +78,8 @@ class PointMassEnv(gym.Env):
         self.action_space = gym.spaces.Discrete(3)  # horizontal_rate = {-1,0,1}
         self.midpoint = (self.low + self.high)/2.0
         self.interval = self.high - self.low
-        self.observation_space = gym.spaces.Box(self.midpoint - self.interval,
-                                                self.midpoint + self.interval)
+        self.observation_space = gym.spaces.Box(self.midpoint - self.interval/2,
+                                                self.midpoint + self.interval/2)
         self.viewer = None
 
         # Discretization.
@@ -292,48 +291,6 @@ class PointMassEnv(gym.Env):
     def render(self, mode='human'):
         pass
 
-    # def ground_truth_comparison(self, q_func):
-    #     """ Compares the state-action value function to the ground truth.
-
-    #     The state-action value function is first converted to a state value
-    #     function, and then compared to the ground truth analytical solution.
-
-    #     Args:
-    #         q_func: State-action value function.
-
-    #     Returns:
-    #         Tuple containing number of misclassified safe and misclassified
-    #         unsafe states.
-    #     """
-    #     computed_v = v_from_q(
-    #         q_values_from_q_func(q_func, self.grid_cells, self.bounds, 2))
-    #     return self.ground_truth_comparison_v(computed_v)
-
-    # def ground_truth_comparison_v(self, computed_v):
-    #     """ Compares the state value function to the analytical solution.
-
-    #     The state value function is compared to the ground truth analytical
-    #     solution by checking for sign mismatches between state-value pairs.
-
-    #     Args:
-    #         computed_v: State value function.
-
-    #     Returns:
-    #         Tuple containing number of misclassified safe and misclassified
-    #         unsafe states.
-    #     """
-    #     analytic_v = self.analytic_v()
-    #     misclassified_safe = 0
-    #     misclassified_unsafe = 0
-    #     it = np.nditer(analytic_v, flags=['multi_index'])
-    #     while not it.finished:
-    #         if analytic_v[it.multi_index] < 0 < computed_v[it.multi_index]:
-    #             misclassified_safe += 1
-    #         elif computed_v[it.multi_index] < 0 < analytic_v[it.multi_index]:
-    #             misclassified_unsafe += 1
-    #         it.iternext()
-    #     return misclassified_safe, misclassified_unsafe
-
     def constraint_set_boundary(self):
         """ Computes the safe set boundary based on the analytic solution.
 
@@ -484,33 +441,6 @@ class PointMassEnv(gym.Env):
         for traj in trajectories:
             traj_x, traj_y = traj
             plt.plot(traj_x, traj_y, color="black")
-
-    # def analytic_v(self):
-    #     """ Computes the discretized analytic value function.
-
-    #     Returns:
-    #         Discretized form of the analytic state value function.
-    #     """
-    #     x_low = self.target_low[0]
-    #     x_high = self.target_high[0]
-    #     u_max = self.control_bounds[1]  # Assumes u_max = -u_min.
-
-    #     def analytic_function(x, x_dot):
-    #         if x_dot >= 0:
-    #             return min(x - x_low,
-    #                        x_high - x - x_dot ** 2 / (2 * u_max))
-    #         else:
-    #             return min(x_high - x,
-    #                        x - x_dot ** 2 / (2 * u_max) - x_low)
-
-    #     v = np.zeros(self.grid_cells)
-    #     it = np.nditer(v, flags=['multi_index'])
-    #     while not it.finished:
-    #         x, x_dot = index_to_state(self.grid_cells, self.bounds,
-    #                                   it.multi_index)
-    #         v[it.multi_index] = analytic_function(x, x_dot)
-    #         it.iternext()
-    #     return v
 
     def get_axes(self, labels=["x", "y"]):
         """ Gets the bounds for the environment.

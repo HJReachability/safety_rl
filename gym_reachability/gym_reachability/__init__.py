@@ -38,6 +38,10 @@ register(
     entry_point="gym_reachability.gym_reachability.envs:PointMassEnv"
 )
 
+register(
+    id="zermelo_kc-v0",
+    entry_point="gym_reachability.gym_reachability.envs:ZermeloKCEnv"
+)
 
 register(
     id="cheetah_balance-v0",

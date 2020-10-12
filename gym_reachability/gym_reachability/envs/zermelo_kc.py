@@ -1,13 +1,11 @@
-# Copyright (c) 2020–2021, The Regents of the University of California.
-# All rights reserved.
-#
-# This file is subject to the terms and conditions defined in the LICENSE file
-# included in this repository.
-#
 # Please contact the author(s) of this library if you have any questions.
-# Authors: Kai-Chieh Hsu   ( kaichieh@princeton.edu )
+# Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
-# Modified from `point_mass.py`, 
+# Modified from `point_mass.py`
+# TODO: here the q_func is not a lookup table. Instead, it is a NN.
+#  - simulate_trajectories
+#  - simulate_one_trajectory
+#  - plot_trajectories
 
 import gym.spaces
 import numpy as np
@@ -20,13 +18,15 @@ from utils import visualize_matrix
 from utils import state_to_index
 from utils import index_to_state
 
+import torch
+
 # matplotlib.use("TkAgg")
 matplotlib.style.use('ggplot')
 
 
 class ZermeloKCEnv(gym.Env):
 
-    def __init__(self):
+    def __init__(self, device):
 
         # State bounds.
         self.bounds = np.array([[-1.9, 1.9],  # axis_0 = state, axis_1 = bounds.
@@ -103,6 +103,7 @@ class ZermeloKCEnv(gym.Env):
                                       np.array([1, 4])]
         self.scaling = 4.0
 
+        self.device = device # for torch
         # Set random seed.
         np.random.seed(self.seed_val)
 
@@ -123,29 +124,8 @@ class ZermeloKCEnv(gym.Env):
         return np.copy(self.state)
 
     def sample_random_state(self):
-        # Sample states uniformly until one is found inside the constraint set
-        # but outside target.
-        # rnd_sector = np.random.randint(0, 3)
-        # if rnd_sector == 0:
-        #     rnd_state = np.random.uniform(low=self.low,
-        #                                   high=np.array([self.corners1[2],
-        #                                                  self.corners1[1]]))
-        # elif rnd_sector == 1:
-        #     rnd_state = np.random.uniform(low=np.array([self.corners2[0],
-        #                                                 self.corners2[3]]),
-        #                                   high=np.array([self.corners3[0],
-        #                                                  self.high[1]]))
-        # elif rnd_sector == 2:
-        #     rnd_state = np.random.uniform(low=np.array([self.corners3[2],
-        #                                                 self.corners1[3]]),
-        #                                   high=self.high)
-        # else:
-        #     print("ERROR rnd_sector needs to be 0, 1 or 2.")
         rnd_state = np.random.uniform(low=self.low,
                                       high=self.high)
-        # while ((self.safety_margin(rnd_state) > 0) or (
-        #         self.target_margin(rnd_state) > 0)):
-        #     rnd_state = np.random.uniform(low=self.low, high=self.high)
         return rnd_state
 
     def step(self, action):
@@ -179,7 +159,15 @@ class ZermeloKCEnv(gym.Env):
         # Calculate whether episode is done.
         done = ((g_x > 0) or (l_x <= 0))
         info = {"g_x": g_x}
-        return np.copy(self.state), l_x, done, info
+
+        if g_x > 0:
+            cost = 2000
+        elif l_x <= 0:
+            cost = -1000
+        else:
+            cost = l_x
+
+        return np.copy(self.state), cost, done, info
 
     def integrate_forward(self, x, y, u):
         """ Integrate the dynamics forward by one step.
@@ -370,17 +358,28 @@ class ZermeloKCEnv(gym.Env):
 
         return (x_box4_pos, y_box4_pos)
 
-    def visualize_analytic_comparison(self, v, no_show=False,
-                                      labels=["x", "y"]):
+    def get_value(self, q_func):
+        v = np.zeros(self.grid_cells)
+        it = np.nditer(v, flags=['multi_index'])
+        while not it.finished:
+            idx = it.multi_index
+            state = index_to_state(self.grid_cells, self.bounds, idx)
+            state = torch.FloatTensor(state, device=self.device).unsqueeze(0)
+            v[idx] = q_func(state).min(dim=1)[0].item()
+            it.iternext()
+        return v
+
+    def visualize_analytic_comparison(  self, q_func, no_show=False, 
+                                        vmin=-1000, vmax=2000,
+                                        labels=["x", "y"]):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
             v: State value function.
         """
         plt.clf()
-        # boundary = ((v < 0.1) * (v > -0.1))
-        # v[boundary] = np.max(v)
-        visualize_matrix(v.T, self.get_axes(labels), no_show)
+        v = self.get_value(q_func)
+        im = visualize_matrix(v.T, self.get_axes(labels), no_show, vmin=vmin, vmax=vmax)
 
         # Plot bounadries of constraint set.
         plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
@@ -388,6 +387,8 @@ class ZermeloKCEnv(gym.Env):
         plt.plot(self.x_box3_pos, self.y_box3_pos, color="black")
         # Plot boundaries of target set.
         plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
+
+        plt.colorbar(im)
 
     def simulate_one_trajectory(self, q_func, T=10, state=None):
 
@@ -400,9 +401,9 @@ class ZermeloKCEnv(gym.Env):
         for t in range(T):
             if self.safety_margin(state) > 0 or self.target_margin(state) < 0:
                 break
-            state_ix = state_to_index(self.grid_cells, self.bounds, state)
-            action_ix = np.argmin(q_func[state_ix])
-            u = self.discrete_controls[action_ix]
+            state = torch.FloatTensor(state, device=self.device).unsqueeze(0)
+            action_index = q_func(state).min(dim=1)[1].item()
+            u = self.discrete_controls[action_index]
 
             x, y = self.integrate_forward(x, y, u)
             state = np.array([x, y])
@@ -440,6 +441,7 @@ class ZermeloKCEnv(gym.Env):
 
         for traj in trajectories:
             traj_x, traj_y = traj
+            plt.scatter(traj_x[0], traj_y[0], s=32, c='r')
             plt.plot(traj_x, traj_y, color="black")
 
     def get_axes(self, labels=["x", "y"]):

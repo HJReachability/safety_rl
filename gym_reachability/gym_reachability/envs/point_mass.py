@@ -423,7 +423,7 @@ class PointMassEnv(gym.Env):
         plt.clf()
         # boundary = ((v < 0.1) * (v > -0.1))
         # v[boundary] = np.max(v)
-        visualize_matrix(v.T, self.get_axes(labels), no_show)
+        im = visualize_matrix(v.T, self.get_axes(labels), no_show)
 
         # Plot bounadries of constraint set.
         plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
@@ -431,6 +431,8 @@ class PointMassEnv(gym.Env):
         plt.plot(self.x_box3_pos, self.y_box3_pos, color="black")
         # Plot boundaries of target set.
         plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
+
+        plt.colorbar(im)
 
     def simulate_one_trajectory(self, q_func, T=10, state=None):
 
@@ -483,6 +485,7 @@ class PointMassEnv(gym.Env):
 
         for traj in trajectories:
             traj_x, traj_y = traj
+            plt.scatter(traj_x[0], traj_y[0], s=32, c='r')
             plt.plot(traj_x, traj_y, color="black")
 
     # def analytic_v(self):

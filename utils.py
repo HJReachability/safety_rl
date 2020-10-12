@@ -162,11 +162,11 @@ def q_values_from_q_func(q_func, num_grid_cells, state_bounds, action_n):
 # == plotting functions ==
 
 
-def visualize_matrix(m, axes=None, no_show=False):
+def visualize_matrix(m, axes=None, no_show=False, vmin=-2, vmax=4):
     if axes is not None:
         # Transpose is necessary so that m[x,y] is (x,y) on plot.
         f = plt.imshow(m, interpolation='none', extent=axes[0], origin="lower",
-                       cmap="plasma", vmin=-2, vmax=4)
+                       cmap="plasma", vmin=vmin, vmax=vmax)
         a = plt.gca()
         a.set_aspect((axes[0][1]-axes[0][0])/(axes[0][3]-axes[0][2]))  # makes equal aspect ratio
         a.set_xlabel(axes[1][0])

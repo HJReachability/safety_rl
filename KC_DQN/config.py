@@ -5,10 +5,10 @@ class config():
     def __init__(self,  ENV_NAME='Pendulum-v0',
                         DEVICE='cpu',
                         MAX_EPISODES=200, MAX_EP_STEPS=200,
-                        LR_C=1e-3, LR_C_END=1e-4,
-                        EPSILON=0.9, EPSILON_END=5e-2,
+                        EPSILON=0.95, EPS_END=0.05, EPS_PERIOD=1, EPS_DECAY=0.5,
+                        LR_C=1e-3, LR_C_PERIOD=1, LR_C_DECAY=0.5,
                         GAMMA=0.9, 
-                        TAU=0.01, HARD_UPDATE=200, SOFT_UPDATE=True,
+                        TAU=0.01, HARD_UPDATE=1, SOFT_UPDATE=True,
                         MEMORY_CAPACITY=10000,
                         BATCH_SIZE=32,
                         RENDER=False,                         
@@ -17,10 +17,14 @@ class config():
         self.MAX_EPISODES = MAX_EPISODES
         self.MAX_EP_STEPS = MAX_EP_STEPS
         
-        self.LR_C = LR_C
-        self.LR_C_END = LR_C_END
         self.EPSILON = EPSILON
-        self.EPSILON_END = EPSILON_END
+        self.EPS_END = EPS_END
+        self.EPS_PERIOD = EPS_PERIOD
+        self.EPS_DECAY = EPS_DECAY
+
+        self.LR_C = LR_C
+        self.LR_C_PERIOD = LR_C_PERIOD
+        self.LR_C_DECAY = LR_C_DECAY
         
         self.MEMORY_CAPACITY = MEMORY_CAPACITY
         self.BATCH_SIZE = BATCH_SIZE
@@ -40,10 +44,10 @@ class dqnConfig(config):
     def __init__(self,  ENV_NAME='Pendulum-v0',
                         DEVICE='cpu',
                         MAX_EPISODES=200, MAX_EP_STEPS=200,
-                        LR_C=1e-3, LR_C_END=1e-4,
-                        EPSILON=0.9, EPSILON_END=5e-2,
+                        EPSILON=0.95, EPS_END=0.05, EPS_PERIOD=1, EPS_DECAY=0.5,
+                        LR_C=1e-2, LR_C_PERIOD=1, LR_C_DECAY=0.5,
                         GAMMA=0.9, 
-                        TAU=0.01, HARD_UPDATE=200, SOFT_UPDATE=True,
+                        TAU=0.01, HARD_UPDATE=1, SOFT_UPDATE=True,
                         MEMORY_CAPACITY=10000,
                         BATCH_SIZE=32,
                         RENDER=False,                         
@@ -53,8 +57,8 @@ class dqnConfig(config):
         super().__init__(ENV_NAME=ENV_NAME,
                         DEVICE=DEVICE,
                         MAX_EPISODES=MAX_EPISODES, MAX_EP_STEPS=MAX_EP_STEPS,
-                        LR_C=LR_C, LR_C_END=LR_C_END,
-                        EPSILON=EPSILON, EPSILON_END=EPSILON_END,
+                        EPSILON=EPSILON, EPS_END=EPS_END, EPS_PERIOD=EPS_PERIOD, EPS_DECAY=EPS_DECAY,
+                        LR_C=LR_C, LR_C_PERIOD=LR_C_PERIOD, LR_C_DECAY=LR_C_DECAY,
                         GAMMA=GAMMA, 
                         TAU=TAU, HARD_UPDATE=HARD_UPDATE, SOFT_UPDATE=SOFT_UPDATE,
                         MEMORY_CAPACITY=MEMORY_CAPACITY,

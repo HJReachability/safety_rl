@@ -13,9 +13,7 @@ import gym
 import matplotlib
 import matplotlib.pyplot as plt
 
-from utils import nearest_real_grid_point
 from utils import visualize_matrix
-from utils import state_to_index
 from utils import index_to_state
 
 import torch
@@ -123,9 +121,17 @@ class ZermeloKCEnv(gym.Env):
             self.state = start
         return np.copy(self.state)
 
-    def sample_random_state(self):
-        rnd_state = np.random.uniform(low=self.low,
+    def sample_random_state(self, keepOutOf=False):
+        flag = True
+        while flag:
+            rnd_state = np.random.uniform(low=self.low,
                                       high=self.high)
+            l_x = self.target_margin(rnd_state)
+            g_x = self.safety_margin(rnd_state)
+
+            terminal = (g_x > 0) or (l_x <= 0)
+            flag = terminal and keepOutOf
+
         return rnd_state
 
     def step(self, action):
@@ -138,34 +144,30 @@ class ZermeloKCEnv(gym.Env):
             Tuple of (next state, signed distance of current state, whether the
             episode is done, info dictionary).
         """
-        # The signed distance must be computed before the environment steps
-        # forward.
-        if self.grid_cells is None:
-            l_x = self.target_margin(self.state)
-            g_x = self.safety_margin(self.state)
-        else:
-            nearest_point = nearest_real_grid_point(
-                self.grid_cells, self.bounds, self.state)
-            l_x = self.target_margin(nearest_point)
-            g_x = self.safety_margin(nearest_point)
 
         # Move dynamics one step forward.
         x, y = self.state
         u = self.discrete_controls[action]
 
+        l_x_prev = self.target_margin(self.state)
+        g_x_prev = self.safety_margin(self.state)
+
         x, y = self.integrate_forward(x, y, u)
         self.state = np.array([x, y])
+
+        l_x = self.target_margin(self.state)
+        g_x = self.safety_margin(self.state)
 
         # Calculate whether episode is done.
         done = ((g_x > 0) or (l_x <= 0))
         info = {"g_x": g_x}
 
-        if g_x > 0:
-            cost = 2000
-        elif l_x <= 0:
-            cost = -1000
+        if g_x > 0 or g_x_prev > 0:
+            cost = 50
+        elif l_x <= 0 or l_x_prev <= 0:
+            cost = -20
         else:
-            cost = l_x
+            cost = (l_x-l_x_prev) + (g_x-g_x_prev)
 
         return np.copy(self.state), cost, done, info
 
@@ -370,7 +372,7 @@ class ZermeloKCEnv(gym.Env):
         return v
 
     def visualize_analytic_comparison(  self, q_func, no_show=False, 
-                                        vmin=-1000, vmax=2000,
+                                        vmin=-50, vmax=50,
                                         labels=["x", "y"]):
         """ Overlays analytic safe set on top of state value function.
 

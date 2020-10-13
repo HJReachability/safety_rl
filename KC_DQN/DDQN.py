@@ -5,6 +5,10 @@
 #  - a' = argmin_a' Q_policy(s', a'), y = c(s,a) + gamma * Q_tar(s', a')
 #  - loss = E[ ( y - Q_policy(s,a) )^2 ] 
 
+#import sys
+#sys.path.append('..')
+#print(sys.path)
+
 import torch
 import torch.nn as nn
 from torch.nn.functional import mse_loss, smooth_l1_loss
@@ -33,18 +37,17 @@ class DDQN():
         #== PARAM ==
         # Exploration
         self.EPSILON = CONFIG.EPSILON
-        self.EPS_START = CONFIG.EPSILON
-        self.EPS_END = CONFIG.EPSILON_END
-        self.EPS_DECAY = CONFIG.MAX_EP_STEPS
+        self.EPS_END = CONFIG.EPS_END
+        self.EPS_PERIOD = CONFIG.EPS_PERIOD
+        self.EPS_DECAY = CONFIG.EPS_DECAY
+        # Learning Rate
+        self.LR_C = CONFIG.LR_C
+        self.LR_C_PERIOD = CONFIG.LR_C_PERIOD
+        self.LR_C_DECAY = CONFIG.LR_C_DECAY
         # NN: batch size, maximal number of NNs stored
         self.BATCH_SIZE = CONFIG.BATCH_SIZE
         self.MAX_MODEL = CONFIG.MAX_MODEL
         self.device = CONFIG.DEVICE
-        # Learning Rate
-        self.LR_C = CONFIG.LR_C
-        self.LR_C_START = CONFIG.LR_C
-        self.LR_C_END = CONFIG.LR_C_END
-        self.LR_C_DECAY = CONFIG.MAX_EP_STEPS * CONFIG.MAX_EPISODES / 2
         # Contraction Mapping
         self.GAMMA = CONFIG.GAMMA
         # Target Network Update
@@ -63,8 +66,9 @@ class DDQN():
             self.Q_network.cuda()
             self.target_network.cuda()
         self.optimizer = optim.Adam(self.Q_network.parameters(), lr=self.LR_C)
+        self.scheduler =  optim.lr_scheduler.StepLR(self.optimizer, step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
         self.max_grad_norm = 0.5
-        self.training_step = 0
+        self.training_epoch = 0
 
 
     def update_target_network(self):
@@ -74,7 +78,7 @@ class DDQN():
                 if isinstance(module_tar, nn.Linear):
                     module_tar.weight.data = (1-self.TAU)*module_tar.weight.data + self.TAU*module_pol.weight.data
                     module_tar.bias.data   = (1-self.TAU)*module_tar.bias.data   + self.TAU*module_pol.bias.data
-        elif self.training_step % self.HARD_UPDATE == 0:
+        elif self.training_epoch % self.HARD_UPDATE == 0:
             # Hard Replace
             self.target_network.load_state_dict(self.Q_network.state_dict())
         
@@ -83,7 +87,6 @@ class DDQN():
         if len(self.memory) < self.BATCH_SIZE*20:
         #if not self.memory.isfull:
             return
-        self.training_step += 1
         
         #== EXPERIENCE REPLAY ==
         transitions = self.memory.sample(self.BATCH_SIZE)
@@ -128,23 +131,28 @@ class DDQN():
         loss.backward()
         #nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
         self.optimizer.step()
-        
-        #== Update Target Network ==
+
         self.update_target_network()
-        
-        #== Hyper-Parameter Update ==
-        self.EPSILON = self.EPS_END + (self.EPS_START - self.EPS_END) * \
-                                       np.exp(-1. * self.training_step / self.EPS_DECAY)
-        self.LR_C = self.LR_C_END + (self.LR_C_START - self.LR_C_END) * \
-                                     np.exp(-1. * self.training_step / self.LR_C_DECAY)
 
         return loss.item()
 
 
-    def select_action(self, state):
+    def updateEpsilon(self):
+        if self.training_epoch % self.EPS_PERIOD == 0 and self.training_epoch != 0:
+            self.EPSILON = max(self.EPSILON*self.EPS_DECAY, self.EPS_END)
+
+
+    #== Hyper-Parameter Update ==
+    def updateHyperParam(self):
+        self.scheduler.step()
+        self.updateEpsilon()
+        self.training_epoch += 1
+
+
+    def select_action(self, state, explore=True):
         # tensor.min() returns (value, indices), which are in tensor form
         state = torch.from_numpy(state).float().unsqueeze(0)
-        if random.random() < self.EPSILON:
+        if (random.random() < self.EPSILON) and explore:
             action_index = random.randint(0, self.action_num-1)
         else:
             action_index = self.Q_network(state).min(dim=1)[1].item()

@@ -1,6 +1,0 @@
-*.pyc
-*.idea
-*.egg*
-data/*
-.DS_Store
-*.pickle

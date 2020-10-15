@@ -50,6 +50,8 @@ class DDQN():
         self.device = CONFIG.DEVICE
         # Contraction Mapping
         self.GAMMA = CONFIG.GAMMA
+        self.GAMMA_PERIOD = CONFIG.GAMMA_PERIOD
+        self.GAMMA_DECAY = CONFIG.GAMMA_DECAY
         # Target Network Update
         self.double = CONFIG.DOUBLE
         self.TAU = CONFIG.TAU
@@ -142,10 +144,15 @@ class DDQN():
             self.EPSILON = max(self.EPSILON*self.EPS_DECAY, self.EPS_END)
 
 
+    def updateGamma(self):
+        if self.training_epoch % self.GAMMA_PERIOD == 0 and self.training_epoch != 0:
+            self.GAMMA = 1 - (1-self.GAMMA) * self.GAMMA_DECAY
+
     #== Hyper-Parameter Update ==
     def updateHyperParam(self):
         self.scheduler.step()
         self.updateEpsilon()
+        self.updateGamma()
         self.training_epoch += 1
 
 

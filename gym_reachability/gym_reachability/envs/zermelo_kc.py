@@ -101,9 +101,15 @@ class ZermeloKCEnv(gym.Env):
                                       np.array([1, 4])]
         self.scaling = 4.0
 
+        # Cost Params
+        self.penalty = 1000
+        self.reward = -1000
+        self.costType = 'dense_ell'
+
         self.device = device # for torch
         # Set random seed.
         np.random.seed(self.seed_val)
+
 
     def reset(self, start=None):
         """ Reset the state of the environment.
@@ -121,6 +127,7 @@ class ZermeloKCEnv(gym.Env):
             self.state = start
         return np.copy(self.state)
 
+
     def sample_random_state(self, keepOutOf=False):
         flag = True
         while flag:
@@ -133,6 +140,7 @@ class ZermeloKCEnv(gym.Env):
             flag = terminal and keepOutOf
 
         return rnd_state
+
 
     def step(self, action):
         """ Evolve the environment one step forward under given input action.
@@ -163,13 +171,31 @@ class ZermeloKCEnv(gym.Env):
         info = {"g_x": g_x}
 
         if g_x > 0 or g_x_prev > 0:
-            cost = 50
+            cost = self.penalty
         elif l_x <= 0 or l_x_prev <= 0:
-            cost = -20
+            cost = self.reward
         else:
-            cost = (l_x-l_x_prev) + (g_x-g_x_prev)
-
+            if self.costType == 'dense_ell':
+                cost = l_x
+            elif self.costType == 'dense_ell_g':
+                cost = l_x + g_x
+            elif self.costType == 'imp_ell_g':
+                cost = (l_x-l_x_prev) + (g_x-g_x_prev)
+            elif self.costType == 'imp_ell':
+                cost = (l_x-l_x_prev)
+            elif self.costType == 'sparse':
+                cost = 1
+            elif self.costType == 'max_ell_g':
+                cost = max(l_x, g_x)
+            
         return np.copy(self.state), cost, done, info
+
+
+    def set_costParam(self, penalty, reward, costType):
+        self.penalty = penalty
+        self.reward = reward
+        self.costType = costType
+
 
     def integrate_forward(self, x, y, u):
         """ Integrate the dynamics forward by one step.
@@ -187,6 +213,7 @@ class ZermeloKCEnv(gym.Env):
         y = y + self.time_step * self.upward_speed
         return x, y
 
+
     def set_seed(self, seed):
         """ Set the random seed.
 
@@ -195,6 +222,7 @@ class ZermeloKCEnv(gym.Env):
         """
         self.seed_val = seed
         np.random.seed(self.seed_val)
+
 
     def safety_margin(self, s):
         """ Computes the margin (e.g. distance) between state and failue set.
@@ -224,6 +252,7 @@ class ZermeloKCEnv(gym.Env):
 
         return self.scaling * safety_margin
 
+
     def target_margin(self, s):
         """ Computes the margin (e.g. distance) between state and target set.
 
@@ -239,6 +268,7 @@ class ZermeloKCEnv(gym.Env):
         target_margin = box4_target_margin
         return self.scaling * target_margin
 
+
     def set_grid_cells(self, grid_cells):
         """ Set number of grid cells.
 
@@ -249,6 +279,7 @@ class ZermeloKCEnv(gym.Env):
 
         # (self.x_opos, self.y_opos, self.x_ipos,
         #  self.y_ipos) = self.constraint_set_boundary()
+
 
     def set_bounds(self, bounds):
         """ Set state bounds.
@@ -268,6 +299,7 @@ class ZermeloKCEnv(gym.Env):
         self.observation_space = gym.spaces.Box(midpoint - interval,
                                                 midpoint + interval)
 
+
     def set_discretization(self, grid_cells, bounds):
         """ Set number of grid cells and state bounds.
 
@@ -278,8 +310,10 @@ class ZermeloKCEnv(gym.Env):
         self.set_grid_cells(grid_cells)
         self.set_bounds(bounds)
 
+
     def render(self, mode='human'):
         pass
+
 
     def constraint_set_boundary(self):
         """ Computes the safe set boundary based on the analytic solution.
@@ -333,6 +367,7 @@ class ZermeloKCEnv(gym.Env):
         return (x_box1_pos, x_box2_pos, x_box3_pos,
                 y_box1_pos, y_box2_pos, y_box3_pos)
 
+
     def target_set_boundary(self):
         """ Computes the safe set boundary based on the analytic solution.
 
@@ -360,6 +395,7 @@ class ZermeloKCEnv(gym.Env):
 
         return (x_box4_pos, y_box4_pos)
 
+
     def get_value(self, q_func):
         v = np.zeros(self.grid_cells)
         it = np.nditer(v, flags=['multi_index'])
@@ -370,6 +406,7 @@ class ZermeloKCEnv(gym.Env):
             v[idx] = q_func(state).min(dim=1)[0].item()
             it.iternext()
         return v
+
 
     def visualize_analytic_comparison(  self, q_func, no_show=False, 
                                         vmin=-50, vmax=50,
@@ -392,10 +429,11 @@ class ZermeloKCEnv(gym.Env):
 
         plt.colorbar(im)
 
-    def simulate_one_trajectory(self, q_func, T=10, state=None):
+
+    def simulate_one_trajectory(self, q_func, T=10, state=None, keepOutOf=False):
 
         if state is None:
-            state = self.sample_random_state()
+            state = self.sample_random_state(keepOutOf=keepOutOf)
         x, y = state
         traj_x = [x]
         traj_y = [y]
@@ -414,8 +452,9 @@ class ZermeloKCEnv(gym.Env):
 
         return traj_x, traj_y
 
+
     def simulate_trajectories(self, q_func, T=10, num_rnd_traj=None,
-                              states=None):
+                              states=None, keepOutOf=False):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -424,7 +463,7 @@ class ZermeloKCEnv(gym.Env):
 
         if states is None:
             for _ in range(num_rnd_traj):
-                trajectories.append(self.simulate_one_trajectory(q_func, T=T))
+                trajectories.append(self.simulate_one_trajectory(q_func, T=T, keepOutOf=keepOutOf))
         else:
             for state in states:
                 trajectories.append(
@@ -432,19 +471,22 @@ class ZermeloKCEnv(gym.Env):
 
         return trajectories
 
-    def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None):
+
+    def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None, keepOutOf=False):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
         trajectories = self.simulate_trajectories(q_func, T=T,
                                                   num_rnd_traj=num_rnd_traj,
-                                                  states=states)
+                                                  states=states, 
+                                                  keepOutOf=keepOutOf)
 
         for traj in trajectories:
             traj_x, traj_y = traj
             plt.scatter(traj_x[0], traj_y[0], s=32, c='r')
             plt.plot(traj_x, traj_y, color="black")
+
 
     def get_axes(self, labels=["x", "y"]):
         """ Gets the bounds for the environment.

@@ -18,6 +18,7 @@ import torch.optim as optim
 from collections import namedtuple
 import random
 import numpy as np
+import matplotlib.pyplot as plt
 
 from .model import model
 from .ReplayMemory import ReplayMemory
@@ -139,6 +140,69 @@ class DDQN():
         return loss.item()
 
 
+    def learn(self, env, MAX_EPISODES=20000, MAX_EP_STEPS=100,
+                running_cost_th=-50, report_period = 5000, vmin=-100, vmax=100):
+        #== TRAINING RECORD ==
+        TrainingRecord = namedtuple('TrainingRecord', ['ep', 'avg_cost', 'cost', 'loss_c'])
+        training_records = []
+        running_cost = 0.
+        running_cost_th = running_cost_th
+        report_period = report_period
+        vmin = vmin
+        vmax = vmax
+
+        while len(self.memory) < self.BATCH_SIZE*20:
+            s = env.reset()
+            a, a_idx = self.select_action(s)
+            s_, r, done, _ = env.step(a_idx)
+            if done:
+                s_ = None
+            self.store_transition(s, a_idx, r, s_)
+
+        for ep in range(MAX_EPISODES):
+            s = env.reset()
+            ep_cost = 0.
+            cnt = 0
+            for step_num in range(MAX_EP_STEPS):
+                cnt+=1
+                # action selection
+                a, a_idx = self.select_action(s)
+                # interact with env
+                s_, r, done, _ = env.step(a_idx)
+                # record
+                ep_cost += r
+                if done:
+                    s_ = None
+                # Store the transition in memory
+                self.store_transition(s, a_idx, r, s_)
+                s = s_
+                # Perform one step of the optimization (on the target network)
+                loss_c = self.update()
+                if done:
+                    break
+                    
+            self.updateHyperParam()
+            running_cost = running_cost * 0.9 + ep_cost * 0.1
+            training_records.append(TrainingRecord(ep, running_cost, ep_cost, loss_c))
+            print('{:d}: {:.1f} after {:d} steps   '.format(ep, ep_cost, cnt), end='\r')
+            
+            if ep % report_period == 0:
+                lr = self.optimizer.state_dict()['param_groups'][0]['lr']
+                print('\rEp[{:3.0f}] - [{:.2f}/{:.3f}/{:.1e}]: Running cost: {:3.2f} \t Real cost: {:.2f}'.format(
+                    ep, self.EPSILON, self.GAMMA, lr, running_cost, ep_cost))
+                
+                env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
+                env.plot_trajectories(self.Q_network, T=60, num_rnd_traj=5, states=env.visual_initial_states)
+                plt.pause(0.001)
+            
+            if running_cost <= running_cost_th:
+                print("\r At Ep[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(ep, running_cost))
+                env.close()
+                break
+
+        return training_records
+
+
     def updateEpsilon(self):
         if self.training_epoch % self.EPS_PERIOD == 0 and self.training_epoch != 0:
             self.EPSILON = max(self.EPSILON*self.EPS_DECAY, self.EPS_END)
@@ -148,7 +212,7 @@ class DDQN():
         if self.training_epoch % self.GAMMA_PERIOD == 0 and self.training_epoch != 0:
             self.GAMMA = 1 - (1-self.GAMMA) * self.GAMMA_DECAY
 
-    #== Hyper-Parameter Update ==
+
     def updateHyperParam(self):
         self.scheduler.step()
         self.updateEpsilon()

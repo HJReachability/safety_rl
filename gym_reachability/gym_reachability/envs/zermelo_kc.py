@@ -24,7 +24,7 @@ matplotlib.style.use('ggplot')
 
 class ZermeloKCEnv(gym.Env):
 
-    def __init__(self, device):
+    def __init__(self, device, mode='normal'):
 
         # State bounds.
         self.bounds = np.array([[-1.9, 1.9],  # axis_0 = state, axis_1 = bounds.
@@ -83,10 +83,22 @@ class ZermeloKCEnv(gym.Env):
         # Discretization.
         self.grid_cells = None
 
-        # Internal state.
-        self.state = np.zeros(3)
-
+        # Set random seed.
         self.seed_val = 0
+        np.random.seed(self.seed_val)
+        
+        # Cost Params
+        self.penalty = 1
+        self.reward = -1
+        self.costType = 'dense_ell'
+        self.scaling = 1.
+
+        # mode: normal or extend (keep track of ell & g)
+        self.mode = mode
+        if mode == 'extend':
+            self.state = np.zeros(3)
+        else:
+            self.state = np.zeros(2)
 
         # Visualization params
         self.vis_init_flag = True
@@ -99,16 +111,20 @@ class ZermeloKCEnv(gym.Env):
                                       np.array([1, -1.9]),
                                       np.array([-1, 4]),
                                       np.array([1, 4])]
-        self.scaling = 4.0
+        if mode == 'extend':
+            self.visual_initial_states = self.extend_state(self.visual_initial_states)
 
-        # Cost Params
-        self.penalty = 1000
-        self.reward = -1000
-        self.costType = 'dense_ell'
+        # for torch
+        self.device = device 
 
-        self.device = device # for torch
-        # Set random seed.
-        np.random.seed(self.seed_val)
+
+    def extend_state(self, states):
+        new_states = []
+        for state in states:
+            l_x = self.target_margin(state)
+            g_x = self.safety_margin(state)
+            new_states.append(np.append(state, max(l_x, g_x)))
+        return new_states
 
 
     def reset(self, start=None):
@@ -136,6 +152,9 @@ class ZermeloKCEnv(gym.Env):
             l_x = self.target_margin(rnd_state)
             g_x = self.safety_margin(rnd_state)
 
+            if self.mode == 'extend':
+                rnd_state = np.append(rnd_state, max(l_x, g_x))
+
             terminal = (g_x > 0) or (l_x <= 0)
             flag = terminal and keepOutOf
 
@@ -153,65 +172,94 @@ class ZermeloKCEnv(gym.Env):
             episode is done, info dictionary).
         """
 
-        # Move dynamics one step forward.
-        x, y = self.state
-        u = self.discrete_controls[action]
-
-        l_x_prev = self.target_margin(self.state)
-        g_x_prev = self.safety_margin(self.state)
-
-        x, y = self.integrate_forward(x, y, u)
-        self.state = np.array([x, y])
-
-        l_x = self.target_margin(self.state)
-        g_x = self.safety_margin(self.state)
-
-        # Calculate whether episode is done.
-        done = ((g_x > 0) or (l_x <= 0))
-        info = {"g_x": g_x}
-
-        if g_x > 0 or g_x_prev > 0:
-            cost = self.penalty
-        elif l_x <= 0 or l_x_prev <= 0:
-            cost = self.reward
+        if self.mode == 'extend':
+            x, y, z = self.state
         else:
-            if self.costType == 'dense_ell':
-                cost = l_x
-            elif self.costType == 'dense_ell_g':
-                cost = l_x + g_x
-            elif self.costType == 'imp_ell_g':
-                cost = (l_x-l_x_prev) + (g_x-g_x_prev)
-            elif self.costType == 'imp_ell':
-                cost = (l_x-l_x_prev)
-            elif self.costType == 'sparse':
-                cost = 1
-            elif self.costType == 'max_ell_g':
-                cost = max(l_x, g_x)
-            
+            x, y = self.state
+
+        l_x_prev = self.target_margin(self.state[:2])
+        g_x_prev = self.safety_margin(self.state[:2])
+
+        u = self.discrete_controls[action]
+        state, [l_x, g_x] = self.integrate_forward(self.state, u)
+        self.state = state
+
+        if self.mode == 'extend' or self.mode == 'RA':
+            fail = g_x_prev > 0
+            success = l_x_prev <= 0
+            done = fail or success
+            if g_x_prev > 0:
+                cost = self.penalty
+            elif l_x_prev <= 0:
+                cost = self.reward
+            else:
+                cost = 0.
+        else:
+            fail = g_x > 0
+            success = l_x <= 0
+            done = fail or success
+            if g_x > 0 or g_x_prev > 0:
+                cost = self.penalty
+            elif l_x <= 0 or l_x_prev <= 0:
+                cost = self.reward
+            else:
+                if self.costType == 'dense_ell':
+                    cost = l_x
+                elif self.costType == 'dense_ell_g':
+                    cost = l_x + g_x
+                elif self.costType == 'imp_ell_g':
+                    cost = (l_x-l_x_prev) + (g_x-g_x_prev)
+                elif self.costType == 'imp_ell':
+                    cost = (l_x-l_x_prev)
+                elif self.costType == 'sparse':
+                    cost = 0. * self.scaling
+                elif self.costType == 'max_ell_g':
+                    cost = max(l_x, g_x)
+
+        info = {"g_x": g_x, "l_x": l_x}    
         return np.copy(self.state), cost, done, info
 
 
-    def set_costParam(self, penalty, reward, costType):
-        self.penalty = penalty
-        self.reward = reward
-        self.costType = costType
-
-
-    def integrate_forward(self, x, y, u):
+    def integrate_forward(self, state, u):
         """ Integrate the dynamics forward by one step.
 
         Args:
-            x: Position in x-axis.
-            y: Position in y-axis
-            theta: Heading.
+            state:  x, y - position
+                    [z]  - optional, extra state dimension capturing 
+                                     reach-avoid outcome so far)
             u: Contol input.
 
         Returns:
-            State variables (x,y,theta) integrated one step forward in time.
+            State variables (x, y, [z])  integrated one step forward in time.
         """
+        if self.mode == 'extend':
+            x, y, z = state
+        else:
+            x, y = state
+
+        # one step forward
         x = x + self.time_step * u
         y = y + self.time_step * self.upward_speed
-        return x, y
+
+        l_x = self.target_margin(np.array([x, y]))
+        g_x = self.safety_margin(np.array([x, y]))
+
+        if self.mode == 'extend':
+            z = min(z, max(l_x, g_x) )
+            state = np.array([x, y, z])
+        else:
+            state = np.array([x, y])
+
+        info = np.array([l_x, g_x])
+        
+        return state, info
+
+
+    def set_costParam(self, penalty, reward, costType, scaling=4.):
+        self.penalty = penalty
+        self.reward = reward
+        self.costType = costType
+        self.scaling = scaling
 
 
     def set_seed(self, seed):
@@ -401,8 +449,16 @@ class ZermeloKCEnv(gym.Env):
         it = np.nditer(v, flags=['multi_index'])
         while not it.finished:
             idx = it.multi_index
-            state = index_to_state(self.grid_cells, self.bounds, idx)
-            state = torch.FloatTensor(state, device=self.device).unsqueeze(0)
+            x, y = index_to_state(self.grid_cells, self.bounds, idx)
+            l_x = self.target_margin(np.array([x, y]))
+            g_x = self.safety_margin(np.array([x, y]))
+
+            if self.mode == 'normal' or self.mode == 'RA':
+                state = torch.FloatTensor([x, y], device=self.device).unsqueeze(0)
+            else:
+                z = max([l_x, g_x])
+                state = torch.FloatTensor([x, y, z], device=self.device).unsqueeze(0)
+
             v[idx] = q_func(state).min(dim=1)[0].item()
             it.iternext()
         return v
@@ -434,23 +490,27 @@ class ZermeloKCEnv(gym.Env):
 
         if state is None:
             state = self.sample_random_state(keepOutOf=keepOutOf)
-        x, y = state
+        x, y = state[:2]
         traj_x = [x]
         traj_y = [y]
+        result = 0 # not finished
 
         for t in range(T):
-            if self.safety_margin(state) > 0 or self.target_margin(state) < 0:
+            if self.safety_margin(state[:2]) > 0:
+                result = -1 # failed
                 break
-            state = torch.FloatTensor(state, device=self.device).unsqueeze(0)
-            action_index = q_func(state).min(dim=1)[1].item()
+            elif self.target_margin(state[:2]) <= 0:
+                result = 1 # succeeded
+                break
+            state_tensor = torch.FloatTensor(state, device=self.device).unsqueeze(0)
+            action_index = q_func(state_tensor).min(dim=1)[1].item()
             u = self.discrete_controls[action_index]
 
-            x, y = self.integrate_forward(x, y, u)
-            state = np.array([x, y])
-            traj_x.append(x)
-            traj_y.append(y)
+            state, _ = self.integrate_forward(state, u)
+            traj_x.append(state[0])
+            traj_y.append(state[1])
 
-        return traj_x, traj_y
+        return traj_x, traj_y, result
 
 
     def simulate_trajectories(self, q_func, T=10, num_rnd_traj=None,
@@ -462,14 +522,19 @@ class ZermeloKCEnv(gym.Env):
         trajectories = []
 
         if states is None:
-            for _ in range(num_rnd_traj):
-                trajectories.append(self.simulate_one_trajectory(q_func, T=T, keepOutOf=keepOutOf))
+            results = np.empty(shape=(num_rnd_traj,), dtype=int)
+            for idx in range(num_rnd_traj):
+                traj_x, traj_y, result = self.simulate_one_trajectory(q_func, T=T, keepOutOf=keepOutOf)
+                trajectories.append((traj_x, traj_y))
+                results[idx] = result
         else:
-            for state in states:
-                trajectories.append(
-                    self.simulate_one_trajectory(q_func, T=T, state=state))
+            results = np.empty(shape=(len(states),), dtype=int)
+            for idx, state in enumerate(states):
+                traj_x, traj_y, result = self.simulate_one_trajectory(q_func, T=T, state=state)
+                trajectories.append((traj_x, traj_y))
+                results[idx] = result
 
-        return trajectories
+        return trajectories, results
 
 
     def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None, keepOutOf=False):
@@ -477,15 +542,16 @@ class ZermeloKCEnv(gym.Env):
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
-        trajectories = self.simulate_trajectories(q_func, T=T,
-                                                  num_rnd_traj=num_rnd_traj,
-                                                  states=states, 
-                                                  keepOutOf=keepOutOf)
-
+        trajectories, results = self.simulate_trajectories(q_func, T=T,
+                                                          num_rnd_traj=num_rnd_traj,
+                                                          states=states, 
+                                                          keepOutOf=keepOutOf)
         for traj in trajectories:
             traj_x, traj_y = traj
             plt.scatter(traj_x[0], traj_y[0], s=32, c='r')
             plt.plot(traj_x, traj_y, color="black")
+
+        return results
 
 
     def get_axes(self, labels=["x", "y"]):

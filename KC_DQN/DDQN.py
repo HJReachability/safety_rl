@@ -19,17 +19,20 @@ from collections import namedtuple
 import random
 import numpy as np
 import matplotlib.pyplot as plt
+import os
+import glob
 
 from .model import model
 from .ReplayMemory import ReplayMemory
 
-Transition = namedtuple('Transition', ['s', 'a', 'r', 's_'])
+Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
 
 class DDQN():
 
-    def __init__(self, state_num, action_num, CONFIG, action_list):
+    def __init__(self, state_num, action_num, CONFIG, action_list, mode='normal'):
         self.action_list = action_list
         self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)
+        self.mode = mode # 'normal' or 'RA'
         
         #== ENV PARAM ==
         self.state_num = state_num
@@ -105,7 +108,11 @@ class DDQN():
         state = torch.FloatTensor(batch.s, device=self.device)
         action = torch.LongTensor(batch.a, device=self.device).view(-1,1)
         reward = torch.FloatTensor(batch.r, device=self.device)
-        
+        if self.mode == 'RA':
+            g_x = torch.FloatTensor([info['g_x'] for info in batch.info], 
+                                    device=self.device).view(-1)
+            l_x = torch.FloatTensor([info['l_x'] for info in batch.info], 
+                                    device=self.device).view(-1)
         #== get Q(s,a) ==
         # gather reguires idx to be Long, i/p and idx should have the same shape with only diff at the dim we want to extract value
         # o/p = Q [ i ][ action[i] ], which has the same dim as idx, 
@@ -123,7 +130,13 @@ class DDQN():
             else:
                 Q_expect = self.Q_network(non_final_state_nxt)
         state_value_nxt[non_final_mask] = Q_expect.gather(1, action_nxt).view(-1)
-        expected_state_action_values = (state_value_nxt * self.GAMMA) + reward
+        if self.mode == 'RA':
+            min_term = torch.min(l_x, state_value_nxt)
+            non_terminal = torch.max(min_term, g_x)
+            terminal = torch.max(l_x, g_x)
+            expected_state_action_values = non_terminal * self.GAMMA + terminal * (1-self.GAMMA)
+        else:
+            expected_state_action_values = state_value_nxt * self.GAMMA + reward
         
         #== regression Q(s, a) -> y ==
         self.Q_network.train()
@@ -141,7 +154,8 @@ class DDQN():
 
 
     def learn(self, env, MAX_EPISODES=20000, MAX_EP_STEPS=100,
-                running_cost_th=-50, report_period = 5000, vmin=-100, vmax=100):
+              running_cost_th=-50, report_period = 5000, 
+              vmin=-100, vmax=100, randomPlot=False):
         #== TRAINING RECORD ==
         TrainingRecord = namedtuple('TrainingRecord', ['ep', 'avg_cost', 'cost', 'loss_c'])
         training_records = []
@@ -154,10 +168,23 @@ class DDQN():
         while len(self.memory) < self.BATCH_SIZE*20:
             s = env.reset()
             a, a_idx = self.select_action(s)
-            s_, r, done, _ = env.step(a_idx)
+            s_, r, done, info = env.step(a_idx)
             if done:
                 s_ = None
-            self.store_transition(s, a_idx, r, s_)
+            self.store_transition(s, a_idx, r, s_, info)
+
+            #== warmup Q ==
+            state = torch.from_numpy(s.reshape(1,-1)).float()
+            y = np.zeros((1, self.action_num))
+            y[0,:] = np.maximum(env.safety_margin(s), env.target_margin(s))
+            y = torch.from_numpy(y).float()
+            Q_value = self.Q_network(state)
+            loss = smooth_l1_loss(input=Q_value, target=y.detach())
+
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
 
         for ep in range(MAX_EPISODES):
             s = env.reset()
@@ -174,7 +201,7 @@ class DDQN():
                 if done:
                     s_ = None
                 # Store the transition in memory
-                self.store_transition(s, a_idx, r, s_)
+                self.store_transition(s, a_idx, r, s_, info)
                 s = s_
                 # Perform one step of the optimization (on the target network)
                 loss_c = self.update()
@@ -182,6 +209,9 @@ class DDQN():
                     break
                     
             self.updateHyperParam()
+            #if ep_cost <= running_cost:
+            #    self.save(ep, 'models/')
+
             running_cost = running_cost * 0.9 + ep_cost * 0.1
             training_records.append(TrainingRecord(ep, running_cost, ep_cost, loss_c))
             print('{:d}: {:.1f} after {:d} steps   '.format(ep, ep_cost, cnt), end='\r')
@@ -192,7 +222,10 @@ class DDQN():
                     ep, self.EPSILON, self.GAMMA, lr, running_cost, ep_cost))
                 
                 env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
-                env.plot_trajectories(self.Q_network, T=60, num_rnd_traj=5, states=env.visual_initial_states)
+                if randomPlot:
+                    env.plot_trajectories(self.Q_network, T=60, num_rnd_traj=10, keepOutOf=True)
+                else:
+                    env.plot_trajectories(self.Q_network, T=60, num_rnd_traj=5, states=env.visual_initial_states)
                 plt.pause(0.001)
             
             if running_cost <= running_cost_th:
@@ -237,12 +270,13 @@ class DDQN():
     def save(self, step, logs_path):
         os.makedirs(logs_path, exist_ok=True)
         model_list =  glob.glob(os.path.join(logs_path, '*.pth'))
+        #print(model_list)
         if len(model_list) > self.MAX_MODEL - 1 :
             min_step = min([int(li.split('/')[-1][6:-4]) for li in model_list]) 
             os.remove(os.path.join(logs_path, 'model-{}.pth' .format(min_step)))
         logs_path = os.path.join(logs_path, 'model-{}.pth' .format(step))
-        self.Q_network.save(logs_path, step=step)
-        print('=> Save {}' .format(logs_path)) 
+        torch.save(self.Q_network, logs_path)
+        print('=> Save {}\r' .format(logs_path), end='') 
 
 
     def restore(self, logs_path):

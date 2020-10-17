@@ -25,12 +25,13 @@ class config():
         self.LR_C = LR_C
         self.LR_C_PERIOD = LR_C_PERIOD
         self.LR_C_DECAY = LR_C_DECAY
-        
-        self.MEMORY_CAPACITY = MEMORY_CAPACITY
-        self.BATCH_SIZE = BATCH_SIZE
+
         self.GAMMA = GAMMA
         self.GAMMA_PERIOD = GAMMA_PERIOD
         self.GAMMA_DECAY = GAMMA_DECAY
+        
+        self.MEMORY_CAPACITY = MEMORY_CAPACITY
+        self.BATCH_SIZE = BATCH_SIZE
         
         self.TAU = TAU
         self.HARD_UPDATE = HARD_UPDATE

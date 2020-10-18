@@ -24,3 +24,15 @@ class model(nn.Module):
                 m.weight.data.normal_(0, 1)
                 #m.weight.data.zero_()
                 m.bias.data.zero_()
+
+    def outputGrad(self):
+        curMax = torch.FloatTensor((0,))
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                tmp1 = torch.max(torch.abs(m.weight.grad.clone()))
+                tmp2 = torch.max(torch.abs(m.bias.grad.clone()))
+                tmp3 = torch.max(tmp1, tmp2)
+                curMax = torch.max(curMax, tmp3)
+                #print(tmp1, tmp2, tmp3, curMax)
+                print(m.bias.grad.clone())
+        return curMax

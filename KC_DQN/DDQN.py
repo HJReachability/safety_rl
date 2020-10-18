@@ -178,7 +178,7 @@ class DDQN():
             self.store_transition(s, a_idx, r, s_, info)
 
         #== warmup Q ==
-        ep_warmup = 500
+        ep_warmup = 1000
         num_warmup_samples = 100
         for ep_tmp in range(ep_warmup):
             print('warmup-{:d}'.format(ep_tmp), end='\r')
@@ -203,7 +203,7 @@ class DDQN():
             loss.backward()
             nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
             self.optimizer.step()
-            if ep_tmp % 100 == 0:
+            if ep_tmp % 400 == 0:
                 env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
                 plt.pause(0.001)
             

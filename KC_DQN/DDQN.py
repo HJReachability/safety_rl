@@ -73,20 +73,8 @@ class DDQN():
             self.target_network.cuda()
         self.optimizer = optim.Adam(self.Q_network.parameters(), lr=self.LR_C)
         self.scheduler =  optim.lr_scheduler.StepLR(self.optimizer, step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
-        self.max_grad_norm = 0.5
+        self.max_grad_norm = 1
         self.training_epoch = 0
-
-
-    def update_target_network(self):
-        if self.SOFT_UPDATE:
-            # Soft Replace
-            for module_tar, module_pol in zip(self.target_network.modules(), self.Q_network.modules()):
-                if isinstance(module_tar, nn.Linear):
-                    module_tar.weight.data = (1-self.TAU)*module_tar.weight.data + self.TAU*module_pol.weight.data
-                    module_tar.bias.data   = (1-self.TAU)*module_tar.bias.data   + self.TAU*module_pol.bias.data
-        elif self.training_epoch % self.HARD_UPDATE == 0:
-            # Hard Replace
-            self.target_network.load_state_dict(self.Q_network.state_dict())
         
          
     def update(self):
@@ -124,6 +112,7 @@ class DDQN():
         
         #== get expected value: y = r + gamma * Q_tar(s', a') ==
         state_value_nxt = torch.zeros(self.BATCH_SIZE, device=self.device)
+        
         with torch.no_grad():
             if self.double:
                 Q_expect = self.target_network(non_final_state_nxt)
@@ -131,10 +120,25 @@ class DDQN():
                 Q_expect = self.Q_network(non_final_state_nxt)
         state_value_nxt[non_final_mask] = Q_expect.gather(1, action_nxt).view(-1)
         if self.mode == 'RA':
+            success_mask = torch.logical_and(torch.logical_not(non_final_mask), l_x<=0)
+            expected_state_action_values = torch.max(l_x, g_x)
             min_term = torch.min(l_x, state_value_nxt)
             non_terminal = torch.max(min_term, g_x)
-            terminal = torch.max(l_x, g_x)
-            expected_state_action_values = non_terminal * self.GAMMA + terminal * (1-self.GAMMA)
+            
+            #print(non_final_mask[:10])
+            '''
+            print(state_value_nxt[:10])
+            print(l_x[:10])
+            print(g_x[:10])
+            print(expected_state_action_values[:10])
+            print(non_terminal[:10])
+            '''
+            expected_state_action_values[non_final_mask] = non_terminal[non_final_mask] * self.GAMMA + \
+                expected_state_action_values[non_final_mask] * (1-self.GAMMA)
+            expected_state_action_values[success_mask] = -10.
+            
+            #print(expected_state_action_values[:10],end='\n')
+            #print()
         else:
             expected_state_action_values = state_value_nxt * self.GAMMA + reward
         
@@ -145,7 +149,7 @@ class DDQN():
         #== backward optimize ==
         self.optimizer.zero_grad()
         loss.backward()
-        #nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
+        nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
         self.optimizer.step()
 
         self.update_target_network()
@@ -155,7 +159,7 @@ class DDQN():
 
     def learn(self, env, MAX_EPISODES=20000, MAX_EP_STEPS=100,
               running_cost_th=-50, report_period = 5000, 
-              vmin=-100, vmax=100, randomPlot=False):
+              vmin=-100, vmax=100, randomPlot=False, num_rnd_traj=10):
         #== TRAINING RECORD ==
         TrainingRecord = namedtuple('TrainingRecord', ['ep', 'avg_cost', 'cost', 'loss_c'])
         training_records = []
@@ -173,18 +177,38 @@ class DDQN():
                 s_ = None
             self.store_transition(s, a_idx, r, s_, info)
 
-            #== warmup Q ==
-            state = torch.from_numpy(s.reshape(1,-1)).float()
-            y = np.zeros((1, self.action_num))
-            y[0,:] = np.maximum(env.safety_margin(s), env.target_margin(s))
-            y = torch.from_numpy(y).float()
-            Q_value = self.Q_network(state)
-            loss = smooth_l1_loss(input=Q_value, target=y.detach())
+        #== warmup Q ==
+        ep_warmup = 500
+        num_warmup_samples = 100
+        for ep_tmp in range(ep_warmup):
+            print('warmup-{:d}'.format(ep_tmp), end='\r')
+            xs = np.random.uniform(-1.9, 1.9, num_warmup_samples)
+            ys = np.random.uniform(-2, 9.25, num_warmup_samples)
+            expected_v = np.zeros((num_warmup_samples, self.action_num))
+            state = np.zeros((num_warmup_samples, 2))
+            for i in range(num_warmup_samples):
+                x, y = xs[i], ys[i]
+                l_x = env.target_margin(np.array([x, y]))
+                g_x = env.safety_margin(np.array([x, y]))
+                expected_v[i,:] = np.maximum(l_x, g_x)
+                state[i, :] = x, y
+
+            self.Q_network.train()
+            expected_v = torch.from_numpy(expected_v).float().to(self.device)
+            state = torch.from_numpy(state).float().to(self.device)
+            v = self.Q_network(state)
+            loss = smooth_l1_loss(input=v, target=expected_v)
 
             self.optimizer.zero_grad()
             loss.backward()
+            nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
             self.optimizer.step()
-
+            if ep_tmp % 100 == 0:
+                env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
+                plt.pause(0.001)
+            
+        # hard replace 
+        self.target_network.load_state_dict(self.Q_network.state_dict())
 
         for ep in range(MAX_EPISODES):
             s = env.reset()
@@ -218,15 +242,17 @@ class DDQN():
             
             if ep % report_period == 0:
                 lr = self.optimizer.state_dict()['param_groups'][0]['lr']
-                print('\rEp[{:3.0f}] - [{:.2f}/{:.3f}/{:.1e}]: Running cost: {:3.2f} \t Real cost: {:.2f}'.format(
-                    ep, self.EPSILON, self.GAMMA, lr, running_cost, ep_cost))
                 
                 env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
                 if randomPlot:
-                    env.plot_trajectories(self.Q_network, T=60, num_rnd_traj=10, keepOutOf=True)
+                    tmp = env.plot_trajectories(self.Q_network, T=200, num_rnd_traj=num_rnd_traj, keepOutOf=True)
                 else:
-                    env.plot_trajectories(self.Q_network, T=60, num_rnd_traj=5, states=env.visual_initial_states)
+                    tmp = env.plot_trajectories(self.Q_network, T=200, num_rnd_traj=5, states=env.visual_initial_states)
                 plt.pause(0.001)
+                print('Ep[{:3.0f} - ({:.2f},{:.3f},{:.1e})]: Running/Real cost: {:3.2f}/{:.2f}; '.format(
+                    ep, self.EPSILON, self.GAMMA, lr, running_cost, ep_cost), end='')
+                print('success/failure/unfinished rate: {:.3f}, {:.3f}, {:.3f}'.format(\
+                    np.sum(tmp==1)/tmp.shape[0], np.sum(tmp==-1)/tmp.shape[0], np.sum(tmp==0)/tmp.shape[0]))
             
             if running_cost <= running_cost_th:
                 print("\r At Ep[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(ep, running_cost))
@@ -236,6 +262,18 @@ class DDQN():
         return training_records
 
 
+    def update_target_network(self):
+        if self.SOFT_UPDATE:
+            # Soft Replace
+            for module_tar, module_pol in zip(self.target_network.modules(), self.Q_network.modules()):
+                if isinstance(module_tar, nn.Linear):
+                    module_tar.weight.data = (1-self.TAU)*module_tar.weight.data + self.TAU*module_pol.weight.data
+                    module_tar.bias.data   = (1-self.TAU)*module_tar.bias.data   + self.TAU*module_pol.bias.data
+        elif self.training_epoch % self.HARD_UPDATE == 0:
+            # Hard Replace
+            self.target_network.load_state_dict(self.Q_network.state_dict())
+
+
     def updateEpsilon(self):
         if self.training_epoch % self.EPS_PERIOD == 0 and self.training_epoch != 0:
             self.EPSILON = max(self.EPSILON*self.EPS_DECAY, self.EPS_END)
@@ -243,7 +281,7 @@ class DDQN():
 
     def updateGamma(self):
         if self.training_epoch % self.GAMMA_PERIOD == 0 and self.training_epoch != 0:
-            self.GAMMA = 1 - (1-self.GAMMA) * self.GAMMA_DECAY
+            self.GAMMA = min(1 - (1-self.GAMMA) * self.GAMMA_DECAY, 0.99)
 
 
     def updateHyperParam(self):

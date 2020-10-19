@@ -216,7 +216,7 @@ class ZermeloKCEnv(gym.Env):
                 elif self.costType == 'max_ell_g':
                     cost = max(l_x, g_x)
 
-        info = {"g_x": g_x, "l_x": l_x}    
+        info = {"g_x": g_x_prev, "l_x": l_x_prev}    
         return np.copy(self.state), cost, done, info
 
 
@@ -255,7 +255,7 @@ class ZermeloKCEnv(gym.Env):
         return state, info
 
 
-    def set_costParam(self, penalty, reward, costType, scaling=4.):
+    def set_costParam(self, penalty=1, reward=-1, costType='normal', scaling=4.):
         self.penalty = penalty
         self.reward = reward
         self.costType = costType
@@ -463,7 +463,7 @@ class ZermeloKCEnv(gym.Env):
             it.iternext()
         return v
 
-
+    
     def visualize_analytic_comparison(  self, q_func, no_show=False, 
                                         vmin=-50, vmax=50,
                                         labels=["x", "y"]):
@@ -562,3 +562,4 @@ class ZermeloKCEnv(gym.Env):
             list for the name of each state coordinate.
         """
         return [np.append(self.bounds[0], self.bounds[1]), labels]
+    

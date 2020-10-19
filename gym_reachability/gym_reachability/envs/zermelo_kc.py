@@ -70,7 +70,7 @@ class ZermeloKCEnv(gym.Env):
                     ])
 
         # Target set parameters.
-        self.box4_x_y_length = np.array([0, 7+1.5, 1.5])  # Top.
+        self.box4_x_y_length = np.array([0, 8.5, 1.5])  # Top.
 
         # Gym variables.
         self.action_space = gym.spaces.Discrete(3)  # horizontal_rate = {-1,0,1}
@@ -177,46 +177,49 @@ class ZermeloKCEnv(gym.Env):
         else:
             x, y = self.state
 
-        l_x_prev = self.target_margin(self.state[:2])
-        g_x_prev = self.safety_margin(self.state[:2])
+        l_x_cur = self.target_margin(self.state[:2])
+        g_x_cur = self.safety_margin(self.state[:2])
 
         u = self.discrete_controls[action]
-        state, [l_x, g_x] = self.integrate_forward(self.state, u)
+        state, [l_x_nxt, g_x_nxt] = self.integrate_forward(self.state, u)
         self.state = state
 
-        if self.mode == 'extend' or self.mode == 'RA':
-            fail = g_x_prev > 0
-            success = l_x_prev <= 0
+        #if self.mode == 'extend' or self.mode == 'RA':
+        if self.mode == 'extend'  or self.mode == 'RA':
+            fail = g_x_cur > 0
+            success = l_x_cur <= 0
             done = fail or success
-            if g_x_prev > 0:
+            if fail:
                 cost = self.penalty
-            elif l_x_prev <= 0:
+            elif success:
                 cost = self.reward
             else:
                 cost = 0.
         else:
-            fail = g_x > 0
-            success = l_x <= 0
+            fail = g_x_nxt > 0
+            success = l_x_nxt <= 0
             done = fail or success
-            if g_x > 0 or g_x_prev > 0:
+            if g_x_nxt > 0 or g_x_cur > 0:
                 cost = self.penalty
-            elif l_x <= 0 or l_x_prev <= 0:
+            elif l_x_nxt <= 0 or l_x_cur <= 0:
                 cost = self.reward
             else:
                 if self.costType == 'dense_ell':
-                    cost = l_x
+                    cost = l_x_nxt
                 elif self.costType == 'dense_ell_g':
-                    cost = l_x + g_x
+                    cost = l_x_nxt + g_x_nxt
                 elif self.costType == 'imp_ell_g':
-                    cost = (l_x-l_x_prev) + (g_x-g_x_prev)
+                    cost = (l_x_nxt-l_x_cur) + (g_x_nxt-g_x_cur)
                 elif self.costType == 'imp_ell':
-                    cost = (l_x-l_x_prev)
+                    cost = (l_x_nxt-l_x_cur)
                 elif self.costType == 'sparse':
                     cost = 0. * self.scaling
                 elif self.costType == 'max_ell_g':
-                    cost = max(l_x, g_x)
+                    cost = max(l_x_nxt, g_x_nxt)
+                else:
+                    cost = 0.
 
-        info = {"g_x": g_x_prev, "l_x": l_x_prev}    
+        info = {"g_x": g_x_cur, "l_x": l_x_cur}    
         return np.copy(self.state), cost, done, info
 
 
@@ -288,9 +291,10 @@ class ZermeloKCEnv(gym.Env):
         box3_safety_margin = -(np.linalg.norm(s - self.box3_x_y_length[:2],
                                ord=np.inf) - self.box3_x_y_length[-1]/2.0)
 
-        vertical_margin = (np.abs(s[1] - (self.low[1] + self.high[1])/2.0)
+        vertical_margin = (np.abs( s[1] - (self.low[1] + self.high[1])/2.0)
                            - self.interval[1]/2.0)
-        horizontal_margin = np.abs(s[0]) - 2.0
+        horizontal_margin = (np.abs( s[0] - (self.low[0] + self.high[0])/2.0)
+                           - self.interval[0]/2.0)
         enclosure_safety_margin = max(horizontal_margin, vertical_margin)
 
         safety_margin = max(box1_safety_margin,

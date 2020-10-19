@@ -162,7 +162,7 @@ def q_values_from_q_func(q_func, num_grid_cells, state_bounds, action_n):
 # == plotting functions ==
 
 
-def visualize_matrix(m, axes=None, no_show=False, vmin=-2, vmax=4):
+def visualize_matrix(m, axes=None, no_show=False, vmin=-10, vmax=10):
     if axes is not None:
         # Transpose is necessary so that m[x,y] is (x,y) on plot.
         f = plt.imshow(m, interpolation='none', extent=axes[0], origin="lower",

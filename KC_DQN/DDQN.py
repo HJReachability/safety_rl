@@ -5,10 +5,6 @@
 #  - a' = argmin_a' Q_policy(s', a'), y = c(s,a) + gamma * Q_tar(s', a')
 #  - loss = E[ ( y - Q_policy(s,a) )^2 ] 
 
-#import sys
-#sys.path.append('..')
-#print(sys.path)
-
 import torch
 import torch.nn as nn
 from torch.nn.functional import mse_loss, smooth_l1_loss
@@ -77,7 +73,7 @@ class DDQN():
         self.training_epoch = 0
         
          
-    def update(self):
+    def update(self, verbose=False):
         if len(self.memory) < self.BATCH_SIZE*20:
         #if not self.memory.isfull:
             return
@@ -119,26 +115,33 @@ class DDQN():
             else:
                 Q_expect = self.Q_network(non_final_state_nxt)
         state_value_nxt[non_final_mask] = Q_expect.gather(1, action_nxt).view(-1)
+    
         if self.mode == 'RA':
+    #== RA ==
+            expected_state_action_values = torch.zeros(self.BATCH_SIZE).float().to(self.device)
+
             success_mask = torch.logical_and(torch.logical_not(non_final_mask), l_x<=0)
-            expected_state_action_values = torch.max(l_x, g_x)
+            failure_mask = torch.logical_and(torch.logical_not(non_final_mask), g_x>0)
+
             min_term = torch.min(l_x, state_value_nxt)
             non_terminal = torch.max(min_term, g_x)
-            
-            #print(non_final_mask[:10])
-            '''
-            print(state_value_nxt[:10])
-            print(l_x[:10])
-            print(g_x[:10])
-            print(expected_state_action_values[:10])
-            print(non_terminal[:10])
-            '''
+            terminal = torch.max(l_x, g_x)
+
             expected_state_action_values[non_final_mask] = non_terminal[non_final_mask] * self.GAMMA + \
-                expected_state_action_values[non_final_mask] * (1-self.GAMMA)
-            expected_state_action_values[success_mask] = -10.
-            
-            #print(expected_state_action_values[:10],end='\n')
-            #print()
+                                                           terminal[non_final_mask] * (1-self.GAMMA)
+            #expected_state_action_values[success_mask] = -10.
+            #expected_state_action_values[failure_mask] = 10.
+            expected_state_action_values[success_mask] = l_x[success_mask] 
+            expected_state_action_values[failure_mask] = terminal[failure_mask]
+            if verbose:
+                np.set_printoptions(precision=3)
+                print(non_final_mask[:10])
+                print('V_target:', state_value_nxt[:10].numpy())
+                print('ell     :', l_x[:10].numpy())
+                print('g       :', g_x[:10].numpy())
+                print('V_expect:', expected_state_action_values[:10].numpy())
+                print('V_policy:', state_action_values[:10].detach().numpy(), end='\n\n')
+    #== RA ==
         else:
             expected_state_action_values = state_value_nxt * self.GAMMA + reward
         
@@ -168,7 +171,7 @@ class DDQN():
         report_period = report_period
         vmin = vmin
         vmax = vmax
-
+    # == Warmup Buffer ==
         while len(self.memory) < self.BATCH_SIZE*20:
             s = env.reset()
             a, a_idx = self.select_action(s)
@@ -176,8 +179,8 @@ class DDQN():
             if done:
                 s_ = None
             self.store_transition(s, a_idx, r, s_, info)
-
-        #== warmup Q ==
+    #
+    # == Warmup Q ==
         ep_warmup = 1000
         num_warmup_samples = 100
         for ep_tmp in range(ep_warmup):
@@ -203,13 +206,17 @@ class DDQN():
             loss.backward()
             nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
             self.optimizer.step()
-            if ep_tmp % 400 == 0:
+            '''
+            if ep_tmp % 500 == 0:
                 env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
                 plt.pause(0.001)
-            
-        # hard replace 
-        self.target_network.load_state_dict(self.Q_network.state_dict())
-
+            '''
+        env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
+        env.visualize_analytic_comparison(self.target_network, True, vmin=vmin, vmax=vmax)
+        plt.pause(0.001)
+        self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
+    # 
+    # == Main Training ==
         for ep in range(MAX_EPISODES):
             s = env.reset()
             ep_cost = 0.
@@ -219,7 +226,7 @@ class DDQN():
                 # action selection
                 a, a_idx = self.select_action(s)
                 # interact with env
-                s_, r, done, _ = env.step(a_idx)
+                s_, r, done, info = env.step(a_idx)
                 # record
                 ep_cost += r
                 if done:
@@ -228,7 +235,10 @@ class DDQN():
                 self.store_transition(s, a_idx, r, s_, info)
                 s = s_
                 # Perform one step of the optimization (on the target network)
-                loss_c = self.update()
+                if ep % report_period == 0 and step_num == 0:
+                    loss_c = self.update()
+                else:
+                    loss_c = self.update()
                 if done:
                     break
                     
@@ -249,7 +259,8 @@ class DDQN():
                 else:
                     tmp = env.plot_trajectories(self.Q_network, T=200, num_rnd_traj=5, states=env.visual_initial_states)
                 plt.pause(0.001)
-                print('Ep[{:3.0f} - ({:.2f},{:.3f},{:.1e})]: Running/Real cost: {:3.2f}/{:.2f}; '.format(
+
+                print('Ep[{:3.0f} - ({:.2f},{:.5f},{:.1e})]: Running/Real cost: {:3.2f}/{:.2f}; '.format(
                     ep, self.EPSILON, self.GAMMA, lr, running_cost, ep_cost), end='')
                 print('success/failure/unfinished rate: {:.3f}, {:.3f}, {:.3f}'.format(\
                     np.sum(tmp==1)/tmp.shape[0], np.sum(tmp==-1)/tmp.shape[0], np.sum(tmp==0)/tmp.shape[0]))
@@ -258,7 +269,7 @@ class DDQN():
                 print("\r At Ep[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(ep, running_cost))
                 env.close()
                 break
-
+    #
         return training_records
 
 
@@ -281,7 +292,7 @@ class DDQN():
 
     def updateGamma(self):
         if self.training_epoch % self.GAMMA_PERIOD == 0 and self.training_epoch != 0:
-            self.GAMMA = min(1 - (1-self.GAMMA) * self.GAMMA_DECAY, 0.99)
+            self.GAMMA = min(1 - (1-self.GAMMA) * self.GAMMA_DECAY, 1.)
 
 
     def updateHyperParam(self):

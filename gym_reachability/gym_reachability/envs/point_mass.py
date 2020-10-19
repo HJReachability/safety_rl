@@ -102,7 +102,7 @@ class PointMassEnv(gym.Env):
                                       np.array([1, -1.9]),
                                       np.array([-1, 4]),
                                       np.array([1, 4])]
-        self.scaling = 4.0
+        self.scaling = 1.
 
         # Set random seed.
         np.random.seed(self.seed_val)

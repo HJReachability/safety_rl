@@ -25,7 +25,7 @@ Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
 
 class DDQN():
 
-    def __init__(self, state_num, action_num, CONFIG, action_list, mode='normal'):
+    def __init__(self, state_num, action_num, CONFIG, action_list, mode='normal', RA_scaling=1.):
         self.action_list = action_list
         self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)
         self.mode = mode # 'normal' or 'RA'
@@ -33,6 +33,7 @@ class DDQN():
         #== ENV PARAM ==
         self.state_num = state_num
         self.action_num = action_num
+        self.RA_scaling = RA_scaling
         
         #== PARAM ==
         # Exploration
@@ -115,9 +116,9 @@ class DDQN():
             else:
                 Q_expect = self.Q_network(non_final_state_nxt)
         state_value_nxt[non_final_mask] = Q_expect.gather(1, action_nxt).view(-1)
-    
+
+        #== Discounted Reach-Avoid Bellman Equation ==
         if self.mode == 'RA':
-    #== RA ==
             expected_state_action_values = torch.zeros(self.BATCH_SIZE).float().to(self.device)
 
             success_mask = torch.logical_and(torch.logical_not(non_final_mask), l_x<=0)
@@ -131,7 +132,7 @@ class DDQN():
                                                            terminal[non_final_mask] * (1-self.GAMMA)
             #expected_state_action_values[success_mask] = -10.
             #expected_state_action_values[failure_mask] = 10.
-            expected_state_action_values[success_mask] = l_x[success_mask] 
+            expected_state_action_values[success_mask] = l_x[success_mask] * self.RA_scaling 
             expected_state_action_values[failure_mask] = terminal[failure_mask]
             if verbose:
                 np.set_printoptions(precision=3)
@@ -141,7 +142,6 @@ class DDQN():
                 print('g       :', g_x[:10].numpy())
                 print('V_expect:', expected_state_action_values[:10].numpy())
                 print('V_policy:', state_action_values[:10].detach().numpy(), end='\n\n')
-    #== RA ==
         else:
             expected_state_action_values = state_value_nxt * self.GAMMA + reward
         
@@ -162,7 +162,9 @@ class DDQN():
 
     def learn(self, env, MAX_EPISODES=20000, MAX_EP_STEPS=100,
               running_cost_th=-50, report_period = 5000, 
-              vmin=-100, vmax=100, randomPlot=False, num_rnd_traj=10):
+              vmin=-100, vmax=100, randomPlot=False, num_rnd_traj=10,
+              warmupBuffer=True, warmupQ=False):
+
         #== TRAINING RECORD ==
         TrainingRecord = namedtuple('TrainingRecord', ['ep', 'avg_cost', 'cost', 'loss_c'])
         training_records = []
@@ -171,52 +173,51 @@ class DDQN():
         report_period = report_period
         vmin = vmin
         vmax = vmax
-    # == Warmup Buffer ==
-        while len(self.memory) < self.BATCH_SIZE*20:
-            s = env.reset()
-            a, a_idx = self.select_action(s)
-            s_, r, done, info = env.step(a_idx)
-            if done:
-                s_ = None
-            self.store_transition(s, a_idx, r, s_, info)
-    #
-    # == Warmup Q ==
-        ep_warmup = 1000
-        num_warmup_samples = 100
-        for ep_tmp in range(ep_warmup):
-            print('warmup-{:d}'.format(ep_tmp), end='\r')
-            xs = np.random.uniform(-1.9, 1.9, num_warmup_samples)
-            ys = np.random.uniform(-2, 9.25, num_warmup_samples)
-            expected_v = np.zeros((num_warmup_samples, self.action_num))
-            state = np.zeros((num_warmup_samples, 2))
-            for i in range(num_warmup_samples):
-                x, y = xs[i], ys[i]
-                l_x = env.target_margin(np.array([x, y]))
-                g_x = env.safety_margin(np.array([x, y]))
-                expected_v[i,:] = np.maximum(l_x, g_x)
-                state[i, :] = x, y
 
-            self.Q_network.train()
-            expected_v = torch.from_numpy(expected_v).float().to(self.device)
-            state = torch.from_numpy(state).float().to(self.device)
-            v = self.Q_network(state)
-            loss = smooth_l1_loss(input=v, target=expected_v)
+        # == Warmup Buffer ==
+        if warmupBuffer:
+            cnt = 0
+            while len(self.memory) < self.BATCH_SIZE*20:
+                cnt += 1
+                print('Warmup Buffer [{:d}]'.format(cnt), end='\r')
+                s = env.reset()
+                a, a_idx = self.select_action(s)
+                s_, r, done, info = env.step(a_idx)
+                if done:
+                    s_ = None
+                self.store_transition(s, a_idx, r, s_, info)
+            print("\nWarmup Buffer Ends")
+        
+        # == Warmup Q ==
+        if warmupQ:
+            ep_warmup = 1000
+            num_warmup_samples = 100
+            for ep_tmp in range(ep_warmup):
+                print('Warmup Q [{:d}]'.format(ep_tmp), end='\r')
+                states, heuristic_v = env.get_warmup_examples(num_warmup_samples=num_warmup_samples)
 
-            self.optimizer.zero_grad()
-            loss.backward()
-            nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
-            self.optimizer.step()
-            '''
-            if ep_tmp % 500 == 0:
-                env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
-                plt.pause(0.001)
-            '''
-        env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
-        env.visualize_analytic_comparison(self.target_network, True, vmin=vmin, vmax=vmax)
-        plt.pause(0.001)
-        self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
-    # 
-    # == Main Training ==
+                self.Q_network.train()
+                heuristic_v = torch.from_numpy(heuristic_v).float().to(self.device)
+                states = torch.from_numpy(states).float().to(self.device)
+                v = self.Q_network(states)
+                loss = smooth_l1_loss(input=v, target=heuristic_v)
+
+                self.optimizer.zero_grad()
+                loss.backward()
+                nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
+                self.optimizer.step()
+                '''
+                if ep_tmp % 500 == 0:
+                    env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
+                    plt.pause(0.001)
+                '''
+            print("\nWarmup Q Ends")
+            env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
+            env.visualize_analytic_comparison(self.target_network, True, vmin=vmin, vmax=vmax)
+            plt.pause(0.001)
+            self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
+ 
+        # == Main Training ==
         for ep in range(MAX_EPISODES):
             s = env.reset()
             ep_cost = 0.
@@ -260,7 +261,7 @@ class DDQN():
                     tmp = env.plot_trajectories(self.Q_network, T=200, num_rnd_traj=5, states=env.visual_initial_states)
                 plt.pause(0.001)
 
-                print('Ep[{:3.0f} - ({:.2f},{:.5f},{:.1e})]: Running/Real cost: {:3.2f}/{:.2f}; '.format(
+                print('Ep[{:3.0f} - ({:.2f},{:.6f},{:.1e})]: Running/Real cost: {:3.2f}/{:.2f}; '.format(
                     ep, self.EPSILON, self.GAMMA, lr, running_cost, ep_cost), end='')
                 print('success/failure/unfinished rate: {:.3f}, {:.3f}, {:.3f}'.format(\
                     np.sum(tmp==1)/tmp.shape[0], np.sum(tmp==-1)/tmp.shape[0], np.sum(tmp==0)/tmp.shape[0]))
@@ -269,7 +270,7 @@ class DDQN():
                 print("\r At Ep[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(ep, running_cost))
                 env.close()
                 break
-    #
+        
         return training_records
 
 
@@ -292,7 +293,7 @@ class DDQN():
 
     def updateGamma(self):
         if self.training_epoch % self.GAMMA_PERIOD == 0 and self.training_epoch != 0:
-            self.GAMMA = min(1 - (1-self.GAMMA) * self.GAMMA_DECAY, 1.)
+            self.GAMMA = min(1 - (1-self.GAMMA) * self.GAMMA_DECAY, 0.999999)
 
 
     def updateHyperParam(self):

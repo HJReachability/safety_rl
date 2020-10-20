@@ -27,8 +27,8 @@ class ZermeloKCEnv(gym.Env):
     def __init__(self, device, mode='normal'):
 
         # State bounds.
-        self.bounds = np.array([[-1.9, 1.9],  # axis_0 = state, axis_1 = bounds.
-                                [-2, 9.25]])
+        self.bounds = np.array([[-2, 2],  # axis_0 = state, axis_1 = bounds.
+                                [-2, 10]])
                                 
         self.low = self.bounds[:, 0]
         self.high = self.bounds[:, 1]
@@ -70,7 +70,7 @@ class ZermeloKCEnv(gym.Env):
                     ])
 
         # Target set parameters.
-        self.box4_x_y_length = np.array([0, 8.5, 1.5])  # Top.
+        self.box4_x_y_length = np.array([0, 9.25, 1.5])  # Top.
 
         # Gym variables.
         self.action_space = gym.spaces.Discrete(3)  # horizontal_rate = {-1,0,1}
@@ -106,11 +106,11 @@ class ZermeloKCEnv(gym.Env):
          self.x_box3_pos, self.y_box1_pos,
          self.y_box2_pos, self.y_box3_pos) = self.constraint_set_boundary()
         (self.x_box4_pos, self.y_box4_pos) = self.target_set_boundary()
-        self.visual_initial_states = [np.array([0, 0]),
-                                      np.array([-1, -1.9]),
-                                      np.array([1, -1.9]),
-                                      np.array([-1, 4]),
-                                      np.array([1, 4])]
+        self.visual_initial_states = [np.array([ 0,  0]),
+                                      np.array([-1, -2]),
+                                      np.array([ 1, -2]),
+                                      np.array([-1,  4]),
+                                      np.array([ 1,  4])]
         if mode == 'extend':
             self.visual_initial_states = self.extend_state(self.visual_initial_states)
 
@@ -258,23 +258,6 @@ class ZermeloKCEnv(gym.Env):
         return state, info
 
 
-    def set_costParam(self, penalty=1, reward=-1, costType='normal', scaling=4.):
-        self.penalty = penalty
-        self.reward = reward
-        self.costType = costType
-        self.scaling = scaling
-
-
-    def set_seed(self, seed):
-        """ Set the random seed.
-
-        Args:
-            seed: Random seed.
-        """
-        self.seed_val = seed
-        np.random.seed(self.seed_val)
-
-
     def safety_margin(self, s):
         """ Computes the margin (e.g. distance) between state and failue set.
 
@@ -321,6 +304,23 @@ class ZermeloKCEnv(gym.Env):
         return self.scaling * target_margin
 
 
+    def set_costParam(self, penalty=1, reward=-1, costType='normal', scaling=4.):
+        self.penalty = penalty
+        self.reward = reward
+        self.costType = costType
+        self.scaling = scaling
+
+
+    def set_seed(self, seed):
+        """ Set the random seed.
+
+        Args:
+            seed: Random seed.
+        """
+        self.seed_val = seed
+        np.random.seed(self.seed_val)
+
+
     def set_grid_cells(self, grid_cells):
         """ Set number of grid cells.
 
@@ -363,7 +363,7 @@ class ZermeloKCEnv(gym.Env):
         self.set_bounds(bounds)
 
 
-    def render(self, mode='human'):
+    def render(self):
         pass
 
 
@@ -467,27 +467,34 @@ class ZermeloKCEnv(gym.Env):
             it.iternext()
         return v
 
-    
-    def visualize_analytic_comparison(  self, q_func, no_show=False, 
-                                        vmin=-50, vmax=50,
-                                        labels=["x", "y"]):
-        """ Overlays analytic safe set on top of state value function.
 
-        Args:
-            v: State value function.
+    def get_axes(self, labels=["x", "y"]):
+        """ Gets the bounds for the environment.
+
+        Returns:
+            List containing a list of bounds for each state coordinate and a
+            list for the name of each state coordinate.
         """
-        plt.clf()
-        v = self.get_value(q_func)
-        im = visualize_matrix(v.T, self.get_axes(labels), no_show, vmin=vmin, vmax=vmax)
+        return [np.append(self.bounds[0], self.bounds[1]), labels]
+    
 
-        # Plot bounadries of constraint set.
-        plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
-        plt.plot(self.x_box2_pos, self.y_box2_pos, color="black")
-        plt.plot(self.x_box3_pos, self.y_box3_pos, color="black")
-        # Plot boundaries of target set.
-        plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
+    def get_warmup_examples(self, num_warmup_samples=100):
+        x_min, x_max = self.bounds[0,:]
+        y_min, y_max = self.bounds[1,:]
 
-        plt.colorbar(im)
+        xs = np.random.uniform(x_min, x_max, num_warmup_samples)
+        ys = np.random.uniform(y_min, y_max, num_warmup_samples)
+        heuristic_v = np.zeros((num_warmup_samples, self.action_space.n))
+        states = np.zeros((num_warmup_samples, self.observation_space.shape[0]))
+
+        for i in range(num_warmup_samples):
+            x, y = xs[i], ys[i]
+            l_x = self.target_margin(np.array([x, y]))
+            g_x = self.safety_margin(np.array([x, y]))
+            heuristic_v[i,:] = np.maximum(l_x, g_x)
+            states[i, :] = x, y
+
+        return states, heuristic_v
 
 
     def simulate_one_trajectory(self, q_func, T=10, state=None, keepOutOf=False):
@@ -541,6 +548,28 @@ class ZermeloKCEnv(gym.Env):
         return trajectories, results
 
 
+    def visualize_analytic_comparison(  self, q_func, no_show=False, 
+                                        vmin=-50, vmax=50,
+                                        labels=["x", "y"]):
+        """ Overlays analytic safe set on top of state value function.
+
+        Args:
+            v: State value function.
+        """
+        plt.clf()
+        v = self.get_value(q_func)
+        im = visualize_matrix(v.T, self.get_axes(labels), no_show, vmin=vmin, vmax=vmax)
+
+        # Plot bounadries of constraint set.
+        plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
+        plt.plot(self.x_box2_pos, self.y_box2_pos, color="black")
+        plt.plot(self.x_box3_pos, self.y_box3_pos, color="black")
+        # Plot boundaries of target set.
+        plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
+
+        plt.colorbar(im)
+
+
     def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None, keepOutOf=False):
 
         assert ((num_rnd_traj is None and states is not None) or
@@ -556,14 +585,3 @@ class ZermeloKCEnv(gym.Env):
             plt.plot(traj_x, traj_y, color="black")
 
         return results
-
-
-    def get_axes(self, labels=["x", "y"]):
-        """ Gets the bounds for the environment.
-
-        Returns:
-            List containing a list of bounds for each state coordinate and a
-            list for the name of each state coordinate.
-        """
-        return [np.append(self.bounds[0], self.bounds[1]), labels]
-    

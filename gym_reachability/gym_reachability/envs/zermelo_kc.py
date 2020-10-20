@@ -13,13 +13,13 @@ import gym
 import matplotlib
 import matplotlib.pyplot as plt
 
-from utils import visualize_matrix
+#from utils import visualize_matrix
 from utils import index_to_state
 
 import torch
 
 # matplotlib.use("TkAgg")
-matplotlib.style.use('ggplot')
+#matplotlib.style.use('ggplot')
 
 
 class ZermeloKCEnv(gym.Env):
@@ -448,12 +448,15 @@ class ZermeloKCEnv(gym.Env):
         return (x_box4_pos, y_box4_pos)
 
 
-    def get_value(self, q_func):
-        v = np.zeros(self.grid_cells)
+    def get_value(self, q_func, nx=41, ny=121):
+        v = np.zeros((nx, ny))
         it = np.nditer(v, flags=['multi_index'])
+        xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)
+        ys = np.linspace(self.bounds[1,0], self.bounds[1,1], ny)
         while not it.finished:
             idx = it.multi_index
-            x, y = index_to_state(self.grid_cells, self.bounds, idx)
+            x = xs[idx[0]]
+            y = ys[idx[1]]
             l_x = self.target_margin(np.array([x, y]))
             g_x = self.safety_margin(np.array([x, y]))
 
@@ -475,7 +478,9 @@ class ZermeloKCEnv(gym.Env):
             List containing a list of bounds for each state coordinate and a
             list for the name of each state coordinate.
         """
-        return [np.append(self.bounds[0], self.bounds[1]), labels]
+        aspect_ratio = (self.bounds[0,1]-self.bounds[0,0])/(self.bounds[1,1]-self.bounds[1,0])
+        axes = np.array([self.bounds[0,0]-.05, self.bounds[0,1]+.05, self.bounds[1,0]-.15, self.bounds[1,1]+.15])
+        return [axes, labels, aspect_ratio]
     
 
     def get_warmup_examples(self, num_warmup_samples=100):
@@ -548,17 +553,38 @@ class ZermeloKCEnv(gym.Env):
         return trajectories, results
 
 
-    def visualize_analytic_comparison(  self, q_func, no_show=False, 
-                                        vmin=-50, vmax=50,
-                                        labels=["x", "y"]):
+    def visualize_analytic_comparison( self, q_func, no_show=False, 
+                                       vmin=-50, vmax=50, nx=41, ny=121,
+                                       labels=["x", "y"],
+                                       boolPlot=False):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
             v: State value function.
         """
         plt.clf()
-        v = self.get_value(q_func)
-        im = visualize_matrix(v.T, self.get_axes(labels), no_show, vmin=vmin, vmax=vmax)
+        v = self.get_value(q_func, nx, ny)
+        #im = visualize_matrix(v.T, self.get_axes(labels), no_show, vmin=vmin, vmax=vmax)
+        axes = self.get_axes(labels)
+        
+        if boolPlot:
+            im = plt.imshow(v.T>0, interpolation='none', extent=axes[0], origin="lower",
+                       cmap="plasma", vmin=vmin, vmax=vmax)
+        else:
+            im = plt.imshow(v.T, interpolation='none', extent=axes[0], origin="lower",
+                       cmap="plasma", vmin=vmin, vmax=vmax)
+            plt.colorbar(im, fraction=0.05, shrink=0.9)
+        ax = plt.gca()
+        ax.axis(axes[0])
+        ax.set_aspect(axes[2])  # makes equal aspect ratio
+        ax.set_xlabel(axes[1][0])
+        ax.set_ylabel(axes[1][1])
+        ax.grid(False)
+        ax.tick_params( axis='both',which='both',  # both major and minor ticks are affected
+                        bottom=False, top=False, # ticks along the bottom edge are off
+                        left=False, right=False)
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
 
         # Plot bounadries of constraint set.
         plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
@@ -567,7 +593,8 @@ class ZermeloKCEnv(gym.Env):
         # Plot boundaries of target set.
         plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
 
-        plt.colorbar(im)
+        if not no_show:
+            plt.show()
 
 
     def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None, keepOutOf=False):
@@ -581,7 +608,50 @@ class ZermeloKCEnv(gym.Env):
                                                           keepOutOf=keepOutOf)
         for traj in trajectories:
             traj_x, traj_y = traj
-            plt.scatter(traj_x[0], traj_y[0], s=32, c='r')
+            plt.scatter(traj_x[0], traj_y[0], s=48, c='k')
             plt.plot(traj_x, traj_y, color="black")
 
         return results
+
+
+    def plot_reach_avoid_set(self):
+        slope = self.upward_speed / self.horizontal_rate
+
+        def get_line(slope, end_point, x_limit, ns=100):
+            x_end, y_end = end_point
+            b = y_end - slope * x_end
+
+            xs = np.linspace(x_limit, x_end, ns)
+            ys = xs * slope + b
+            return xs, ys
+
+        # left unsafe set
+        x = self.box2_x_y_length[0] + self.box2_x_y_length[2]/2.0 
+        y = self.box2_x_y_length[1] - self.box2_x_y_length[2]/2.0
+        xs, ys = get_line(slope, end_point=[x,y], x_limit=-2.)
+        plt.plot(xs, ys, color='r', linewidth=1.5)
+
+        # right unsafe set
+        x = self.box1_x_y_length[0] - self.box1_x_y_length[2]/2.0 
+        y = self.box1_x_y_length[1] - self.box1_x_y_length[2]/2.0
+        xs, ys = get_line(-slope, end_point=[x,y], x_limit=2.)
+        plt.plot(xs, ys, color='r', linewidth=1.5)
+
+        # middle unsafe set
+        x1 = self.box3_x_y_length[0] - self.box3_x_y_length[2]/2.0 
+        x2 = self.box3_x_y_length[0] + self.box3_x_y_length[2]/2.0
+        x3 = self.box3_x_y_length[0]
+        y = self.box3_x_y_length[1] - self.box3_x_y_length[2]/2.0
+        xs, ys = get_line(-slope, end_point=[x1,y], x_limit=x3)
+        plt.plot(xs, ys, color='r', linewidth=1.5)
+        xs, ys = get_line(slope, end_point=[x2,y], x_limit=x3)
+        plt.plot(xs, ys, color='r', linewidth=1.5)
+
+        # border unsafe set
+        x1 = self.box4_x_y_length[0] - self.box4_x_y_length[2]/2.0
+        x2 = self.box4_x_y_length[0] + self.box4_x_y_length[2]/2.0
+        y = self.box4_x_y_length[1] + self.box4_x_y_length[2]/2.0
+        xs, ys = get_line(slope, end_point=[x1,y], x_limit=-2.)
+        plt.plot(xs, ys, color='r', linewidth=1.5)
+        xs, ys = get_line(-slope, end_point=[x2,y], x_limit=2.)
+        plt.plot(xs, ys, color='r', linewidth=1.5)

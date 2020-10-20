@@ -163,7 +163,8 @@ class DDQN():
     def learn(self, env, MAX_EPISODES=20000, MAX_EP_STEPS=100,
               running_cost_th=-50, report_period = 5000, 
               vmin=-100, vmax=100, randomPlot=False, num_rnd_traj=10,
-              warmupBuffer=True, warmupQ=False):
+              warmupBuffer=True, warmupQ=False,
+              convergence_period = 100000):
 
         #== TRAINING RECORD ==
         TrainingRecord = namedtuple('TrainingRecord', ['ep', 'avg_cost', 'cost', 'loss_c'])
@@ -218,12 +219,13 @@ class DDQN():
             self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
  
         # == Main Training ==
+        cnt_access = 0
+        trainProgress = []
         for ep in range(MAX_EPISODES):
             s = env.reset()
             ep_cost = 0.
-            cnt = 0
             for step_num in range(MAX_EP_STEPS):
-                cnt+=1
+                cnt_access += 1
                 # action selection
                 a, a_idx = self.select_action(s)
                 # interact with env
@@ -236,10 +238,18 @@ class DDQN():
                 self.store_transition(s, a_idx, r, s_, info)
                 s = s_
                 # Perform one step of the optimization (on the target network)
-                if ep % report_period == 0 and step_num == 0:
-                    loss_c = self.update()
-                else:
-                    loss_c = self.update()
+                loss_c = self.update()
+
+                if cnt_access % convergence_period == 0:
+                    num_rnd_traj=500
+                    _, results = env.simulate_trajectories(self.Q_network, T=1000, num_rnd_traj=num_rnd_traj)
+                    success  = np.sum(results==1) / num_rnd_traj 
+                    failure  = np.sum(results==-1)/ num_rnd_traj
+                    unfinish = np.sum(results==0) / num_rnd_traj
+                    trainProgress.append([success, failure, unfinish])
+                    print('After [{:d}] accesses, success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(\
+                        cnt_access, success, failure, unfinish))
+
                 if done:
                     break
                     
@@ -249,29 +259,28 @@ class DDQN():
 
             running_cost = running_cost * 0.9 + ep_cost * 0.1
             training_records.append(TrainingRecord(ep, running_cost, ep_cost, loss_c))
-            print('{:d}: {:.1f} after {:d} steps   '.format(ep, ep_cost, cnt), end='\r')
+            print('{:d}: {:.1f} after {:d} steps, currently access {:d} times'.format(\
+                ep, ep_cost, step_num+1, cnt_access), end='\r')
             
             if ep % report_period == 0:
                 lr = self.optimizer.state_dict()['param_groups'][0]['lr']
+                print('Ep[{:3.0f} - ({:.2f},{:.6f},{:.1e})]: Running/Real cost: {:3.2f}/{:.2f}; '.format(
+                    ep, self.EPSILON, self.GAMMA, lr, running_cost, ep_cost))
                 
                 env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
+                env.plot_reach_avoid_set()
                 if randomPlot:
-                    tmp = env.plot_trajectories(self.Q_network, T=200, num_rnd_traj=num_rnd_traj, keepOutOf=True)
+                    _ = env.plot_trajectories(self.Q_network, T=200, num_rnd_traj=num_rnd_traj, keepOutOf=True)
                 else:
-                    tmp = env.plot_trajectories(self.Q_network, T=200, num_rnd_traj=5, states=env.visual_initial_states)
+                    _ = env.plot_trajectories(self.Q_network, T=200, num_rnd_traj=5, states=env.visual_initial_states)
                 plt.pause(0.001)
-
-                print('Ep[{:3.0f} - ({:.2f},{:.6f},{:.1e})]: Running/Real cost: {:3.2f}/{:.2f}; '.format(
-                    ep, self.EPSILON, self.GAMMA, lr, running_cost, ep_cost), end='')
-                print('success/failure/unfinished rate: {:.3f}, {:.3f}, {:.3f}'.format(\
-                    np.sum(tmp==1)/tmp.shape[0], np.sum(tmp==-1)/tmp.shape[0], np.sum(tmp==0)/tmp.shape[0]))
-            
+                
             if running_cost <= running_cost_th:
                 print("\r At Ep[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(ep, running_cost))
                 env.close()
                 break
         
-        return training_records
+        return training_records, trainProgress
 
 
     def update_target_network(self):

@@ -14,7 +14,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 #from utils import visualize_matrix
-from utils import index_to_state
+#from utils import index_to_state
 
 import torch
 
@@ -24,7 +24,7 @@ import torch
 
 class ZermeloKCEnv(gym.Env):
 
-    def __init__(self, device, mode='normal'):
+    def __init__(self, device, mode='normal', doneType='TF'):
 
         # State bounds.
         self.bounds = np.array([[-2, 2],  # axis_0 = state, axis_1 = bounds.
@@ -99,6 +99,7 @@ class ZermeloKCEnv(gym.Env):
             self.state = np.zeros(3)
         else:
             self.state = np.zeros(2)
+        self.doneType = doneType
 
         # Visualization params
         self.vis_init_flag = True
@@ -113,6 +114,8 @@ class ZermeloKCEnv(gym.Env):
                                       np.array([ 1,  4])]
         if mode == 'extend':
             self.visual_initial_states = self.extend_state(self.visual_initial_states)
+
+        print("Env: mode---{:s}; doneType---{:s}".format(mode, doneType))
 
         # for torch
         self.device = device 
@@ -184,11 +187,10 @@ class ZermeloKCEnv(gym.Env):
         state, [l_x_nxt, g_x_nxt] = self.integrate_forward(self.state, u)
         self.state = state
 
-        #if self.mode == 'extend' or self.mode == 'RA':
-        if self.mode == 'extend'  or self.mode == 'RA':
+        # cost
+        if self.mode == 'extend' or self.mode == 'RA':
             fail = g_x_cur > 0
             success = l_x_cur <= 0
-            done = fail or success
             if fail:
                 cost = self.penalty
             elif success:
@@ -198,7 +200,6 @@ class ZermeloKCEnv(gym.Env):
         else:
             fail = g_x_nxt > 0
             success = l_x_nxt <= 0
-            done = fail or success
             if g_x_nxt > 0 or g_x_cur > 0:
                 cost = self.penalty
             elif l_x_nxt <= 0 or l_x_cur <= 0:
@@ -218,6 +219,15 @@ class ZermeloKCEnv(gym.Env):
                     cost = max(l_x_nxt, g_x_nxt)
                 else:
                     cost = 0.
+        # done
+        if self.doneType == 'toEnd':
+            outsideTop   = (self.state[1] >= self.bounds[1,1])
+            outsideLeft  = (self.state[0] <= self.bounds[0,0])
+            outsideRight = (self.state[0] >= self.bounds[0,1])
+            done = outsideTop or outsideLeft or outsideRight
+        else:
+            done = fail or success
+            assert self.doneType == 'TF', 'invalid doneType'
 
         info = {"g_x": g_x_cur, "l_x": l_x_cur}    
         return np.copy(self.state), cost, done, info
@@ -363,6 +373,10 @@ class ZermeloKCEnv(gym.Env):
         self.set_bounds(bounds)
 
 
+    def set_doneType(self, doneType):
+        self.doneType = doneType
+
+
     def render(self):
         pass
 
@@ -471,16 +485,15 @@ class ZermeloKCEnv(gym.Env):
         return v
 
 
-    def get_axes(self, labels=["x", "y"]):
+    def get_axes(self):
         """ Gets the bounds for the environment.
 
         Returns:
             List containing a list of bounds for each state coordinate and a
-            list for the name of each state coordinate.
         """
         aspect_ratio = (self.bounds[0,1]-self.bounds[0,0])/(self.bounds[1,1]-self.bounds[1,0])
         axes = np.array([self.bounds[0,0]-.05, self.bounds[0,1]+.05, self.bounds[1,0]-.15, self.bounds[1,1]+.15])
-        return [axes, labels, aspect_ratio]
+        return [axes, aspect_ratio]
     
 
     def get_warmup_examples(self, num_warmup_samples=100):
@@ -502,7 +515,7 @@ class ZermeloKCEnv(gym.Env):
         return states, heuristic_v
 
 
-    def simulate_one_trajectory(self, q_func, T=10, state=None, keepOutOf=False):
+    def simulate_one_trajectory(self, q_func, T=10, state=None, keepOutOf=False, toEnd=False):
 
         if state is None:
             state = self.sample_random_state(keepOutOf=keepOutOf)
@@ -512,12 +525,18 @@ class ZermeloKCEnv(gym.Env):
         result = 0 # not finished
 
         for t in range(T):
-            if self.safety_margin(state[:2]) > 0:
-                result = -1 # failed
-                break
-            elif self.target_margin(state[:2]) <= 0:
-                result = 1 # succeeded
-                break
+            if toEnd:
+                if state[1] >= self.bounds[1,1]:
+                    result = 1
+                    break
+            else:
+                if self.safety_margin(state[:2]) > 0:
+                    result = -1 # failed
+                    break
+                elif self.target_margin(state[:2]) <= 0:
+                    result = 1 # succeeded
+                    break
+
             state_tensor = torch.FloatTensor(state, device=self.device).unsqueeze(0)
             action_index = q_func(state_tensor).min(dim=1)[1].item()
             u = self.discrete_controls[action_index]
@@ -529,8 +548,9 @@ class ZermeloKCEnv(gym.Env):
         return traj_x, traj_y, result
 
 
-    def simulate_trajectories(self, q_func, T=10, num_rnd_traj=None,
-                              states=None, keepOutOf=False):
+    def simulate_trajectories(self, q_func, T=10,
+                              num_rnd_traj=None, states=None, 
+                              keepOutOf=False, toEnd=False):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -540,13 +560,14 @@ class ZermeloKCEnv(gym.Env):
         if states is None:
             results = np.empty(shape=(num_rnd_traj,), dtype=int)
             for idx in range(num_rnd_traj):
-                traj_x, traj_y, result = self.simulate_one_trajectory(q_func, T=T, keepOutOf=keepOutOf)
+                traj_x, traj_y, result = self.simulate_one_trajectory(q_func, T=T, 
+                                                                      keepOutOf=keepOutOf, toEnd=toEnd)
                 trajectories.append((traj_x, traj_y))
                 results[idx] = result
         else:
             results = np.empty(shape=(len(states),), dtype=int)
             for idx, state in enumerate(states):
-                traj_x, traj_y, result = self.simulate_one_trajectory(q_func, T=T, state=state)
+                traj_x, traj_y, result = self.simulate_one_trajectory(q_func, T=T, state=state, toEnd=toEnd)
                 trajectories.append((traj_x, traj_y))
                 results[idx] = result
 
@@ -563,29 +584,19 @@ class ZermeloKCEnv(gym.Env):
             v: State value function.
         """
         plt.clf()
+        ax = plt.gca()
         v = self.get_value(q_func, nx, ny)
         #im = visualize_matrix(v.T, self.get_axes(labels), no_show, vmin=vmin, vmax=vmax)
-        axes = self.get_axes(labels)
+        axes = self.get_axes()
         
         if boolPlot:
-            im = plt.imshow(v.T>0, interpolation='none', extent=axes[0], origin="lower",
-                       cmap="plasma", vmin=vmin, vmax=vmax)
+            im = plt.imshow(v.T>vmin, interpolation='none', extent=axes[0], origin="lower",
+                       cmap="plasma")
         else:
             im = plt.imshow(v.T, interpolation='none', extent=axes[0], origin="lower",
                        cmap="plasma", vmin=vmin, vmax=vmax)
-            plt.colorbar(im, fraction=0.05, shrink=0.9)
-        ax = plt.gca()
-        ax.axis(axes[0])
-        ax.set_aspect(axes[2])  # makes equal aspect ratio
-        ax.set_xlabel(axes[1][0])
-        ax.set_ylabel(axes[1][1])
-        ax.grid(False)
-        ax.tick_params( axis='both',which='both',  # both major and minor ticks are affected
-                        bottom=False, top=False, # ticks along the bottom edge are off
-                        left=False, right=False)
-        ax.set_xticklabels([])
-        ax.set_yticklabels([])
-
+            plt.colorbar(im, pad=0.01, shrink=0.95)
+        
         # Plot bounadries of constraint set.
         plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
         plt.plot(self.x_box2_pos, self.y_box2_pos, color="black")
@@ -593,23 +604,36 @@ class ZermeloKCEnv(gym.Env):
         # Plot boundaries of target set.
         plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
 
+        ax.axis(axes[0])
+        ax.grid(False)
+        ax.set_aspect(axes[1])  # makes equal aspect ratio
+        if labels is not None:
+            ax.set_xlabel(labels[0])
+            ax.set_ylabel(labels[1])
+
+        ax.tick_params( axis='both', which='both',  # both x and y axes, both major and minor ticks are affected
+                        bottom=False, top=False,    # ticks along the top and bottom edges are off
+                        left=False, right=False)    # ticks along the left and right edges are off
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+
         if not no_show:
             plt.show()
 
 
-    def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None, keepOutOf=False):
+    def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None, 
+                          keepOutOf=False, toEnd=False):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
-        trajectories, results = self.simulate_trajectories(q_func, T=T,
-                                                          num_rnd_traj=num_rnd_traj,
-                                                          states=states, 
-                                                          keepOutOf=keepOutOf)
+        trajectories, results = self.simulate_trajectories(q_func, T=T, 
+                                                           num_rnd_traj=num_rnd_traj, states=states, 
+                                                           keepOutOf=keepOutOf, toEnd=toEnd)
         for traj in trajectories:
             traj_x, traj_y = traj
-            plt.scatter(traj_x[0], traj_y[0], s=48, c='k')
-            plt.plot(traj_x, traj_y, color="black")
+            plt.scatter(traj_x[0], traj_y[0], s=48, c='w')
+            plt.plot(traj_x, traj_y, color="w")
 
         return results
 

@@ -120,6 +120,9 @@ class DDQN():
         #== Discounted Reach-Avoid Bellman Equation ==
         if self.mode == 'RA':
             expected_state_action_values = torch.zeros(self.BATCH_SIZE).float().to(self.device)
+            
+            l_x [l_x < 0] *=  self.RA_scaling
+            #g_x [g_x > 0] *=  self.RA_scaling
 
             success_mask = torch.logical_and(torch.logical_not(non_final_mask), l_x<=0)
             failure_mask = torch.logical_and(torch.logical_not(non_final_mask), g_x>0)
@@ -132,7 +135,7 @@ class DDQN():
                                                            terminal[non_final_mask] * (1-self.GAMMA)
             #expected_state_action_values[success_mask] = -10.
             #expected_state_action_values[failure_mask] = 10.
-            expected_state_action_values[success_mask] = l_x[success_mask] * self.RA_scaling 
+            expected_state_action_values[success_mask] = l_x[success_mask]
             expected_state_action_values[failure_mask] = terminal[failure_mask]
             if verbose:
                 np.set_printoptions(precision=3)
@@ -161,8 +164,8 @@ class DDQN():
 
 
     def learn(self, env, MAX_EPISODES=20000, MAX_EP_STEPS=100,
-              running_cost_th=-50, report_period = 5000, 
-              vmin=-100, vmax=100, randomPlot=False, num_rnd_traj=10,
+              running_cost_th=None, report_period = 5000, 
+              vmin=-100, vmax=100, randomPlot=False, num_rnd_traj=10, toEnd=False,
               warmupBuffer=True, warmupQ=False,
               convergence_period = 100000):
 
@@ -180,14 +183,14 @@ class DDQN():
             cnt = 0
             while len(self.memory) < self.BATCH_SIZE*20:
                 cnt += 1
-                print('Warmup Buffer [{:d}]'.format(cnt), end='\r')
+                print('\rWarmup Buffer [{:d}]'.format(cnt), end='')
                 s = env.reset()
                 a, a_idx = self.select_action(s)
                 s_, r, done, info = env.step(a_idx)
                 if done:
                     s_ = None
                 self.store_transition(s, a_idx, r, s_, info)
-            print("\nWarmup Buffer Ends")
+            print(" --- Warmup Buffer Ends")
         
         # == Warmup Q ==
         if warmupQ:
@@ -241,11 +244,12 @@ class DDQN():
                 loss_c = self.update()
 
                 if cnt_access % convergence_period == 0:
-                    num_rnd_traj=500
-                    _, results = env.simulate_trajectories(self.Q_network, T=1000, num_rnd_traj=num_rnd_traj)
-                    success  = np.sum(results==1) / num_rnd_traj 
-                    failure  = np.sum(results==-1)/ num_rnd_traj
-                    unfinish = np.sum(results==0) / num_rnd_traj
+                    num_rnd_traj_test=2000
+                    _, results = env.simulate_trajectories(self.Q_network, T=200, num_rnd_traj=num_rnd_traj_test, 
+                                                           keepOutOf=False, toEnd=False)
+                    success  = np.sum(results==1) / num_rnd_traj_test 
+                    failure  = np.sum(results==-1)/ num_rnd_traj_test
+                    unfinish = np.sum(results==0) / num_rnd_traj_test
                     trainProgress.append([success, failure, unfinish])
                     print('After [{:d}] accesses, success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(\
                         cnt_access, success, failure, unfinish))
@@ -267,18 +271,21 @@ class DDQN():
                 print('Ep[{:3.0f} - ({:.2f},{:.6f},{:.1e})]: Running/Real cost: {:3.2f}/{:.2f}; '.format(
                     ep, self.EPSILON, self.GAMMA, lr, running_cost, ep_cost))
                 
-                env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
+                env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, labels=None)
                 env.plot_reach_avoid_set()
                 if randomPlot:
-                    _ = env.plot_trajectories(self.Q_network, T=200, num_rnd_traj=num_rnd_traj, keepOutOf=True)
+                    _ = env.plot_trajectories(self.Q_network, T=500, num_rnd_traj=num_rnd_traj, 
+                                              keepOutOf=True, toEnd=toEnd)
                 else:
-                    _ = env.plot_trajectories(self.Q_network, T=200, num_rnd_traj=5, states=env.visual_initial_states)
+                    _ = env.plot_trajectories(self.Q_network, T=500, num_rnd_traj=5, 
+                                              states=env.visual_initial_states, toEnd=toEnd)
                 plt.pause(0.001)
                 
-            if running_cost <= running_cost_th:
-                print("\r At Ep[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(ep, running_cost))
-                env.close()
-                break
+            if running_cost_th != None:
+                if running_cost <= running_cost_th:
+                    print("\r At Ep[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(ep, running_cost))
+                    env.close()
+                    break
         
         return training_records, trainProgress
 

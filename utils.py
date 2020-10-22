@@ -168,6 +168,7 @@ def visualize_matrix(m, axes=None, no_show=False, vmin=-10, vmax=10):
         f = plt.imshow(m, interpolation='none', extent=axes[0], origin="lower",
                        cmap="plasma", vmin=vmin, vmax=vmax)
         a = plt.gca()
+        a.axis(axes[0])
         a.set_aspect((axes[0][1]-axes[0][0])/(axes[0][3]-axes[0][2]))  # makes equal aspect ratio
         a.set_xlabel(axes[1][0])
         a.set_ylabel(axes[1][1])

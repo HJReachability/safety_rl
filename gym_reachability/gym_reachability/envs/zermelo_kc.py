@@ -76,8 +76,8 @@ class ZermeloKCEnv(gym.Env):
         self.action_space = gym.spaces.Discrete(3)  # horizontal_rate = {-1,0,1}
         self.midpoint = (self.low + self.high)/2.0
         self.interval = self.high - self.low
-        self.observation_space = gym.spaces.Box(self.midpoint - self.interval/2,
-                                                self.midpoint + self.interval/2)
+        self.observation_space = gym.spaces.Box(np.float32(self.midpoint - self.interval/2),
+                                                np.float32(self.midpoint + self.interval/2))
         self.viewer = None
 
         # Discretization.
@@ -358,8 +358,8 @@ class ZermeloKCEnv(gym.Env):
         # Double the range in each state dimension for Gym interface.
         midpoint = (self.low + self.high)/2.0
         interval = self.high - self.low
-        self.observation_space = gym.spaces.Box(midpoint - interval,
-                                                midpoint + interval)
+        self.observation_space = gym.spaces.Box(np.float32(midpoint - interval/2),
+                                                np.float32(midpoint + interval/2))
 
 
     def set_discretization(self, grid_cells, bounds):

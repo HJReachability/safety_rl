@@ -163,11 +163,11 @@ class DDQN():
         return loss.item()
 
 
-    def learn(self, env, MAX_EPISODES=20000, MAX_EP_STEPS=100,
-              running_cost_th=None, report_period = 5000, 
+    def learn(self, env, MAX_EPISODES=20000, MAX_EP_STEPS=100, running_cost_th=None, 
+              report_period = 5000, plotFigure=True,
               vmin=-100, vmax=100, randomPlot=False, num_rnd_traj=10, toEnd=False,
               warmupBuffer=True, warmupQ=False,
-              convergence_period = 100000):
+              check_period = 100000, storeModel=True):
 
         #== TRAINING RECORD ==
         TrainingRecord = namedtuple('TrainingRecord', ['ep', 'avg_cost', 'cost', 'loss_c'])
@@ -224,16 +224,16 @@ class DDQN():
         # == Main Training ==
         cnt_access = 0
         trainProgress = []
+        checkPointSucc = 0.
         for ep in range(MAX_EPISODES):
             s = env.reset()
             ep_cost = 0.
             for step_num in range(MAX_EP_STEPS):
                 cnt_access += 1
-                # action selection
+                # Select action
                 a, a_idx = self.select_action(s)
-                # interact with env
+                # Interact with env
                 s_, r, done, info = env.step(a_idx)
-                # record
                 ep_cost += r
                 if done:
                     s_ = None
@@ -242,8 +242,8 @@ class DDQN():
                 s = s_
                 # Perform one step of the optimization (on the target network)
                 loss_c = self.update()
-
-                if cnt_access % convergence_period == 0:
+                # Report after fixed number of gradient updates / accesses
+                if cnt_access % check_period == 0:
                     num_rnd_traj_test=2000
                     _, results = env.simulate_trajectories(self.Q_network, T=200, num_rnd_traj=num_rnd_traj_test, 
                                                            keepOutOf=False, toEnd=False)
@@ -253,34 +253,35 @@ class DDQN():
                     trainProgress.append([success, failure, unfinish])
                     print('After [{:d}] accesses, success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(\
                         cnt_access, success, failure, unfinish))
-
+                    if success > checkPointSucc and storeModel:
+                        checkPointSucc = success
+                        self.save(cnt_access, 'models/')
+                # Terminate early
                 if done:
                     break
                     
             self.updateHyperParam()
-            #if ep_cost <= running_cost:
-            #    self.save(ep, 'models/')
 
             running_cost = running_cost * 0.9 + ep_cost * 0.1
             training_records.append(TrainingRecord(ep, running_cost, ep_cost, loss_c))
             print('{:d}: {:.1f} after {:d} steps, currently access {:d} times'.format(\
                 ep, ep_cost, step_num+1, cnt_access), end='\r')
-            
+            # Report after fixed number of epochs
             if ep % report_period == 0:
                 lr = self.optimizer.state_dict()['param_groups'][0]['lr']
                 print('Ep[{:3.0f} - ({:.2f},{:.6f},{:.1e})]: Running/Real cost: {:3.2f}/{:.2f}; '.format(
                     ep, self.EPSILON, self.GAMMA, lr, running_cost, ep_cost))
-                
-                env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, labels=None)
-                env.plot_reach_avoid_set()
-                if randomPlot:
-                    _ = env.plot_trajectories(self.Q_network, T=500, num_rnd_traj=num_rnd_traj, 
-                                              keepOutOf=True, toEnd=toEnd)
-                else:
-                    _ = env.plot_trajectories(self.Q_network, T=500, num_rnd_traj=5, 
-                                              states=env.visual_initial_states, toEnd=toEnd)
-                plt.pause(0.001)
-                
+                if plotFigure:
+                    env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, labels=None)
+                    env.plot_reach_avoid_set()
+                    if randomPlot:
+                        _ = env.plot_trajectories(self.Q_network, T=500, num_rnd_traj=num_rnd_traj, 
+                                                keepOutOf=True, toEnd=toEnd)
+                    else:
+                        _ = env.plot_trajectories(self.Q_network, T=500, num_rnd_traj=5, 
+                                                states=env.visual_initial_states, toEnd=toEnd)
+                    plt.pause(0.001)
+            # Check stopping criteria  
             if running_cost_th != None:
                 if running_cost <= running_cost_th:
                     print("\r At Ep[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(ep, running_cost))
@@ -342,7 +343,7 @@ class DDQN():
             os.remove(os.path.join(logs_path, 'model-{}.pth' .format(min_step)))
         logs_path = os.path.join(logs_path, 'model-{}.pth' .format(step))
         torch.save(self.Q_network, logs_path)
-        print('=> Save {}\r' .format(logs_path), end='') 
+        print('=> Save {} at [{:d}] accesses' .format(logs_path, step)) 
 
 
     def restore(self, logs_path):

@@ -74,7 +74,7 @@ class DDQN():
         self.training_epoch = 0
         
          
-    def update(self, verbose=False):
+    def update(self, verbose=False, addBias=False):
         if len(self.memory) < self.BATCH_SIZE*20:
         #if not self.memory.isfull:
             return
@@ -97,6 +97,10 @@ class DDQN():
             g_x = torch.FloatTensor([info['g_x'] for info in batch.info], 
                                     device=self.device).view(-1)
             l_x = torch.FloatTensor([info['l_x'] for info in batch.info], 
+                                    device=self.device).view(-1)
+            g_x_nxt = torch.FloatTensor([info['g_x_nxt'] for info in batch.info], 
+                                    device=self.device).view(-1)
+            l_x_nxt = torch.FloatTensor([info['l_x_nxt'] for info in batch.info], 
                                     device=self.device).view(-1)
         #== get Q(s,a) ==
         # gather reguires idx to be Long, i/p and idx should have the same shape with only diff at the dim we want to extract value
@@ -122,21 +126,29 @@ class DDQN():
             expected_state_action_values = torch.zeros(self.BATCH_SIZE).float().to(self.device)
             
             l_x [l_x < 0] *=  self.RA_scaling
+            l_x_nxt [l_x_nxt < 0] *=  self.RA_scaling
             #g_x [g_x > 0] *=  self.RA_scaling
+            # Bias version
+            if addBias:
+                min_term = torch.min(l_x, state_value_nxt+torch.max(l_x_nxt, g_x_nxt))
+                terminal = torch.max(l_x, g_x)
+                non_terminal = torch.max(min_term, g_x) - terminal
+                expected_state_action_values[non_final_mask] = self.GAMMA * non_terminal[non_final_mask]
+                expected_state_action_values[torch.logical_not(non_final_mask)] = terminal[torch.logical_not(non_final_mask)]
+            else:
+                success_mask = torch.logical_and(torch.logical_not(non_final_mask), l_x<=0)
+                failure_mask = torch.logical_and(torch.logical_not(non_final_mask), g_x>0)
 
-            success_mask = torch.logical_and(torch.logical_not(non_final_mask), l_x<=0)
-            failure_mask = torch.logical_and(torch.logical_not(non_final_mask), g_x>0)
+                min_term = torch.min(l_x, state_value_nxt)
+                non_terminal = torch.max(min_term, g_x)
+                terminal = torch.max(l_x, g_x)
 
-            min_term = torch.min(l_x, state_value_nxt)
-            non_terminal = torch.max(min_term, g_x)
-            terminal = torch.max(l_x, g_x)
-
-            expected_state_action_values[non_final_mask] = non_terminal[non_final_mask] * self.GAMMA + \
-                                                           terminal[non_final_mask] * (1-self.GAMMA)
-            #expected_state_action_values[success_mask] = -10.
-            #expected_state_action_values[failure_mask] = 10.
-            expected_state_action_values[success_mask] = l_x[success_mask]
-            expected_state_action_values[failure_mask] = terminal[failure_mask]
+                expected_state_action_values[non_final_mask] = non_terminal[non_final_mask] * self.GAMMA + \
+                                                               terminal[non_final_mask] * (1-self.GAMMA)
+                #expected_state_action_values[success_mask] = -10.
+                #expected_state_action_values[failure_mask] = 10.
+                #expected_state_action_values[success_mask] = l_x[success_mask]
+                expected_state_action_values[torch.logical_not(non_final_mask)] = terminal[torch.logical_not(non_final_mask)]
             if verbose:
                 np.set_printoptions(precision=3)
                 print(non_final_mask[:10])
@@ -163,11 +175,11 @@ class DDQN():
         return loss.item()
 
 
-    def learn(self, env, MAX_EPISODES=20000, MAX_EP_STEPS=100, running_cost_th=None, 
-              report_period = 5000, plotFigure=True,
+    def learn(self, env, MAX_EPISODES=20000, MAX_EP_STEPS=100, running_cost_th=None, addBias=False, 
+              report_period=5000, plotFigure=True,
               vmin=-100, vmax=100, randomPlot=False, num_rnd_traj=10, toEnd=False,
               warmupBuffer=True, warmupQ=False,
-              check_period = 100000, storeModel=True):
+              check_period=50000, storeModel=True, outFolder='RA'):
 
         #== TRAINING RECORD ==
         TrainingRecord = namedtuple('TrainingRecord', ['ep', 'avg_cost', 'cost', 'loss_c'])
@@ -241,7 +253,10 @@ class DDQN():
                 self.store_transition(s, a_idx, r, s_, info)
                 s = s_
                 # Perform one step of the optimization (on the target network)
-                loss_c = self.update()
+                if cnt_access % check_period == 0:
+                    loss_c = self.update(verbose=False, addBias=addBias)
+                else:
+                    loss_c = self.update(addBias=addBias)
                 # Report after fixed number of gradient updates / accesses
                 if cnt_access % check_period == 0:
                     num_rnd_traj_test=2000
@@ -255,7 +270,7 @@ class DDQN():
                         cnt_access, success, failure, unfinish))
                     if success > checkPointSucc and storeModel:
                         checkPointSucc = success
-                        self.save(cnt_access, 'models/')
+                        self.save(cnt_access, 'models/{:s}/'.format(outFolder))
                 # Terminate early
                 if done:
                     break
@@ -310,7 +325,7 @@ class DDQN():
 
     def updateGamma(self):
         if self.training_epoch % self.GAMMA_PERIOD == 0 and self.training_epoch != 0:
-            self.GAMMA = min(1 - (1-self.GAMMA) * self.GAMMA_DECAY, 0.999999)
+            self.GAMMA = min(1 - (1-self.GAMMA) * self.GAMMA_DECAY, 0.99999999)
 
 
     def updateHyperParam(self):

@@ -229,7 +229,7 @@ class ZermeloKCEnv(gym.Env):
             done = fail or success
             assert self.doneType == 'TF', 'invalid doneType'
 
-        info = {"g_x": g_x_cur, "l_x": l_x_cur}    
+        info = {"g_x": g_x_cur, "l_x": l_x_cur, "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}    
         return np.copy(self.state), cost, done, info
 
 

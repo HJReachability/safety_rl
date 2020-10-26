@@ -20,19 +20,22 @@ from KC_DQN.config import dqnConfig
 
 #== ==
 parser = argparse.ArgumentParser()
-parser.add_argument("-nt", "--num_test",     help="the number of tests",      default=1,     type=int)
-parser.add_argument("-ma", "--maxAccess",    help="maximal number of access", default=2e6,   type=int)
-parser.add_argument("-cp", "--check_period", help="check the success rate",   default=50000, type=int)
+parser.add_argument("-nt",  "--num_test",       help="the number of tests",         default=1,      type=int)
+parser.add_argument("-ma",  "--maxAccess",      help="maximal number of access",    default=1.1e6,  type=int)
+parser.add_argument("-cp",  "--check_period",   help="check the success rate",      default=50000,  type=int)
 
-parser.add_argument("-r", "--reward",  help="when entering target set",  default=-1, type=float)
-parser.add_argument("-p", "--penalty", help="when entering failure set", default=1,  type=float)
-parser.add_argument("-s", "--scaling", help="scaling of l_x",            default=1,  type=float)
+parser.add_argument("-r",   "--reward",         help="when entering target set",    default=-1,     type=float)
+parser.add_argument("-p",   "--penalty",        help="when entering failure set",   default=1,      type=float)
+parser.add_argument("-s",   "--scaling",        help="scaling of l_x",              default=1,      type=float)
+parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-3,   type=float)
+parser.add_argument("-g",   "--gamma",          help="contraction coefficient",     default=0.9999, type=float)
 
-parser.add_argument("-m",  "--mode",     help="mode",      default='RA',     type=str)
-parser.add_argument("-ct", "--costType", help="cost type", default='sparse', type=str)
-parser.add_argument("-of", "--outFile",  help="output file", default='RA', type=str)
+parser.add_argument("-m",   "--mode",           help="mode",            default='RA',       type=str)
+parser.add_argument("-ct",  "--costType",       help="cost type",       default='sparse',   type=str)
+parser.add_argument("-of",  "--outFile",        help="output file",     default='RA',       type=str)
 
-parser.add_argument("-te", "--toEnd", help="stops until to the end", action="store_true")
+parser.add_argument("-te", "--toEnd",   help="stops until to the end", action="store_true")
+parser.add_argument("-ab", "--addBias", help="add bias term for RA",   action="store_true")
 
 args = parser.parse_args()
 print(args)
@@ -48,6 +51,7 @@ if toEnd:
 else:
     maxEpisodes = 60000
 update_period = int(maxEpisodes / 10)
+update_period_half = int(update_period/2)
 
 if args.mode == 'lagrange':
     envMode = 'normal'
@@ -62,15 +66,15 @@ elif args.mode == 'mayer':
 elif args.mode == 'RA':
     envMode = 'RA'
     agentMode = 'RA'
-    gammaInit = .999
-    gamma_period = 4000
+    gammaInit = args.gamma
+    gamma_period = update_period
 
 CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, 
                    MAX_EPISODES=maxEpisodes, MAX_EP_STEPS=maxSteps,
                    BATCH_SIZE=100, MEMORY_CAPACITY=10000,
                    GAMMA=gammaInit, GAMMA_PERIOD=gamma_period,
-                   EPS_PERIOD=update_period, EPS_DECAY=0.6,
-                   LR_C=1e-2, LR_C_PERIOD=4000, LR_C_DECAY=0.8)
+                   EPS_PERIOD=update_period_half, EPS_DECAY=0.6,
+                   LR_C=args.learningRate, LR_C_PERIOD=update_period, LR_C_DECAY=0.8)
 
 #== REPORT ==
 for key, value in CONFIG.__dict__.items():
@@ -110,8 +114,9 @@ for test_idx in range(args.num_test):
     env.set_seed(test_idx)
     agent=DDQN(s_dim, action_num, CONFIG, action_list, mode=agentMode, RA_scaling=args.scaling)
     _, trainProgress = agent.learn(env, MAX_EPISODES=CONFIG.MAX_EPISODES, MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
-                                    report_period=report_period, vmin=vmin, vmax=vmax, warmupQ=False, toEnd=toEnd,
-                                    check_period=args.check_period, storeModel=False)
+                                   warmupQ=False, addBias=args.addBias, toEnd=toEnd,
+                                   report_period=report_period, plotFigure=False,
+                                   check_period=args.check_period, storeModel=False)
     trainProgressList.append(trainProgress)
 
 
@@ -119,21 +124,3 @@ print(trainProgressList)
 import pickle
 with open("data/{:s}.txt".format(args.outFile), "wb") as fp:   #Pickling
     pickle.dump(trainProgressList, fp)
-
-'''
-matplotlib.style.use('default')
-fig, ax = plt.subplots(1,1,figsize=(3,3))
-trainProgress = np.array(trainProgress)
-ax.plot(np.arange(trainProgress.shape[0])*args.check_period/1e5, trainProgress[:,0])
-ax.plot([0, 20], [0.677, 0.677], 'r--')
-ax.axis([0, 20, 0, 0.7])
-ax.set_xlabel(r'Number of accesses ($\times10^5$)')
-fig.tight_layout()
-
-if toEnd:
-    fig.savefig('figure/RA_toend_train.eps')
-else:
-    fig.savefig('figure/RA_train.eps')
-
-plt.show()
-'''

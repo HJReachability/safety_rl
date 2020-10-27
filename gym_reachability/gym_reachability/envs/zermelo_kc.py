@@ -80,9 +80,6 @@ class ZermeloKCEnv(gym.Env):
                                                 np.float32(self.midpoint + self.interval/2))
         self.viewer = None
 
-        # Discretization.
-        self.grid_cells = None
-
         # Set random seed.
         self.seed_val = 0
         np.random.seed(self.seed_val)
@@ -331,18 +328,6 @@ class ZermeloKCEnv(gym.Env):
         np.random.seed(self.seed_val)
 
 
-    def set_grid_cells(self, grid_cells):
-        """ Set number of grid cells.
-
-        Args:
-            grid_cells: Number of grid cells as a tuple.
-        """
-        self.grid_cells = grid_cells
-
-        # (self.x_opos, self.y_opos, self.x_ipos,
-        #  self.y_ipos) = self.constraint_set_boundary()
-
-
     def set_bounds(self, bounds):
         """ Set state bounds.
 
@@ -360,17 +345,6 @@ class ZermeloKCEnv(gym.Env):
         interval = self.high - self.low
         self.observation_space = gym.spaces.Box(np.float32(midpoint - interval/2),
                                                 np.float32(midpoint + interval/2))
-
-
-    def set_discretization(self, grid_cells, bounds):
-        """ Set number of grid cells and state bounds.
-
-        Args:
-            grid_cells: Number of grid cells as a tuple.
-            bounds: Bounds for the state.
-        """
-        self.set_grid_cells(grid_cells)
-        self.set_bounds(bounds)
 
 
     def set_doneType(self, doneType):

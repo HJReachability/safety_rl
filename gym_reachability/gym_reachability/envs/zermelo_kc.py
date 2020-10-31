@@ -24,6 +24,7 @@ import torch
 
 class ZermeloKCEnv(gym.Env):
 
+
     def __init__(self, device, mode='normal', doneType='TF'):
 
         # State bounds.
@@ -48,27 +49,32 @@ class ZermeloKCEnv(gym.Env):
         # Constraint set parameters.
         # X,Y position and Side Length.
         self.box1_x_y_length = np.array([1.25, 2, 1.5])  # Bottom right.
+        '''
         self.corners1 = np.array([
                     (self.box1_x_y_length[0] - self.box1_x_y_length[2]/2.0),
                     (self.box1_x_y_length[1] - self.box1_x_y_length[2]/2.0),
                     (self.box1_x_y_length[0] + self.box1_x_y_length[2]/2.0),
                     (self.box1_x_y_length[1] + self.box1_x_y_length[2]/2.0)
                     ])
+        '''
         self.box2_x_y_length = np.array([-1.25, 2, 1.5])  # Bottom left.
+        '''
         self.corners2 = np.array([
                     (self.box2_x_y_length[0] - self.box2_x_y_length[2]/2.0),
                     (self.box2_x_y_length[1] - self.box2_x_y_length[2]/2.0),
                     (self.box2_x_y_length[0] + self.box2_x_y_length[2]/2.0),
                     (self.box2_x_y_length[1] + self.box2_x_y_length[2]/2.0)
                     ])
+        '''
         self.box3_x_y_length = np.array([0, 6, 1.5])  # Top middle.
+        '''
         self.corners3 = np.array([
                     (self.box3_x_y_length[0] - self.box3_x_y_length[2]/2.0),
                     (self.box3_x_y_length[1] - self.box3_x_y_length[2]/2.0),
                     (self.box3_x_y_length[0] + self.box3_x_y_length[2]/2.0),
                     (self.box3_x_y_length[1] + self.box3_x_y_length[2]/2.0)
                     ])
-
+        '''
         # Target set parameters.
         self.box4_x_y_length = np.array([0, 9.25, 1.5])  # Top.
 
@@ -500,7 +506,11 @@ class ZermeloKCEnv(gym.Env):
 
         for t in range(T):
             if toEnd:
-                if state[1] >= self.bounds[1,1]:
+                outsideTop   = (state[1] >= self.bounds[1,1])
+                outsideLeft  = (state[0] <= self.bounds[0,0])
+                outsideRight = (state[0] >= self.bounds[0,1])
+                done = outsideTop or outsideLeft or outsideRight
+                if done:
                     result = 1
                     break
             else:

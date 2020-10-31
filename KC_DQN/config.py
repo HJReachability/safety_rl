@@ -54,7 +54,7 @@ class dqnConfig(config):
                         MEMORY_CAPACITY=10000,
                         BATCH_SIZE=32,
                         RENDER=False,                         
-                        MAX_MODEL=5,
+                        MAX_MODEL=10,
                         DOUBLE=True):
         
         super().__init__(ENV_NAME=ENV_NAME,

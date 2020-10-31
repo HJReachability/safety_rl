@@ -281,6 +281,7 @@ class DDQN():
             training_records.append(TrainingRecord(ep, running_cost, ep_cost, loss_c))
             print('{:d}: {:.1f} after {:d} steps, currently access {:d} times'.format(\
                 ep, ep_cost, step_num+1, cnt_access), end='\r')
+            
             # Report after fixed number of epochs
             if ep % report_period == 0:
                 lr = self.optimizer.state_dict()['param_groups'][0]['lr']
@@ -293,9 +294,10 @@ class DDQN():
                         _ = env.plot_trajectories(self.Q_network, T=500, num_rnd_traj=num_rnd_traj, 
                                                 keepOutOf=True, toEnd=toEnd)
                     else:
-                        _ = env.plot_trajectories(self.Q_network, T=500, num_rnd_traj=5, 
+                        _ = env.plot_trajectories(self.Q_network, T=500, 
                                                 states=env.visual_initial_states, toEnd=toEnd)
                     plt.pause(0.001)
+            
             # Check stopping criteria  
             if running_cost_th != None:
                 if running_cost <= running_cost_th:
@@ -303,6 +305,7 @@ class DDQN():
                     env.close()
                     break
         
+        self.save(cnt_access, 'models/{:s}/'.format(outFolder))
         return training_records, trainProgress
 
 
@@ -357,11 +360,11 @@ class DDQN():
             min_step = min([int(li.split('/')[-1][6:-4]) for li in model_list]) 
             os.remove(os.path.join(logs_path, 'model-{}.pth' .format(min_step)))
         logs_path = os.path.join(logs_path, 'model-{}.pth' .format(step))
-        torch.save(self.Q_network, logs_path)
-        print('=> Save {} at [{:d}] accesses' .format(logs_path, step)) 
+        torch.save(self.Q_network.state_dict(), logs_path)
+        print('=> Save {} at [{}] accesses' .format(logs_path, step)) 
 
 
     def restore(self, logs_path):
-        self.Q_network.load(logs_path)
-        self.target_network.load(logs_path)
+        self.Q_network.load_state_dict(torch.load(logs_path))
+        self.target_network.load_state_dict(torch.load(logs_path))
         print('=> Restore {}' .format(logs_path))

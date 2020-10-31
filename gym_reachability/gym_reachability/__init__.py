@@ -44,6 +44,11 @@ register(
 )
 
 register(
+    id="zermelo_show-v0",
+    entry_point="gym_reachability.gym_reachability.envs:ZermeloShowEnv"
+)
+
+register(
     id="cheetah_balance-v0",
     entry_point="gym_reachability.gym_reachability.envs:CheetahBalanceEnv"
 )

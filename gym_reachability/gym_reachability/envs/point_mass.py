@@ -20,17 +20,14 @@ from utils import state_to_index
 from utils import index_to_state
 from utils import v_from_q
 
-# matplotlib.use("TkAgg")
-matplotlib.style.use('ggplot')
-
 
 class PointMassEnv(gym.Env):
 
     def __init__(self):
 
         # State bounds.
-        self.bounds = np.array([[-1.9, 1.9],  # axis_0 = state, axis_1 = bounds.
-                                [-2, 9.25]])
+        self.bounds = np.array([[-2, 2],  # axis_0 = state, axis_1 = bounds.
+                                [-2, 10]])
         # self.bounds = np.array([[-10, 10],  # axis_0 = state, axis_1 = bounds.
         #                         [-10, 10]])
         self.low = self.bounds[:, 0]
@@ -73,14 +70,14 @@ class PointMassEnv(gym.Env):
                     ])
 
         # Target set parameters.
-        self.box4_x_y_length = np.array([0, 7+1.5, 1.5])  # Top.
+        self.box4_x_y_length = np.array([0, 9.25, 1.5])  # Top.
 
         # Gym variables.
         self.action_space = gym.spaces.Discrete(3)  # horizontal_rate = {-1,0,1}
         self.midpoint = (self.low + self.high)/2.0
         self.interval = self.high - self.low
-        self.observation_space = gym.spaces.Box(self.midpoint - self.interval,
-                                                self.midpoint + self.interval)
+        self.observation_space = gym.spaces.Box(np.float32(self.midpoint - self.interval/2),
+                                                np.float32(self.midpoint + self.interval/2))
         self.viewer = None
 
         # Discretization.
@@ -98,8 +95,8 @@ class PointMassEnv(gym.Env):
          self.y_box2_pos, self.y_box3_pos) = self.constraint_set_boundary()
         (self.x_box4_pos, self.y_box4_pos) = self.target_set_boundary()
         self.visual_initial_states = [np.array([0, 0]),
-                                      np.array([-1, -1.9]),
-                                      np.array([1, -1.9]),
+                                      np.array([-1, -2]),
+                                      np.array([1, -2]),
                                       np.array([-1, 4]),
                                       np.array([1, 4])]
         self.scaling = 1.
@@ -276,8 +273,8 @@ class PointMassEnv(gym.Env):
         # Double the range in each state dimension for Gym interface.
         midpoint = (self.low + self.high)/2.0
         interval = self.high - self.low
-        self.observation_space = gym.spaces.Box(midpoint - interval,
-                                                midpoint + interval)
+        self.observation_space = gym.spaces.Box(np.float32(self.midpoint - self.interval/2),
+                                                np.float32(self.midpoint + self.interval/2))
 
     def set_discretization(self, grid_cells, bounds):
         """ Set number of grid cells and state bounds.
@@ -412,19 +409,28 @@ class PointMassEnv(gym.Env):
             self.box4_x_y_length[1] - self.box4_x_y_length[-1]/2.0])
 
         return (x_box4_pos, y_box4_pos)
+    
 
-    def visualize_analytic_comparison(self, v, no_show=False,
-                                      labels=["x", "y"]):
+    def visualize_analytic_comparison( self, v, no_show=False,
+                                       labels=["x", "y"], 
+                                       vmin=0, vmax=50, boolPlot=False):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
             v: State value function.
         """
         plt.clf()
-        # boundary = ((v < 0.1) * (v > -0.1))
-        # v[boundary] = np.max(v)
-        im = visualize_matrix(v.T, self.get_axes(labels), no_show)
-
+        ax = plt.gca()
+        axes = self.get_axes()
+        
+        if boolPlot:
+            im = plt.imshow(v.T>vmin, interpolation='none', extent=axes[0], origin="lower",
+                       cmap="plasma")
+        else:
+            im = plt.imshow(v.T, interpolation='none', extent=axes[0], origin="lower",
+                       cmap="plasma", vmin=vmin, vmax=vmax)
+            plt.colorbar(im, pad=0.01, shrink=0.95)
+        
         # Plot bounadries of constraint set.
         plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
         plt.plot(self.x_box2_pos, self.y_box2_pos, color="black")
@@ -432,7 +438,21 @@ class PointMassEnv(gym.Env):
         # Plot boundaries of target set.
         plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
 
-        plt.colorbar(im)
+        ax.axis(axes[0])
+        ax.grid(False)
+        ax.set_aspect(axes[1])  # makes equal aspect ratio
+        if labels is not None:
+            ax.set_xlabel(labels[0], fontsize=60)
+            ax.set_ylabel(labels[1], fontsize=60)
+
+        ax.tick_params( axis='both', which='both',  # both x and y axes, both major and minor ticks are affected
+                        bottom=False, top=False,    # ticks along the top and bottom edges are off
+                        left=False, right=False)    # ticks along the left and right edges are off
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+
+        if not no_show:
+            plt.show()
 
     def simulate_one_trajectory(self, q_func, T=10, state=None):
 
@@ -443,8 +463,16 @@ class PointMassEnv(gym.Env):
         traj_y = [y]
 
         for t in range(T):
+            outsideTop   = (state[1] >= self.bounds[1,1])
+            outsideLeft  = (state[0] <= self.bounds[0,0])
+            outsideRight = (state[0] >= self.bounds[0,1])
+            done = outsideTop or outsideLeft or outsideRight
+            if done:
+                break
+            '''
             if self.safety_margin(state) > 0 or self.target_margin(state) < 0:
                 break
+            '''
             state_ix = state_to_index(self.grid_cells, self.bounds, state)
             action_ix = np.argmin(q_func[state_ix])
             u = self.discrete_controls[action_ix]
@@ -485,8 +513,8 @@ class PointMassEnv(gym.Env):
 
         for traj in trajectories:
             traj_x, traj_y = traj
-            plt.scatter(traj_x[0], traj_y[0], s=32, c='r')
-            plt.plot(traj_x, traj_y, color="black")
+            plt.scatter(traj_x[0], traj_y[0], s=48, c='w')
+            plt.plot(traj_x, traj_y, color="w")
 
     # def analytic_v(self):
     #     """ Computes the discretized analytic value function.
@@ -515,11 +543,55 @@ class PointMassEnv(gym.Env):
     #         it.iternext()
     #     return v
 
-    def get_axes(self, labels=["x", "y"]):
+    def plot_reach_avoid_set(self):
+        slope = self.upward_speed / self.horizontal_rate
+
+        def get_line(slope, end_point, x_limit, ns=100):
+            x_end, y_end = end_point
+            b = y_end - slope * x_end
+
+            xs = np.linspace(x_limit, x_end, ns)
+            ys = xs * slope + b
+            return xs, ys
+
+        # left unsafe set
+        x = self.box2_x_y_length[0] + self.box2_x_y_length[2]/2.0 
+        y = self.box2_x_y_length[1] - self.box2_x_y_length[2]/2.0
+        xs, ys = get_line(slope, end_point=[x,y], x_limit=-2.)
+        plt.plot(xs, ys, color='r', linewidth=1.5)
+
+        # right unsafe set
+        x = self.box1_x_y_length[0] - self.box1_x_y_length[2]/2.0 
+        y = self.box1_x_y_length[1] - self.box1_x_y_length[2]/2.0
+        xs, ys = get_line(-slope, end_point=[x,y], x_limit=2.)
+        plt.plot(xs, ys, color='r', linewidth=1.5)
+
+        # middle unsafe set
+        x1 = self.box3_x_y_length[0] - self.box3_x_y_length[2]/2.0 
+        x2 = self.box3_x_y_length[0] + self.box3_x_y_length[2]/2.0
+        x3 = self.box3_x_y_length[0]
+        y = self.box3_x_y_length[1] - self.box3_x_y_length[2]/2.0
+        xs, ys = get_line(-slope, end_point=[x1,y], x_limit=x3)
+        plt.plot(xs, ys, color='r', linewidth=1.5)
+        xs, ys = get_line(slope, end_point=[x2,y], x_limit=x3)
+        plt.plot(xs, ys, color='r', linewidth=1.5)
+
+        # border unsafe set
+        x1 = self.box4_x_y_length[0] - self.box4_x_y_length[2]/2.0
+        x2 = self.box4_x_y_length[0] + self.box4_x_y_length[2]/2.0
+        y = self.box4_x_y_length[1] + self.box4_x_y_length[2]/2.0
+        xs, ys = get_line(slope, end_point=[x1,y], x_limit=-2.)
+        plt.plot(xs, ys, color='r', linewidth=1.5)
+        xs, ys = get_line(-slope, end_point=[x2,y], x_limit=2.)
+        plt.plot(xs, ys, color='r', linewidth=1.5)
+
+
+    def get_axes(self):
         """ Gets the bounds for the environment.
 
         Returns:
             List containing a list of bounds for each state coordinate and a
-            list for the name of each state coordinate.
         """
-        return [np.append(self.bounds[0], self.bounds[1]), labels]
+        aspect_ratio = (self.bounds[0,1]-self.bounds[0,0])/(self.bounds[1,1]-self.bounds[1,0])
+        axes = np.array([self.bounds[0,0]-.05, self.bounds[0,1]+.05, self.bounds[1,0]-.15, self.bounds[1,1]+.15])
+        return [axes, aspect_ratio]

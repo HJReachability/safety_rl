@@ -21,13 +21,13 @@ from datetime import datetime
 
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
 from utils import index_to_state
 from utils import state_to_index
 from utils import sbe_outcome
 from utils import save
 from utils import v_from_q
-from utils import visualize_matrix
 
 
 def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
@@ -141,7 +141,7 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
     env.set_bounds(state_bounds)
 
     if start_episode is None:
-        start_episode = 0
+        start_episode = 1
 
     # Set starting exploration fraction, learning rate and discount factor.
     epsilon = get_epsilon(start_episode)
@@ -153,18 +153,24 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
     total_steps = 0
     # Main learning loop: Run episodic trajectories from random initial states.
     for episode in range(max_episodes):
-        if not suppress_print and (episode + 1) % 100 == 0:
-            message = "\rEpisode {}/{} alpha:{} gamma:{} epsilon:{} redund:{}."
+        if not suppress_print and (episode + 1) % 1000 == 0:
+            message = "\rEpisode {:.0f}/{:d} alpha:{:.4f} gamma:{:.6f} epsilon:{:.4f} redund:{:.4f}."
             print(message.format(
                 episode + 1, max_episodes, alpha, gamma, epsilon,
                 redundant_comp/(total_steps + 1.0)), end="")
             sys.stdout.flush()
         if ((num_rnd_traj is not None or visualization_states is not None)
-                and (episode + 1) % 10000 == 0):
-            env.visualize_analytic_comparison(v_from_q(q_values), True)
+                and (episode + 1) % (60*5000) == 0):
+            env.visualize_analytic_comparison(v_from_q(q_values), True, labels=["","Tabular"], boolPlot=True)
+            env.plot_reach_avoid_set()
             env.plot_trajectories(q_values, T=vis_T, num_rnd_traj=num_rnd_traj,
                                   states=visualization_states)
+            plt.tight_layout()
+            figureFolder = 'figure/TQ/progress'
+            os.makedirs(figureFolder, exist_ok=True)
+            plt.savefig('{:s}/{:d}.eps'.format(figureFolder, episode+1))
             plt.pause(0.001)
+            print()
         state = env.reset()
         state_ix = state_to_index(grid_cells, state_bounds, state)
         done = False

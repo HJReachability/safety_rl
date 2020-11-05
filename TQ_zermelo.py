@@ -37,8 +37,8 @@ the value function.
 
 # == Environment ==
 max_episode_length = 1
-#env = gym.make("point_mass-v0")
-env = gym.make("zermelo_kc-v0", device='cpu')
+env = gym.make("point_mass-v0")
+#env = gym.make("zermelo_kc-v0", device='cpu')
 #print(env.observation_space.high, env.observation_space.low)
 #env = PointMassEnv()
 fictitious_terminal_val = 10
@@ -58,10 +58,10 @@ env.set_discretization(grid_cells, state_bounds)
 # env.visualize_analytic_comparison(np.sign(analytic_v))
 
 # == Optimization ==
-max_episodes = int(2e6) + 1
+max_episodes = int(12e6) + 1
 get_alpha = make_inverse_visit_schedule(max_episodes/num_states)#make_linear_schedule(0.9, 0.1, max_episodes)#make_inverse_polynomial_visit_schedule(1.0, 0.51)
 get_epsilon = make_linear_schedule(0.95, 0.1, max_episodes)
-get_gamma = make_stepped_schedule(0.999, int(max_episodes / 5), 0.9999999)
+get_gamma = make_stepped_schedule(0.9, int(max_episodes / 20), 0.99999999)
 
 # Visualization states.
 viz_states = [np.array([0, 0])]

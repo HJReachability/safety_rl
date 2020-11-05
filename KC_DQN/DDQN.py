@@ -175,11 +175,11 @@ class DDQN():
         return loss.item()
 
 
-    def learn(self, env, MAX_EPISODES=20000, MAX_EP_STEPS=100, running_cost_th=None, addBias=False, 
-              report_period=5000, plotFigure=True,
-              vmin=-100, vmax=100, randomPlot=False, num_rnd_traj=10, toEnd=False,
-              warmupBuffer=True, warmupQ=False,
-              check_period=50000, storeModel=True, outFolder='RA'):
+    def learn(self, env, MAX_EPISODES=20000, MAX_EP_STEPS=100, running_cost_th=None, addBias=False,
+                warmupBuffer=True, warmupQ=False, toEnd=False,
+                report_period=5000, plotFigure=True, showBool=False, saveFigure=False,
+                vmin=-100, vmax=100, randomPlot=False, num_rnd_traj=10,
+                check_period=50000, storeModel=True, outFolder='RA', verbose=True):
 
         #== TRAINING RECORD ==
         TrainingRecord = namedtuple('TrainingRecord', ['ep', 'avg_cost', 'cost', 'loss_c'])
@@ -266,8 +266,9 @@ class DDQN():
                     failure  = np.sum(results==-1)/ num_rnd_traj_test
                     unfinish = np.sum(results==0) / num_rnd_traj_test
                     trainProgress.append([success, failure, unfinish])
-                    print('After [{:d}] accesses, success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(\
-                        cnt_access, success, failure, unfinish))
+                    if verbose:
+                        print('\rAfter [{:d}] accesses, success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(\
+                            cnt_access, success, failure, unfinish))
                     if success > checkPointSucc and storeModel:
                         checkPointSucc = success
                         self.save(cnt_access, 'models/{:s}/'.format(outFolder))
@@ -279,32 +280,41 @@ class DDQN():
 
             running_cost = running_cost * 0.9 + ep_cost * 0.1
             training_records.append(TrainingRecord(ep, running_cost, ep_cost, loss_c))
-            print('{:d}: {:.1f} after {:d} steps, currently access {:d} times'.format(\
-                ep, ep_cost, step_num+1, cnt_access), end='\r')
+            print('\r{:d}: {:.1f} after {:d} steps, currently access {:d} times'.format(\
+                ep+1, ep_cost, step_num+1, cnt_access), end='')
             
             # Report after fixed number of epochs
-            if ep % report_period == 0:
+            if (ep+1) % report_period == 0:
                 lr = self.optimizer.state_dict()['param_groups'][0]['lr']
-                print('Ep[{:3.0f} - ({:.2f},{:.6f},{:.1e})]: Running/Real cost: {:3.2f}/{:.2f}; '.format(
-                    ep, self.EPSILON, self.GAMMA, lr, running_cost, ep_cost))
+                if verbose:
+                    print('\rEp[{:3.0f} - ({:.2f},{:.6f},{:.1e})]: Running/Real cost: {:3.2f}/{:.2f}; '.format(
+                        ep+1, self.EPSILON, self.GAMMA, lr, running_cost, ep_cost))
                 if plotFigure:
-                    env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, labels=None)
+                    if showBool:
+                        env.visualize_analytic_comparison(self.Q_network, True, vmin=0, vmax=1, boolPlot=True, labels=["",""])
+                    else:
+                        env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, labels=None)
                     env.plot_reach_avoid_set()
                     if randomPlot:
                         _ = env.plot_trajectories(self.Q_network, T=500, num_rnd_traj=num_rnd_traj, 
-                                                keepOutOf=True, toEnd=toEnd)
+                                                  keepOutOf=True, toEnd=toEnd)
                     else:
                         _ = env.plot_trajectories(self.Q_network, T=500, 
-                                                states=env.visual_initial_states, toEnd=toEnd)
+                                                  states=env.visual_initial_states, toEnd=toEnd)
+                    plt.tight_layout()
+                    if saveFigure:
+                        figureFolder = 'figure/{:s}/progress'.format(outFolder)
+                        os.makedirs(figureFolder, exist_ok=True)
+                        plt.savefig('{:s}/{:d}.eps'.format(figureFolder, ep+1))
                     plt.pause(0.001)
             
             # Check stopping criteria  
             if running_cost_th != None:
                 if running_cost <= running_cost_th:
-                    print("\r At Ep[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(ep, running_cost))
+                    print("\n At Ep[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(ep, running_cost))
                     env.close()
                     break
-        
+        print()
         self.save(cnt_access, 'models/{:s}/'.format(outFolder))
         return training_records, trainProgress
 
@@ -332,7 +342,11 @@ class DDQN():
 
 
     def updateHyperParam(self):
-        self.scheduler.step()
+        if self.optimizer.state_dict()['param_groups'][0]['lr'] <= 1e-4:
+            for param_group in self.optimizer.param_groups:
+                param_group['lr'] = 1e-5
+        else:
+            self.scheduler.step()
         self.updateEpsilon()
         self.updateGamma()
         self.training_epoch += 1

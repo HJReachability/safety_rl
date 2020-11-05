@@ -12,14 +12,7 @@ import numpy as np
 import gym
 import matplotlib
 import matplotlib.pyplot as plt
-
-#from utils import visualize_matrix
-#from utils import index_to_state
-
 import torch
-
-# matplotlib.use("TkAgg")
-#matplotlib.style.use('ggplot')
 
 
 class ZermeloKCEnv(gym.Env):
@@ -559,7 +552,7 @@ class ZermeloKCEnv(gym.Env):
 
 
     def visualize_analytic_comparison( self, q_func, no_show=False, 
-                                       vmin=-50, vmax=50, nx=41, ny=121,
+                                       vmin=-50, vmax=50, nx=121, ny=361,
                                        labels=["x", "y"],
                                        boolPlot=False):
         """ Overlays analytic safe set on top of state value function.
@@ -579,7 +572,9 @@ class ZermeloKCEnv(gym.Env):
         else:
             im = plt.imshow(v.T, interpolation='none', extent=axes[0], origin="lower",
                        cmap="plasma", vmin=vmin, vmax=vmax)
-            plt.colorbar(im, pad=0.01, shrink=0.95)
+            cbar = plt.colorbar(im, pad=0.01, shrink=0.95, ticks=[vmin, 0, vmax])
+            cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
+
         
         # Plot bounadries of constraint set.
         plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
@@ -592,8 +587,8 @@ class ZermeloKCEnv(gym.Env):
         ax.grid(False)
         ax.set_aspect(axes[1])  # makes equal aspect ratio
         if labels is not None:
-            ax.set_xlabel(labels[0])
-            ax.set_ylabel(labels[1])
+            ax.set_xlabel(labels[0], fontsize=52)
+            ax.set_ylabel(labels[1], fontsize=52)
 
         ax.tick_params( axis='both', which='both',  # both x and y axes, both major and minor ticks are affected
                         bottom=False, top=False,    # ticks along the top and bottom edges are off

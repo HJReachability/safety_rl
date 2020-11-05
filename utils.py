@@ -233,7 +233,7 @@ class SteppedSchedule(object):
 
 def make_stepped_schedule(start_value, half_life, max_gamma):
     c = 1 - start_value
-    return lambda t, n: np.minimum(max_gamma, 1 - c * 2 ** (-t // half_life))
+    return lambda t, n: np.minimum(max_gamma, 1 - c * 2 ** -(t // half_life))
 
 
 def make_linear_schedule(start_value, end_value, decay_steps):

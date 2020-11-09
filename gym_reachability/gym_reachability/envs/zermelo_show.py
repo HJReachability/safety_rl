@@ -48,7 +48,7 @@ class ZermeloShowEnv(gym.Env):
             self.constraint_x_y_w_h = np.array([[-1.5, 3.5, 2, thickness],
                                                 [ 1.5, 3.5, 2, thickness]])
         else:
-            self.constraint_x_y_w_h = np.array([[0., 2., 4., thickness]])
+            self.constraint_x_y_w_h = np.array([[0., 3., 4., thickness]])
         
         '''
         self.constraint_x_y_w_h = np.array([[-2.35, 3., 1.3, thickness],
@@ -102,8 +102,8 @@ class ZermeloShowEnv(gym.Env):
                                         np.array([  1., 0.]),
                                         np.array([-2.5, 0.]),
                                         np.array([ 2.5, 0.]),
-                                        np.array([ -1., 3]),
-                                        np.array([  1., 3])]
+                                        np.array([ -1.5, 4.]),
+                                        np.array([  1.5, 4.])]
         if mode == 'extend':
             self.visual_initial_states = self.extend_state(self.visual_initial_states)
 
@@ -450,7 +450,7 @@ class ZermeloShowEnv(gym.Env):
 
             v[idx] = q_func(state).min(dim=1)[0].item()
             it.iternext()
-        return v
+        return v, xs, ys
 
 
     def get_axes(self):
@@ -548,8 +548,7 @@ class ZermeloShowEnv(gym.Env):
 
     def visualize_analytic_comparison( self, q_func, no_show=False, 
                                        vmin=-50, vmax=50, nx=61, ny=61,
-                                       labels=["x", "y"],
-                                       boolPlot=False):
+                                       labels=None, boolPlot=False, plotZero=False):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
@@ -557,7 +556,7 @@ class ZermeloShowEnv(gym.Env):
         """
         plt.clf()
         ax = plt.gca()
-        v = self.get_value(q_func, nx, ny)
+        v, xs, ys = self.get_value(q_func, nx, ny)
         #im = visualize_matrix(v.T, self.get_axes(labels), no_show, vmin=vmin, vmax=vmax)
         axes = self.get_axes()
         
@@ -567,7 +566,8 @@ class ZermeloShowEnv(gym.Env):
         else:
             im = plt.imshow(v.T, interpolation='none', extent=axes[0], origin="lower",
                        cmap="plasma", vmin=vmin, vmax=vmax)
-            plt.colorbar(im, pad=0.01, shrink=0.95)
+            cbar = plt.colorbar(im, pad=0.01, shrink=0.95, ticks=[vmin, 0, vmax])
+            cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
         
         # Plot bounadries of constraint set.
         for one_boundary in self.constraint_set_boundary:
@@ -576,6 +576,20 @@ class ZermeloShowEnv(gym.Env):
         # Plot boundaries of target set.
         for one_boundary in self.target_set_boundary:
             plt.plot(one_boundary[:, 0], one_boundary[:, 1], color="black")
+
+        # Plot zero level set
+        if plotZero:
+            it = np.nditer(v, flags=['multi_index'])
+            while not it.finished:
+                idx = it.multi_index
+                x = xs[idx[0]]
+                y = ys[idx[1]]
+                
+                if v[idx] <= 1e-2 and v[idx] >= -1e-2:
+                    plt.scatter(x,y, c='k', s=6)
+                    #print(idx, end=' | ')
+
+                it.iternext()
 
         ax.axis(axes[0])
         ax.grid(False)
@@ -592,6 +606,8 @@ class ZermeloShowEnv(gym.Env):
 
         if not no_show:
             plt.show()
+
+        return v
 
 
     def plot_target_failure_set(self):

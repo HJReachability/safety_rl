@@ -18,7 +18,7 @@ import torch
 class ZermeloKCEnv(gym.Env):
 
 
-    def __init__(self, device, mode='normal', doneType='TF'):
+    def __init__(self, device, mode='normal', doneType='toEnd'):
 
         # State bounds.
         self.bounds = np.array([[-2, 2],  # axis_0 = state, axis_1 = bounds.
@@ -42,32 +42,9 @@ class ZermeloKCEnv(gym.Env):
         # Constraint set parameters.
         # X,Y position and Side Length.
         self.box1_x_y_length = np.array([1.25, 2, 1.5])  # Bottom right.
-        '''
-        self.corners1 = np.array([
-                    (self.box1_x_y_length[0] - self.box1_x_y_length[2]/2.0),
-                    (self.box1_x_y_length[1] - self.box1_x_y_length[2]/2.0),
-                    (self.box1_x_y_length[0] + self.box1_x_y_length[2]/2.0),
-                    (self.box1_x_y_length[1] + self.box1_x_y_length[2]/2.0)
-                    ])
-        '''
         self.box2_x_y_length = np.array([-1.25, 2, 1.5])  # Bottom left.
-        '''
-        self.corners2 = np.array([
-                    (self.box2_x_y_length[0] - self.box2_x_y_length[2]/2.0),
-                    (self.box2_x_y_length[1] - self.box2_x_y_length[2]/2.0),
-                    (self.box2_x_y_length[0] + self.box2_x_y_length[2]/2.0),
-                    (self.box2_x_y_length[1] + self.box2_x_y_length[2]/2.0)
-                    ])
-        '''
         self.box3_x_y_length = np.array([0, 6, 1.5])  # Top middle.
-        '''
-        self.corners3 = np.array([
-                    (self.box3_x_y_length[0] - self.box3_x_y_length[2]/2.0),
-                    (self.box3_x_y_length[1] - self.box3_x_y_length[2]/2.0),
-                    (self.box3_x_y_length[0] + self.box3_x_y_length[2]/2.0),
-                    (self.box3_x_y_length[1] + self.box3_x_y_length[2]/2.0)
-                    ])
-        '''
+
         # Target set parameters.
         self.box4_x_y_length = np.array([0, 9.25, 1.5])  # Top.
 
@@ -455,7 +432,7 @@ class ZermeloKCEnv(gym.Env):
 
             v[idx] = q_func(state).min(dim=1)[0].item()
             it.iternext()
-        return v
+        return v, xs, ys
 
 
     def get_axes(self):
@@ -554,7 +531,7 @@ class ZermeloKCEnv(gym.Env):
     def visualize_analytic_comparison( self, q_func, no_show=False, 
                                        vmin=-50, vmax=50, nx=121, ny=361,
                                        labels=["x", "y"],
-                                       boolPlot=False):
+                                       boolPlot=False, plotZero=False):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
@@ -562,7 +539,7 @@ class ZermeloKCEnv(gym.Env):
         """
         plt.clf()
         ax = plt.gca()
-        v = self.get_value(q_func, nx, ny)
+        v, xs, ys = self.get_value(q_func, nx, ny)
         #im = visualize_matrix(v.T, self.get_axes(labels), no_show, vmin=vmin, vmax=vmax)
         axes = self.get_axes()
         
@@ -580,8 +557,22 @@ class ZermeloKCEnv(gym.Env):
         plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
         plt.plot(self.x_box2_pos, self.y_box2_pos, color="black")
         plt.plot(self.x_box3_pos, self.y_box3_pos, color="black")
+
         # Plot boundaries of target set.
         plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
+
+        # Plot zero level set
+        if plotZero:
+            it = np.nditer(v, flags=['multi_index'])
+            while not it.finished:
+                idx = it.multi_index
+                x = xs[idx[0]]
+                y = ys[idx[1]]
+
+                if v[idx] <= 0:
+                    plt.scatter(x,y, c='k', s=48)
+                it.iternext()
+
 
         ax.axis(axes[0])
         ax.grid(False)

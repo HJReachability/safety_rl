@@ -45,12 +45,14 @@ class DDQN():
         self.LR_C = CONFIG.LR_C
         self.LR_C_PERIOD = CONFIG.LR_C_PERIOD
         self.LR_C_DECAY = CONFIG.LR_C_DECAY
+        self.LR_C_END = CONFIG.LR_C_END
         # NN: batch size, maximal number of NNs stored
         self.BATCH_SIZE = CONFIG.BATCH_SIZE
         self.MAX_MODEL = CONFIG.MAX_MODEL
         self.device = CONFIG.DEVICE
         # Contraction Mapping
         self.GAMMA = CONFIG.GAMMA
+        self.GAMMA_END = CONFIG.GAMMA_END
         self.GAMMA_PERIOD = CONFIG.GAMMA_PERIOD
         self.GAMMA_DECAY = CONFIG.GAMMA_DECAY
         # Target Network Update
@@ -60,6 +62,7 @@ class DDQN():
         self.SOFT_UPDATE = CONFIG.SOFT_UPDATE # bool
         # Build NN(s) for DQN 
         self.build_network()
+        self.build_optimizer()
 
 
     def build_network(self):
@@ -68,11 +71,14 @@ class DDQN():
         if self.device == torch.device('cuda'):
             self.Q_network.cuda()
             self.target_network.cuda()
+        
+
+    def build_optimizer(self):
         self.optimizer = optim.Adam(self.Q_network.parameters(), lr=self.LR_C)
         self.scheduler =  optim.lr_scheduler.StepLR(self.optimizer, step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
         self.max_grad_norm = 1
         self.training_epoch = 0
-        
+
          
     def update(self, verbose=False, addBias=False):
         if len(self.memory) < self.BATCH_SIZE*20:
@@ -206,10 +212,10 @@ class DDQN():
         
         # == Warmup Q ==
         if warmupQ:
-            ep_warmup = 1000
-            num_warmup_samples = 100
+            ep_warmup = 5000
+            num_warmup_samples = 200
             for ep_tmp in range(ep_warmup):
-                print('Warmup Q [{:d}]'.format(ep_tmp), end='\r')
+                print('\rWarmup Q [{:d}]'.format(ep_tmp), end='')
                 states, heuristic_v = env.get_warmup_examples(num_warmup_samples=num_warmup_samples)
 
                 self.Q_network.train()
@@ -227,11 +233,11 @@ class DDQN():
                     env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
                     plt.pause(0.001)
                 '''
-            print("\nWarmup Q Ends")
+            print(" --- Warmup Q Ends")
             env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
-            env.visualize_analytic_comparison(self.target_network, True, vmin=vmin, vmax=vmax)
             plt.pause(0.001)
             self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
+            self.build_optimizer()
  
         # == Main Training ==
         cnt_access = 0
@@ -260,14 +266,14 @@ class DDQN():
                 # Report after fixed number of gradient updates / accesses
                 if cnt_access % check_period == 0:
                     num_rnd_traj_test=2000
-                    _, results = env.simulate_trajectories(self.Q_network, T=200, num_rnd_traj=num_rnd_traj_test, 
+                    _, results = env.simulate_trajectories(self.Q_network, T=500, num_rnd_traj=num_rnd_traj_test, 
                                                            keepOutOf=False, toEnd=False)
                     success  = np.sum(results==1) / num_rnd_traj_test 
                     failure  = np.sum(results==-1)/ num_rnd_traj_test
                     unfinish = np.sum(results==0) / num_rnd_traj_test
                     trainProgress.append([success, failure, unfinish])
                     if verbose:
-                        print('\rAfter [{:d}] accesses, success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(\
+                        print('\rAfter [{:d}] updates, success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(\
                             cnt_access, success, failure, unfinish))
                     if success > checkPointSucc and storeModel:
                         checkPointSucc = success
@@ -280,7 +286,7 @@ class DDQN():
 
             running_cost = running_cost * 0.9 + ep_cost * 0.1
             training_records.append(TrainingRecord(ep, running_cost, ep_cost, loss_c))
-            print('\r{:d}: {:.1f} after {:d} steps, currently access {:d} times'.format(\
+            print('\r{:d}: {:.1f} after {:d} steps, currently updates {:d} times'.format(\
                 ep+1, ep_cost, step_num+1, cnt_access), end='')
             
             # Report after fixed number of epochs
@@ -291,16 +297,16 @@ class DDQN():
                         ep+1, self.EPSILON, self.GAMMA, lr, running_cost, ep_cost))
                 if plotFigure:
                     if showBool:
-                        env.visualize_analytic_comparison(self.Q_network, True, vmin=0, vmax=1, boolPlot=True, labels=["",""])
+                        env.visualize_analytic_comparison(self.Q_network, True, vmin=0, vmax=1, boolPlot=True)
                     else:
-                        env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, labels=None)
+                        env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
                     env.plot_reach_avoid_set()
                     if randomPlot:
                         _ = env.plot_trajectories(self.Q_network, T=500, num_rnd_traj=num_rnd_traj, 
-                                                  keepOutOf=True, toEnd=toEnd)
+                                                  keepOutOf=True, toEnd=False)
                     else:
                         _ = env.plot_trajectories(self.Q_network, T=500, 
-                                                  states=env.visual_initial_states, toEnd=toEnd)
+                                                  states=env.visual_initial_states, toEnd=False)
                     plt.tight_layout()
                     if saveFigure:
                         figureFolder = 'figure/{:s}/progress'.format(outFolder)
@@ -338,13 +344,13 @@ class DDQN():
 
     def updateGamma(self):
         if self.training_epoch % self.GAMMA_PERIOD == 0 and self.training_epoch != 0:
-            self.GAMMA = min(1 - (1-self.GAMMA) * self.GAMMA_DECAY, 0.99999999)
+            self.GAMMA = min(1 - (1-self.GAMMA) * self.GAMMA_DECAY, self.GAMMA_END)
 
 
     def updateHyperParam(self):
-        if self.optimizer.state_dict()['param_groups'][0]['lr'] <= 1e-4:
+        if self.optimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_C_END:
             for param_group in self.optimizer.param_groups:
-                param_group['lr'] = 1e-5
+                param_group['lr'] = self.LR_C_END
         else:
             self.scheduler.step()
         self.updateEpsilon()

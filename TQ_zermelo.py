@@ -47,7 +47,7 @@ fictitious_terminal_val = 10
 seed = 1
 
 # == Discretization ==
-grid_cells = (41, 121)
+grid_cells = (81, 241)
 num_states = np.cumprod(grid_cells)[-1]
 state_bounds = env.bounds
 env.set_discretization(grid_cells, state_bounds)

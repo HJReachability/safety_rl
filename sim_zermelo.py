@@ -13,41 +13,47 @@ import matplotlib.pyplot as plt
 import torch
 from collections import namedtuple
 import argparse
+from multiprocessing import Pool
 
 from KC_DQN.DDQN import DDQN
 from KC_DQN.config import dqnConfig
 
 
-#== ==
+#== ARGS ==
+# e.g., python3 sim_zermelo.py -te -m lagrange -nt 50 -of lagrange_low_50 -ma 1500000 -p .1
+# e.g., python3 sim_zermelo.py -te -m RA -nt 50 -of RA -ma 1500000
 parser = argparse.ArgumentParser()
 parser.add_argument("-nt",  "--num_test",       help="the number of tests",         default=1,      type=int)
-parser.add_argument("-ma",  "--maxAccess",      help="maximal number of access",    default=1.1e6,  type=int)
-parser.add_argument("-cp",  "--check_period",   help="check the success rate",      default=50000,  type=int)
+parser.add_argument("-nw",  "--num_worker",     help="the number of workers",       default=6,      type=int)
 
+# training scheme
+parser.add_argument("-te",  "--toEnd",          help="stop until reaching boundary",    action="store_true")
+parser.add_argument("-ab",  "--addBias",        help="add bias term for RA",            action="store_true")
+parser.add_argument("-ma",  "--maxAccess",      help="maximal number of access",        default=1.5e6,  type=int)
+parser.add_argument("-cp",  "--check_period",   help="check the success ratio",         default=50000,  type=int)
+
+# hyper-parameters
 parser.add_argument("-r",   "--reward",         help="when entering target set",    default=-1,     type=float)
 parser.add_argument("-p",   "--penalty",        help="when entering failure set",   default=1,      type=float)
-parser.add_argument("-s",   "--scaling",        help="scaling of l_x",              default=1,      type=float)
+parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",            default=1,      type=float)
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-3,   type=float)
-parser.add_argument("-g",   "--gamma",          help="contraction coefficient",     default=0.9999, type=float)
+parser.add_argument("-g",   "--gamma",          help="contraction coefficient",     default=0.999,  type=float)
 
+# RL type
 parser.add_argument("-m",   "--mode",           help="mode",            default='RA',       type=str)
 parser.add_argument("-ct",  "--costType",       help="cost type",       default='sparse',   type=str)
 parser.add_argument("-of",  "--outFile",        help="output file",     default='RA',       type=str)
 
-parser.add_argument("-te", "--toEnd",   help="stops until to the end", action="store_true")
-parser.add_argument("-ab", "--addBias", help="add bias term for RA",   action="store_true")
-
 args = parser.parse_args()
 print(args)
 
+
 #== CONFIGURATION ==
-toEnd = args.toEnd
 env_name = "zermelo_kc-v0"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-maxAccess = args.maxAccess
 maxSteps = 120
-if toEnd:
-    maxEpisodes = int(maxAccess / maxSteps * 2)
+if args.toEnd:
+    maxEpisodes = int(args.maxAccess / maxSteps * 2)
 else:
     maxEpisodes = 60000
 update_period = int(maxEpisodes / 10)
@@ -70,57 +76,58 @@ elif args.mode == 'RA':
     gamma_period = update_period
 
 CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, 
-                   MAX_EPISODES=maxEpisodes, MAX_EP_STEPS=maxSteps,
-                   BATCH_SIZE=100, MEMORY_CAPACITY=10000,
-                   GAMMA=gammaInit, GAMMA_PERIOD=gamma_period,
-                   EPS_PERIOD=update_period_half, EPS_DECAY=0.6,
-                   LR_C=args.learningRate, LR_C_PERIOD=update_period, LR_C_DECAY=0.8)
-
+                MAX_EPISODES=maxEpisodes, MAX_EP_STEPS=maxSteps,
+                BATCH_SIZE=100, MEMORY_CAPACITY=10000,
+                GAMMA=gammaInit, GAMMA_PERIOD=gamma_period,
+                EPS_PERIOD=1000, EPS_DECAY=0.6,
+                LR_C=args.learningRate, LR_C_PERIOD=update_period, LR_C_DECAY=0.8)
 #== REPORT ==
 for key, value in CONFIG.__dict__.items():
     if key[:1] != '_': print(key, value)
-#print(CONFIG.MAX_EPISODES, CONFIG.MAX_EP_STEPS)
 
 
-# == Environment ==
-if toEnd:
-    env = gym.make(env_name, device=device, mode=envMode, doneType='toEnd')
-else:
-    env = gym.make(env_name, device=device, mode=envMode)
+#== ENVIRONMENT ==
+env = gym.make(env_name, device=device, mode=envMode, doneType='toEnd')
 env.set_costParam(args.penalty, args.reward, args.costType, args.scaling)
 
-# == Discretization ==
-grid_cells = (41, 121)
-num_states = np.cumprod(grid_cells)[-1]
-state_bounds = env.bounds
-env.set_discretization(grid_cells, state_bounds)
 
-s_dim = env.observation_space.shape[0]
-action_num = env.action_space.n
+#== EXPERIMENT ==
+def multi_experiment(seedNum, args, CONFIG, env, report_period):
+    #== AGENT ==
+    s_dim = env.observation_space.shape[0]
+    action_num = env.action_space.n
+    action_list = np.arange(action_num)
 
-action_list = np.arange(action_num)
-
-
-#== AGENT ==
-plt.figure()
-vmin = -1
-vmax = 1
-#report_period = int(update_period / 2)
-report_period = update_period
-
-trainProgressList = []
-for test_idx in range(args.num_test):
-    print("== TEST --- {:d} ==".format(test_idx))
-    env.set_seed(test_idx)
+    env.set_seed(seedNum)
+    np.random.seed(seedNum)
     agent=DDQN(s_dim, action_num, CONFIG, action_list, mode=agentMode, RA_scaling=args.scaling)
+
+    #== TRAINING ==
     _, trainProgress = agent.learn(env, MAX_EPISODES=CONFIG.MAX_EPISODES, MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
-                                   warmupQ=False, addBias=args.addBias, toEnd=toEnd,
+                                   addBias=args.addBias, toEnd=args.toEnd,
                                    report_period=report_period, plotFigure=False,
-                                   check_period=args.check_period, storeModel=False)
-    trainProgressList.append(trainProgress)
+                                   check_period=args.check_period, storeModel=False, verbose=False)
+    return trainProgress
+    
+
+#== TESTING ==
+trainProgressList = []
+L = args.num_test
+nThr = args.num_worker
+for ith in range( int(L/(nThr+1e-6))+1 ):
+    print('{} / {}'.format(ith+1, int(L/(nThr+1e-6))+1) )
+    with Pool(processes = nThr) as pool:
+        seedList = list(range(ith*nThr, min(L, (ith+1)*nThr) ))
+        argsList = [args]*len(seedList)
+        configList = [CONFIG]*len(seedList)
+        envList = [env]*len(seedList)
+        reportPeriodList = [update_period]*len(seedList)
+        trainProgress_i = pool.starmap(multi_experiment, zip(seedList, argsList, configList, envList, reportPeriodList))
+    trainProgressList = trainProgressList + trainProgress_i
+#print(trainProgressList)   
 
 
-print(trainProgressList)
+#== RECORD ==
 import pickle
 with open("data/{:s}.txt".format(args.outFile), "wb") as fp:   #Pickling
     pickle.dump(trainProgressList, fp)

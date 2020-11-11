@@ -530,8 +530,9 @@ class ZermeloKCEnv(gym.Env):
 
     def visualize_analytic_comparison( self, q_func, no_show=False, 
                                        vmin=-50, vmax=50, nx=121, ny=361,
-                                       labels=["x", "y"],
-                                       boolPlot=False, plotZero=False):
+                                       labels=['', ''],
+                                       boolPlot=False, plotZero=False,
+                                       cmap='coolwarm'):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
@@ -545,10 +546,10 @@ class ZermeloKCEnv(gym.Env):
         
         if boolPlot:
             im = plt.imshow(v.T>vmin, interpolation='none', extent=axes[0], origin="lower",
-                       cmap="plasma")
+                       cmap=cmap)
         else:
             im = plt.imshow(v.T, interpolation='none', extent=axes[0], origin="lower",
-                       cmap="plasma", vmin=vmin, vmax=vmax)
+                       cmap=cmap, vmin=vmin, vmax=vmax)
             cbar = plt.colorbar(im, pad=0.01, shrink=0.95, ticks=[vmin, 0, vmax])
             cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
 
@@ -592,7 +593,7 @@ class ZermeloKCEnv(gym.Env):
 
 
     def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None, 
-                          keepOutOf=False, toEnd=False):
+                          keepOutOf=False, toEnd=False, c='w'):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -602,8 +603,8 @@ class ZermeloKCEnv(gym.Env):
                                                            keepOutOf=keepOutOf, toEnd=toEnd)
         for traj in trajectories:
             traj_x, traj_y = traj
-            plt.scatter(traj_x[0], traj_y[0], s=48, c='w')
-            plt.plot(traj_x, traj_y, color="w")
+            plt.scatter(traj_x[0], traj_y[0], s=48, c=c)
+            plt.plot(traj_x, traj_y, color=c, linewidth=2)
 
         return results
 
@@ -623,13 +624,13 @@ class ZermeloKCEnv(gym.Env):
         x = self.box2_x_y_length[0] + self.box2_x_y_length[2]/2.0 
         y = self.box2_x_y_length[1] - self.box2_x_y_length[2]/2.0
         xs, ys = get_line(slope, end_point=[x,y], x_limit=-2.)
-        plt.plot(xs, ys, color='r', linewidth=1.5)
+        plt.plot(xs, ys, color='g', linewidth=3)
 
         # right unsafe set
         x = self.box1_x_y_length[0] - self.box1_x_y_length[2]/2.0 
         y = self.box1_x_y_length[1] - self.box1_x_y_length[2]/2.0
         xs, ys = get_line(-slope, end_point=[x,y], x_limit=2.)
-        plt.plot(xs, ys, color='r', linewidth=1.5)
+        plt.plot(xs, ys, color='g', linewidth=3)
 
         # middle unsafe set
         x1 = self.box3_x_y_length[0] - self.box3_x_y_length[2]/2.0 
@@ -637,15 +638,15 @@ class ZermeloKCEnv(gym.Env):
         x3 = self.box3_x_y_length[0]
         y = self.box3_x_y_length[1] - self.box3_x_y_length[2]/2.0
         xs, ys = get_line(-slope, end_point=[x1,y], x_limit=x3)
-        plt.plot(xs, ys, color='r', linewidth=1.5)
+        plt.plot(xs, ys, color='g', linewidth=3)
         xs, ys = get_line(slope, end_point=[x2,y], x_limit=x3)
-        plt.plot(xs, ys, color='r', linewidth=1.5)
+        plt.plot(xs, ys, color='g', linewidth=3)
 
         # border unsafe set
         x1 = self.box4_x_y_length[0] - self.box4_x_y_length[2]/2.0
         x2 = self.box4_x_y_length[0] + self.box4_x_y_length[2]/2.0
         y = self.box4_x_y_length[1] + self.box4_x_y_length[2]/2.0
         xs, ys = get_line(slope, end_point=[x1,y], x_limit=-2.)
-        plt.plot(xs, ys, color='r', linewidth=1.5)
+        plt.plot(xs, ys, color='g', linewidth=3)
         xs, ys = get_line(-slope, end_point=[x2,y], x_limit=2.)
-        plt.plot(xs, ys, color='r', linewidth=1.5)
+        plt.plot(xs, ys, color='g', linewidth=3)

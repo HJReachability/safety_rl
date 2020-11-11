@@ -264,27 +264,13 @@ class ZermeloShowEnv(gym.Env):
         x, y, w, h = x_y_w_h
         delta_x = np.abs(s[0] - x)
         delta_y = np.abs(s[1] - y)
-        
-        if delta_x < w/2:
-            if delta_y < h/2:      # inside
-                #print('both in')
-                margin =  max(delta_y - h/2, delta_x - w/2)
-            else:                  # y outside
-                #print('y')              
-                margin = delta_y - h/2
-        else:
-            if delta_y < h/2:      # x outside
-                #print('x') 
-                margin = delta_x - w/2
-            else:                   # both outside
-                #print('both out') 
-                margin = max(delta_y - h/2, delta_x - w/2)
+        margin = max(delta_y - h/2, delta_x - w/2)
 
         if negativeInside:
             return margin
         else:
             return - margin
-        
+
 
     def safety_margin(self, s):
         """ Computes the margin (e.g. distance) between state and failue set.
@@ -548,7 +534,8 @@ class ZermeloShowEnv(gym.Env):
 
     def visualize_analytic_comparison( self, q_func, no_show=False, 
                                        vmin=-50, vmax=50, nx=61, ny=61,
-                                       labels=None, boolPlot=False, plotZero=False):
+                                       labels=None, boolPlot=False, plotZero=False,
+                                       cmap='plasma'):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
@@ -562,10 +549,10 @@ class ZermeloShowEnv(gym.Env):
         
         if boolPlot:
             im = plt.imshow(v.T>vmin, interpolation='none', extent=axes[0], origin="lower",
-                       cmap="plasma")
+                       cmap=cmap)
         else:
             im = plt.imshow(v.T, interpolation='none', extent=axes[0], origin="lower",
-                       cmap="plasma", vmin=vmin, vmax=vmax)
+                       cmap=cmap, vmin=vmin, vmax=vmax)
             cbar = plt.colorbar(im, pad=0.01, shrink=0.95, ticks=[vmin, 0, vmax])
             cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
         
@@ -621,7 +608,7 @@ class ZermeloShowEnv(gym.Env):
 
 
     def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None, 
-                          keepOutOf=False, toEnd=False):
+                          keepOutOf=False, toEnd=False, c='w'):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -633,8 +620,8 @@ class ZermeloShowEnv(gym.Env):
             traj_x, traj_y = traj
             #print(traj_x)
             #print(traj_y)
-            plt.scatter(traj_x[0], traj_y[0], s=48, c='w')
-            plt.plot(traj_x, traj_y, color="w")
+            plt.scatter(traj_x[0], traj_y[0], s=48, c=c)
+            plt.plot(traj_x, traj_y, color=c, linewidth=2)
 
         return results
 
@@ -667,9 +654,9 @@ class ZermeloShowEnv(gym.Env):
             x2 = x + w/2.0
             y_min = y - h/2.0
             xs, ys = get_line(-slope, end_point=[x1, y_min], x_limit=x)
-            plt.plot(xs, ys, color='r', linewidth=1.5)
+            plt.plot(xs, ys, color='g', linewidth=3)
             xs, ys = get_line( slope, end_point=[x2, y_min], x_limit=x)
-            plt.plot(xs, ys, color='r', linewidth=1.5)
+            plt.plot(xs, ys, color='g', linewidth=3)
 
 
         # border unsafe set
@@ -678,6 +665,6 @@ class ZermeloShowEnv(gym.Env):
         x2 = x + w/2.0
         y_max = y + h/2.0
         xs, ys = get_line( slope, end_point=[x1, y_max], x_limit=self.low[0])
-        plt.plot(xs, ys, color='r', linewidth=1.5)
+        plt.plot(xs, ys, color='g', linewidth=3)
         xs, ys = get_line(-slope, end_point=[x2, y_max], x_limit=self.high[0])
-        plt.plot(xs, ys, color='r', linewidth=1.5)
+        plt.plot(xs, ys, color='g', linewidth=3)

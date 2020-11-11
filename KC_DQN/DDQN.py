@@ -181,11 +181,11 @@ class DDQN():
         return loss.item()
 
 
-    def learn(self, env, MAX_EPISODES=20000, MAX_EP_STEPS=100, running_cost_th=None, addBias=False,
-                warmupBuffer=True, warmupQ=False, toEnd=False,
+    def learn(self, env, MAX_EPISODES=20000, MAX_EP_STEPS=100, running_cost_th=None,
+                warmupBuffer=True, warmupQ=False, toEnd=False, addBias=False,
                 report_period=5000, plotFigure=True, showBool=False, saveFigure=False,
                 vmin=-100, vmax=100, randomPlot=False, num_rnd_traj=10,
-                check_period=50000, storeModel=True, outFolder='RA', verbose=True):
+                check_period=50000, storeModel=True, storeBest=True, outFolder='RA', verbose=True):
 
         #== TRAINING RECORD ==
         TrainingRecord = namedtuple('TrainingRecord', ['ep', 'avg_cost', 'cost', 'loss_c'])
@@ -212,7 +212,7 @@ class DDQN():
         
         # == Warmup Q ==
         if warmupQ:
-            ep_warmup = 5000
+            ep_warmup = 10000
             num_warmup_samples = 200
             for ep_tmp in range(ep_warmup):
                 print('\rWarmup Q [{:d}]'.format(ep_tmp), end='')
@@ -240,14 +240,14 @@ class DDQN():
             self.build_optimizer()
  
         # == Main Training ==
-        cnt_access = 0
+        cntAccess = 0
         trainProgress = []
         checkPointSucc = 0.
         for ep in range(MAX_EPISODES):
             s = env.reset()
             ep_cost = 0.
             for step_num in range(MAX_EP_STEPS):
-                cnt_access += 1
+                cntAccess += 1
                 # Select action
                 a, a_idx = self.select_action(s)
                 # Interact with env
@@ -259,14 +259,14 @@ class DDQN():
                 self.store_transition(s, a_idx, r, s_, info)
                 s = s_
                 # Perform one step of the optimization (on the target network)
-                if cnt_access % check_period == 0:
+                if cntAccess % check_period == 0:
                     loss_c = self.update(verbose=False, addBias=addBias)
                 else:
                     loss_c = self.update(addBias=addBias)
                 # Report after fixed number of gradient updates / accesses
-                if cnt_access % check_period == 0:
+                if cntAccess % check_period == 0:
                     num_rnd_traj_test=2000
-                    _, results = env.simulate_trajectories(self.Q_network, T=500, num_rnd_traj=num_rnd_traj_test, 
+                    _, results = env.simulate_trajectories(self.Q_network, T=MAX_EP_STEPS, num_rnd_traj=num_rnd_traj_test, 
                                                            keepOutOf=False, toEnd=False)
                     success  = np.sum(results==1) / num_rnd_traj_test 
                     failure  = np.sum(results==-1)/ num_rnd_traj_test
@@ -274,10 +274,14 @@ class DDQN():
                     trainProgress.append([success, failure, unfinish])
                     if verbose:
                         print('\rAfter [{:d}] updates, success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(\
-                            cnt_access, success, failure, unfinish))
-                    if success > checkPointSucc and storeModel:
-                        checkPointSucc = success
-                        self.save(cnt_access, 'models/{:s}/'.format(outFolder))
+                            cntAccess, success, failure, unfinish))
+                    if storeModel:
+                        if storeBest:
+                            if success > checkPointSucc:
+                                checkPointSucc = success
+                                self.save(cntAccess, 'models/{:s}/'.format(outFolder))
+                        else:
+                            self.save(cntAccess, 'models/{:s}/'.format(outFolder))
                 # Terminate early
                 if done:
                     break
@@ -287,7 +291,7 @@ class DDQN():
             running_cost = running_cost * 0.9 + ep_cost * 0.1
             training_records.append(TrainingRecord(ep, running_cost, ep_cost, loss_c))
             print('\r{:d}: {:.1f} after {:d} steps, currently updates {:d} times'.format(\
-                ep+1, ep_cost, step_num+1, cnt_access), end='')
+                ep+1, ep_cost, step_num+1, cntAccess), end='')
             
             # Report after fixed number of epochs
             if (ep+1) % report_period == 0:
@@ -302,10 +306,10 @@ class DDQN():
                         env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
                     env.plot_reach_avoid_set()
                     if randomPlot:
-                        _ = env.plot_trajectories(self.Q_network, T=500, num_rnd_traj=num_rnd_traj, 
+                        _ = env.plot_trajectories(self.Q_network, T=MAX_EP_STEPS, num_rnd_traj=num_rnd_traj, 
                                                   keepOutOf=True, toEnd=False)
                     else:
-                        _ = env.plot_trajectories(self.Q_network, T=500, 
+                        _ = env.plot_trajectories(self.Q_network, T=MAX_EP_STEPS, 
                                                   states=env.visual_initial_states, toEnd=False)
                     plt.tight_layout()
                     if saveFigure:
@@ -321,7 +325,7 @@ class DDQN():
                     env.close()
                     break
         print()
-        self.save(cnt_access, 'models/{:s}/'.format(outFolder))
+        self.save(cntAccess, 'models/{:s}/'.format(outFolder))
         return training_records, trainProgress
 
 

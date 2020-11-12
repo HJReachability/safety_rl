@@ -77,7 +77,7 @@ class DDQN():
         self.optimizer = optim.Adam(self.Q_network.parameters(), lr=self.LR_C)
         self.scheduler =  optim.lr_scheduler.StepLR(self.optimizer, step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
         self.max_grad_norm = 1
-        self.training_epoch = 0
+        self.cntUpdate = 0
 
          
     def update(self, verbose=False, addBias=False):
@@ -181,18 +181,18 @@ class DDQN():
         return loss.item()
 
 
-    def learn(self, env, MAX_EPISODES=20000, MAX_EP_STEPS=100, running_cost_th=None,
+    def learn(self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100, running_cost_th=None,
                 warmupBuffer=True, warmupQ=False, toEnd=False, addBias=False,
-                report_period=5000, plotFigure=True, showBool=False, saveFigure=False,
+                reportPeriod=5000, plotFigure=True, showBool=False, storeFigure=False,
                 vmin=-100, vmax=100, randomPlot=False, num_rnd_traj=10,
-                check_period=50000, storeModel=True, storeBest=True, outFolder='RA', verbose=True):
+                checkPeriod=50000, storeModel=True, storeBest=True, outFolder='RA', verbose=True):
 
         #== TRAINING RECORD ==
         TrainingRecord = namedtuple('TrainingRecord', ['ep', 'avg_cost', 'cost', 'loss_c'])
-        training_records = []
+        trainingRecords = []
         running_cost = 0.
         running_cost_th = running_cost_th
-        report_period = report_period
+        reportPeriod = reportPeriod
         vmin = vmin
         vmax = vmax
 
@@ -234,20 +234,21 @@ class DDQN():
                     plt.pause(0.001)
                 '''
             print(" --- Warmup Q Ends")
-            env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
+            env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic')
             plt.pause(0.001)
             self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
             self.build_optimizer()
  
         # == Main Training ==
-        cntAccess = 0
         trainProgress = []
         checkPointSucc = 0.
-        for ep in range(MAX_EPISODES):
+        ep = 0
+        while self.cntUpdate <= MAX_UPDATES:
             s = env.reset()
             ep_cost = 0.
+            ep += 1
+            # Rollout
             for step_num in range(MAX_EP_STEPS):
-                cntAccess += 1
                 # Select action
                 a, a_idx = self.select_action(s)
                 # Interact with env
@@ -258,13 +259,9 @@ class DDQN():
                 # Store the transition in memory
                 self.store_transition(s, a_idx, r, s_, info)
                 s = s_
-                # Perform one step of the optimization (on the target network)
-                if cntAccess % check_period == 0:
-                    loss_c = self.update(verbose=False, addBias=addBias)
-                else:
-                    loss_c = self.update(addBias=addBias)
-                # Report after fixed number of gradient updates / accesses
-                if cntAccess % check_period == 0:
+
+                # Check after fixed number of gradient updates / accesses
+                if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
                     num_rnd_traj_test=2000
                     _, results = env.simulate_trajectories(self.Q_network, T=MAX_EP_STEPS, num_rnd_traj=num_rnd_traj_test, 
                                                            keepOutOf=False, toEnd=False)
@@ -273,60 +270,67 @@ class DDQN():
                     unfinish = np.sum(results==0) / num_rnd_traj_test
                     trainProgress.append([success, failure, unfinish])
                     if verbose:
-                        print('\rAfter [{:d}] updates, success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(\
-                            cntAccess, success, failure, unfinish))
+                        print('\nAfter [{:d}] updates, success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(\
+                            self.cntUpdate, success, failure, unfinish))
                     if storeModel:
                         if storeBest:
                             if success > checkPointSucc:
                                 checkPointSucc = success
-                                self.save(cntAccess, 'models/{:s}/'.format(outFolder))
+                                self.save(self.cntUpdate, 'models/{:s}/'.format(outFolder))
                         else:
-                            self.save(cntAccess, 'models/{:s}/'.format(outFolder))
+                            self.save(self.cntUpdate, 'models/{:s}/'.format(outFolder))
+
+                # Report after fixed number of gradient updates / accesses
+                if self.cntUpdate != 0 and self.cntUpdate % reportPeriod == 0:
+                    lr = self.optimizer.state_dict()['param_groups'][0]['lr']
+                    if verbose:
+                        print('\nAfter [{:d}] updates, eps={:.2f}, gamma={:.6f}, lr={:.1e}.'.format(
+                            self.cntUpdate, self.EPSILON, self.GAMMA, lr))
+                    if plotFigure:
+                        if showBool:
+                            env.visualize_analytic_comparison(self.Q_network, True, vmin=0, vmax=1, boolPlot=True, cmap='coolwarm')
+                        else:
+                            env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic')
+                        env.plot_reach_avoid_set()
+                        if randomPlot:
+                            _ = env.plot_trajectories(self.Q_network, T=MAX_EP_STEPS, num_rnd_traj=num_rnd_traj, 
+                                                    keepOutOf=True, toEnd=False)
+                        else:
+                            _ = env.plot_trajectories(self.Q_network, T=MAX_EP_STEPS, 
+                                                    states=env.visual_initial_states, toEnd=False)
+                        plt.tight_layout()
+                        if storeFigure:
+                            figureFolder = 'figure/{:s}/'.format(outFolder)
+                            os.makedirs(figureFolder, exist_ok=True)
+                            plt.savefig('{:s}/{:d}.eps'.format(figureFolder, self.cntUpdate))
+                        plt.pause(0.001)
+
+                # Perform one step of the optimization (on the target network)
+                loss_c = self.update(addBias=addBias)
+                self.cntUpdate += 1
+                self.updateHyperParam()
+
                 # Terminate early
                 if done:
                     break
-                    
-            self.updateHyperParam()
 
+            # Rollout report
             running_cost = running_cost * 0.9 + ep_cost * 0.1
-            training_records.append(TrainingRecord(ep, running_cost, ep_cost, loss_c))
-            print('\r{:d}: {:.1f} after {:d} steps, currently updates {:d} times'.format(\
-                ep+1, ep_cost, step_num+1, cntAccess), end='')
-            
-            # Report after fixed number of epochs
-            if (ep+1) % report_period == 0:
-                lr = self.optimizer.state_dict()['param_groups'][0]['lr']
-                if verbose:
-                    print('\rEp[{:3.0f} - ({:.2f},{:.6f},{:.1e})]: Running/Real cost: {:3.2f}/{:.2f}; '.format(
-                        ep+1, self.EPSILON, self.GAMMA, lr, running_cost, ep_cost))
-                if plotFigure:
-                    if showBool:
-                        env.visualize_analytic_comparison(self.Q_network, True, vmin=0, vmax=1, boolPlot=True)
-                    else:
-                        env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
-                    env.plot_reach_avoid_set()
-                    if randomPlot:
-                        _ = env.plot_trajectories(self.Q_network, T=MAX_EP_STEPS, num_rnd_traj=num_rnd_traj, 
-                                                  keepOutOf=True, toEnd=False)
-                    else:
-                        _ = env.plot_trajectories(self.Q_network, T=MAX_EP_STEPS, 
-                                                  states=env.visual_initial_states, toEnd=False)
-                    plt.tight_layout()
-                    if saveFigure:
-                        figureFolder = 'figure/{:s}/progress'.format(outFolder)
-                        os.makedirs(figureFolder, exist_ok=True)
-                        plt.savefig('{:s}/{:d}.eps'.format(figureFolder, ep+1))
-                    plt.pause(0.001)
+            trainingRecords.append(TrainingRecord(ep, running_cost, ep_cost, loss_c))
+            if verbose:
+                print('\r{:3.0f}: This episode gets running/episode cost = ({:3.2f}/{:.2f}) after {:d} steps.'.format(\
+                    ep, running_cost, ep_cost, step_num+1), end=' ')
+                print('The agent currently updates {:d} times'.format(self.cntUpdate), end='\t\t')
             
             # Check stopping criteria  
             if running_cost_th != None:
                 if running_cost <= running_cost_th:
-                    print("\n At Ep[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(ep, running_cost))
+                    print("\n At Updates[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(self.cntUpdate, running_cost))
                     env.close()
                     break
         print()
-        self.save(cntAccess, 'models/{:s}/'.format(outFolder))
-        return training_records, trainProgress
+        self.save(self.cntUpdate, 'models/{:s}/'.format(outFolder))
+        return trainingRecords, trainProgress
 
 
     def update_target_network(self):
@@ -336,18 +340,18 @@ class DDQN():
                 if isinstance(module_tar, nn.Linear):
                     module_tar.weight.data = (1-self.TAU)*module_tar.weight.data + self.TAU*module_pol.weight.data
                     module_tar.bias.data   = (1-self.TAU)*module_tar.bias.data   + self.TAU*module_pol.bias.data
-        elif self.training_epoch % self.HARD_UPDATE == 0:
+        elif self.cntUpdate % self.HARD_UPDATE == 0:
             # Hard Replace
             self.target_network.load_state_dict(self.Q_network.state_dict())
 
 
     def updateEpsilon(self):
-        if self.training_epoch % self.EPS_PERIOD == 0 and self.training_epoch != 0:
+        if self.cntUpdate % self.EPS_PERIOD == 0 and self.cntUpdate != 0:
             self.EPSILON = max(self.EPSILON*self.EPS_DECAY, self.EPS_END)
 
 
     def updateGamma(self):
-        if self.training_epoch % self.GAMMA_PERIOD == 0 and self.training_epoch != 0:
+        if self.cntUpdate % self.GAMMA_PERIOD == 0 and self.cntUpdate != 0:
             self.GAMMA = min(1 - (1-self.GAMMA) * self.GAMMA_DECAY, self.GAMMA_END)
 
 
@@ -359,7 +363,6 @@ class DDQN():
             self.scheduler.step()
         self.updateEpsilon()
         self.updateGamma()
-        self.training_epoch += 1
 
 
     def select_action(self, state, explore=True):
@@ -385,7 +388,7 @@ class DDQN():
             os.remove(os.path.join(logs_path, 'model-{}.pth' .format(min_step)))
         logs_path = os.path.join(logs_path, 'model-{}.pth' .format(step))
         torch.save(self.Q_network.state_dict(), logs_path)
-        print('=> Save {} at [{}] accesses' .format(logs_path, step)) 
+        print('=> Save {} after [{}] updates' .format(logs_path, step)) 
 
 
     def restore(self, logs_path):

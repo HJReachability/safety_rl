@@ -10,16 +10,13 @@ class model(nn.Module):
         self.fc1 = nn.Sequential(
             nn.Linear(in_features=state_num, out_features=100),
             nn.Tanh())
-        '''
-        self.fc1 = nn.Sequential(
-            nn.Linear(in_features=state_num, out_features=100),
-            nn.ReLU())
-        '''
+        #self.fc1 = nn.Linear(in_features=state_num, out_features=100)
         self.fc2 = nn.Linear(100, action_num)
         self._initialize_weights()
 
     def forward(self, x):
         out1 = self.fc1(x)
+        #out1 = torch.sin(out1)
         a = self.fc2(out1)
         return a
     

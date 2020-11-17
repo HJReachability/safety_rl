@@ -3,7 +3,7 @@
 
 # Here we aim to minimize the cost. We make the following two modifications:
 #  - a' = argmin_a' Q_policy(s', a'), y = c(s,a) + gamma * Q_tar(s', a')
-#  - loss = E[ ( y - Q_policy(s,a) )^2 ] 
+#  - loss = E[ ( y - Q_policy(s,a) )^2 ]
 
 import torch
 import torch.nn as nn
@@ -29,12 +29,12 @@ class DDQN():
         self.action_list = action_list
         self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)
         self.mode = mode # 'normal' or 'RA'
-        
+
         #== ENV PARAM ==
         self.state_num = state_num
         self.action_num = action_num
         self.RA_scaling = RA_scaling
-        
+
         #== PARAM ==
         # Exploration
         self.EPSILON = CONFIG.EPSILON
@@ -60,7 +60,7 @@ class DDQN():
         self.TAU = CONFIG.TAU
         self.HARD_UPDATE = CONFIG.HARD_UPDATE # int, update period
         self.SOFT_UPDATE = CONFIG.SOFT_UPDATE # bool
-        # Build NN(s) for DQN 
+        # Build NN(s) for DQN
         self.build_network()
         self.build_optimizer()
 
@@ -71,7 +71,7 @@ class DDQN():
         if self.device == torch.device('cuda'):
             self.Q_network.cuda()
             self.target_network.cuda()
-        
+
 
     def build_optimizer(self):
         self.optimizer = optim.Adam(self.Q_network.parameters(), lr=self.LR_C)
@@ -79,47 +79,47 @@ class DDQN():
         self.max_grad_norm = 1
         self.cntUpdate = 0
 
-         
+
     def update(self, verbose=False, addBias=False):
         if len(self.memory) < self.BATCH_SIZE*20:
         #if not self.memory.isfull:
             return
-        
+
         #== EXPERIENCE REPLAY ==
         transitions = self.memory.sample(self.BATCH_SIZE)
         # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
         # detailed explanation). This converts batch-array of Transitions
         # to Transition of batch-arrays.
         batch = Transition(*zip(*transitions))
-        
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)), 
+
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)),
                                       device=self.device, dtype=torch.bool)
-        non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None], 
+        non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None],
                                                  device=self.device)
         state = torch.FloatTensor(batch.s, device=self.device)
         action = torch.LongTensor(batch.a, device=self.device).view(-1,1)
         reward = torch.FloatTensor(batch.r, device=self.device)
         if self.mode == 'RA':
-            g_x = torch.FloatTensor([info['g_x'] for info in batch.info], 
+            g_x = torch.FloatTensor([info['g_x'] for info in batch.info],
                                     device=self.device).view(-1)
-            l_x = torch.FloatTensor([info['l_x'] for info in batch.info], 
+            l_x = torch.FloatTensor([info['l_x'] for info in batch.info],
                                     device=self.device).view(-1)
-            g_x_nxt = torch.FloatTensor([info['g_x_nxt'] for info in batch.info], 
+            g_x_nxt = torch.FloatTensor([info['g_x_nxt'] for info in batch.info],
                                     device=self.device).view(-1)
-            l_x_nxt = torch.FloatTensor([info['l_x_nxt'] for info in batch.info], 
+            l_x_nxt = torch.FloatTensor([info['l_x_nxt'] for info in batch.info],
                                     device=self.device).view(-1)
         #== get Q(s,a) ==
         # gather reguires idx to be Long, i/p and idx should have the same shape with only diff at the dim we want to extract value
-        # o/p = Q [ i ][ action[i] ], which has the same dim as idx, 
+        # o/p = Q [ i ][ action[i] ], which has the same dim as idx,
         state_action_values = self.Q_network(state).gather(1, action).view(-1)
-        
+
         #== get a' by Q_policy: a' = argmin_a' Q_policy(s', a') ==
         with torch.no_grad():
             action_nxt = self.Q_network(non_final_state_nxt).min(1, keepdim=True)[1]
-        
+
         #== get expected value: y = r + gamma * Q_tar(s', a') ==
         state_value_nxt = torch.zeros(self.BATCH_SIZE, device=self.device)
-        
+
         with torch.no_grad():
             if self.double:
                 Q_expect = self.target_network(non_final_state_nxt)
@@ -130,9 +130,9 @@ class DDQN():
         #== Discounted Reach-Avoid Bellman Equation ==
         if self.mode == 'RA':
             expected_state_action_values = torch.zeros(self.BATCH_SIZE).float().to(self.device)
-            
-            l_x [l_x < 0] *=  self.RA_scaling
-            l_x_nxt [l_x_nxt < 0] *=  self.RA_scaling
+
+            l_x[l_x < 0] *=  self.RA_scaling
+            l_x_nxt[l_x_nxt < 0] *=  self.RA_scaling
             #g_x [g_x > 0] *=  self.RA_scaling
             # Bias version
             if addBias:
@@ -165,12 +165,13 @@ class DDQN():
                 print('V_policy:', state_action_values[:10].detach().numpy(), end='\n\n')
         else:
             expected_state_action_values = state_value_nxt * self.GAMMA + reward
-        
-        #== regression Q(s, a) -> y ==
+
+        # == regression Q(s, a) -> y ==
         self.Q_network.train()
-        loss = smooth_l1_loss(input=state_action_values, target=expected_state_action_values.detach())
-        
-        #== backward optimize ==
+        loss = smooth_l1_loss(input=state_action_values,
+                              target=expected_state_action_values.detach())
+
+        # == backward optimize ==
         self.optimizer.zero_grad()
         loss.backward()
         nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
@@ -181,14 +182,16 @@ class DDQN():
         return loss.item()
 
 
-    def learn(self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100, running_cost_th=None,
-                warmupBuffer=True, warmupQ=False, toEnd=False, addBias=False,
-                reportPeriod=5000, plotFigure=True, showBool=False, storeFigure=False,
-                vmin=-100, vmax=100, randomPlot=False, num_rnd_traj=10,
-                checkPeriod=50000, storeModel=True, storeBest=True, outFolder='RA', verbose=True):
+    def learn(self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100,
+              running_cost_th=None, warmupBuffer=True, warmupQ=False,
+              toEnd=False, addBias=False, reportPeriod=5000, plotFigure=True,
+              showBool=False, storeFigure=False, vmin=-100, vmax=100,
+              randomPlot=False, num_rnd_traj=10, checkPeriod=50000,
+              storeModel=True, storeBest=True, outFolder='RA', verbose=True):
 
-        #== TRAINING RECORD ==
-        TrainingRecord = namedtuple('TrainingRecord', ['ep', 'avg_cost', 'cost', 'loss_c'])
+        # == TRAINING RECORD ==
+        TrainingRecord = namedtuple('TrainingRecord',
+                                    ['ep', 'avg_cost', 'cost', 'loss_c'])
         trainingRecords = []
         running_cost = 0.
         running_cost_th = running_cost_th
@@ -209,24 +212,27 @@ class DDQN():
                     s_ = None
                 self.store_transition(s, a_idx, r, s_, info)
             print(" --- Warmup Buffer Ends")
-        
+
         # == Warmup Q ==
         if warmupQ:
             ep_warmup = 10000
             num_warmup_samples = 200
             for ep_tmp in range(ep_warmup):
                 print('\rWarmup Q [{:d}]'.format(ep_tmp), end='')
-                states, heuristic_v = env.get_warmup_examples(num_warmup_samples=num_warmup_samples)
+                states, heuristic_v = env.get_warmup_examples(
+                    num_warmup_samples=num_warmup_samples)
 
                 self.Q_network.train()
-                heuristic_v = torch.from_numpy(heuristic_v).float().to(self.device)
+                heuristic_v = torch.from_numpy(heuristic_v).float().to(
+                    self.device)
                 states = torch.from_numpy(states).float().to(self.device)
                 v = self.Q_network(states)
                 loss = smooth_l1_loss(input=v, target=heuristic_v)
 
                 self.optimizer.zero_grad()
                 loss.backward()
-                nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
+                nn.utils.clip_grad_norm_(self.Q_network.parameters(),
+                                         self.max_grad_norm)
                 self.optimizer.step()
                 '''
                 if ep_tmp % 500 == 0:
@@ -234,11 +240,13 @@ class DDQN():
                     plt.pause(0.001)
                 '''
             print(" --- Warmup Q Ends")
-            env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic')
+            env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin,
+                                              vmax=vmax, cmap='seismic')
             plt.pause(0.001)
-            self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
+            self.target_network.load_state_dict(
+                self.Q_network.state_dict())  # hard replace
             self.build_optimizer()
- 
+
         # == Main Training ==
         trainProgress = []
         checkPointSucc = 0.
@@ -262,23 +270,27 @@ class DDQN():
 
                 # Check after fixed number of gradient updates / accesses
                 if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
-                    num_rnd_traj_test=2000
-                    _, results = env.simulate_trajectories(self.Q_network, T=MAX_EP_STEPS, num_rnd_traj=num_rnd_traj_test, 
-                                                           keepOutOf=False, toEnd=False)
-                    success  = np.sum(results==1) / num_rnd_traj_test 
-                    failure  = np.sum(results==-1)/ num_rnd_traj_test
-                    unfinish = np.sum(results==0) / num_rnd_traj_test
+                    num_rnd_traj_test = 2000
+                    # _, results = env.simulate_trajectories(self.Q_network, T=MAX_EP_STEPS, num_rnd_traj=num_rnd_traj_test,
+                    #                                        keepOutOf=False, toEnd=False)
+                    success = np.sum(results == 1) / num_rnd_traj_test
+                    failure = np.sum(results == -1) / num_rnd_traj_test
+                    unfinish = np.sum(results == 0) / num_rnd_traj_test
                     trainProgress.append([success, failure, unfinish])
                     if verbose:
-                        print('\nAfter [{:d}] updates, success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(\
-                            self.cntUpdate, success, failure, unfinish))
+                        print("""\nAfter [{:d}] updates,
+                               success/failure/unfinished ratio: {:.3f}, {:.3f},
+                               {:.3f}""".format(
+                               self.cntUpdate, success, failure, unfinish))
                     if storeModel:
                         if storeBest:
                             if success > checkPointSucc:
                                 checkPointSucc = success
-                                self.save(self.cntUpdate, 'models/{:s}/'.format(outFolder))
+                                self.save(self.cntUpdate,
+                                          'models/{:s}/'.format(outFolder))
                         else:
-                            self.save(self.cntUpdate, 'models/{:s}/'.format(outFolder))
+                            self.save(self.cntUpdate,
+                                      'models/{:s}/'.format(outFolder))
 
                 # Report after fixed number of gradient updates / accesses
                 if self.cntUpdate != 0 and self.cntUpdate % reportPeriod == 0:
@@ -291,13 +303,13 @@ class DDQN():
                             env.visualize_analytic_comparison(self.Q_network, True, vmin=0, vmax=1, boolPlot=True, cmap='coolwarm')
                         else:
                             env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic')
-                        env.plot_reach_avoid_set()
-                        if randomPlot:
-                            _ = env.plot_trajectories(self.Q_network, T=MAX_EP_STEPS, num_rnd_traj=num_rnd_traj, 
-                                                    keepOutOf=True, toEnd=False)
-                        else:
-                            _ = env.plot_trajectories(self.Q_network, T=MAX_EP_STEPS, 
-                                                    states=env.visual_initial_states, toEnd=False)
+                        # env.plot_reach_avoid_set()
+                        # if randomPlot:
+                        #     _ = env.plot_trajectories(self.Q_network, T=MAX_EP_STEPS, num_rnd_traj=num_rnd_traj,
+                        #                             keepOutOf=True, toEnd=False)
+                        # else:
+                        #     _ = env.plot_trajectories(self.Q_network, T=MAX_EP_STEPS,
+                        #                             states=env.visual_initial_states, toEnd=False)
                         plt.tight_layout()
                         if storeFigure:
                             figureFolder = 'figure/{:s}/'.format(outFolder)
@@ -321,8 +333,8 @@ class DDQN():
                 print('\r{:3.0f}: This episode gets running/episode cost = ({:3.2f}/{:.2f}) after {:d} steps.'.format(\
                     ep, running_cost, ep_cost, step_num+1), end=' ')
                 print('The agent currently updates {:d} times'.format(self.cntUpdate), end='\t\t')
-            
-            # Check stopping criteria  
+
+            # Check stopping criteria
             if running_cost_th != None:
                 if running_cost <= running_cost_th:
                     print("\n At Updates[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(self.cntUpdate, running_cost))
@@ -378,17 +390,17 @@ class DDQN():
     def store_transition(self, *args):
         self.memory.update(Transition(*args))
 
-        
+
     def save(self, step, logs_path):
         os.makedirs(logs_path, exist_ok=True)
         model_list =  glob.glob(os.path.join(logs_path, '*.pth'))
         #print(model_list)
         if len(model_list) > self.MAX_MODEL - 1 :
-            min_step = min([int(li.split('/')[-1][6:-4]) for li in model_list]) 
+            min_step = min([int(li.split('/')[-1][6:-4]) for li in model_list])
             os.remove(os.path.join(logs_path, 'model-{}.pth' .format(min_step)))
         logs_path = os.path.join(logs_path, 'model-{}.pth' .format(step))
         torch.save(self.Q_network.state_dict(), logs_path)
-        print('=> Save {} after [{}] updates' .format(logs_path, step)) 
+        print('=> Save {} after [{}] updates' .format(logs_path, step))
 
 
     def restore(self, logs_path):

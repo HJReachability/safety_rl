@@ -2,7 +2,7 @@
 # coding: utf-8
 
 
-from warnings import simplefilter 
+from warnings import simplefilter
 simplefilter(action='ignore', category=FutureWarning)
 
 from gym_reachability import gym_reachability  # Custom Gym env.
@@ -24,7 +24,7 @@ from KC_DQN.config import dqnConfig
 # e.g., python3 sim_zermelo.py -te -m RA -nt 50 -of RA -ma 1500000
 parser = argparse.ArgumentParser()
 parser.add_argument("-nt",  "--num_test",       help="the number of tests",         default=1,      type=int)
-parser.add_argument("-nw",  "--num_worker",     help="the number of workers",       default=6,      type=int)
+parser.add_argument("-nw",  "--num_worker",     help="the number of workers",       default=1,      type=int)
 
 # training scheme
 parser.add_argument("-te",  "--toEnd",          help="stop until reaching boundary",    action="store_true")
@@ -75,12 +75,19 @@ elif args.mode == 'RA':
     gammaInit = args.gamma
     gamma_period = update_period
 
-CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, 
-                MAX_EPISODES=maxEpisodes, MAX_EP_STEPS=maxSteps,
-                BATCH_SIZE=100, MEMORY_CAPACITY=10000,
-                GAMMA=gammaInit, GAMMA_PERIOD=gamma_period,
-                EPS_PERIOD=1000, EPS_DECAY=0.6,
-                LR_C=args.learningRate, LR_C_PERIOD=update_period, LR_C_DECAY=0.8)
+CONFIG = dqnConfig(DEVICE=device,
+                ENV_NAME=env_name,
+                MAX_EPISODES=maxEpisodes,
+                MAX_EP_STEPS=maxSteps,
+                BATCH_SIZE=100,
+                MEMORY_CAPACITY=10000,
+                GAMMA=gammaInit,
+                GAMMA_PERIOD=gamma_period,
+                EPS_PERIOD=1000,
+                EPS_DECAY=0.6,
+                LR_C=args.learningRate,
+                LR_C_PERIOD=update_period,
+                LR_C_DECAY=0.8)
 #== REPORT ==
 for key, value in CONFIG.__dict__.items():
     if key[:1] != '_': print(key, value)
@@ -103,31 +110,39 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period):
     agent=DDQN(s_dim, action_num, CONFIG, action_list, mode=agentMode, RA_scaling=args.scaling)
 
     #== TRAINING ==
-    _, trainProgress = agent.learn(env, MAX_EPISODES=CONFIG.MAX_EPISODES, MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
-                                   addBias=args.addBias, toEnd=args.toEnd,
-                                   report_period=report_period, plotFigure=False,
-                                   check_period=args.check_period, storeModel=False, verbose=False)
+    _, trainProgress = agent.learn(env,
+                                   # MAX_EPISODES=CONFIG.MAX_EPISODES,
+                                   MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
+                                   addBias=args.addBias,
+                                   toEnd=args.toEnd,
+                                   # report_period=report_period,
+                                   plotFigure=True,
+                                   # check_period=args.check_period,
+                                   storeModel=False,
+                                   verbose=True)
     return trainProgress
-    
+
+
+multi_experiment(0, args, CONFIG, env, update_period)
 
 #== TESTING ==
-trainProgressList = []
-L = args.num_test
-nThr = args.num_worker
-for ith in range( int(L/(nThr+1e-6))+1 ):
-    print('{} / {}'.format(ith+1, int(L/(nThr+1e-6))+1) )
-    with Pool(processes = nThr) as pool:
-        seedList = list(range(ith*nThr, min(L, (ith+1)*nThr) ))
-        argsList = [args]*len(seedList)
-        configList = [CONFIG]*len(seedList)
-        envList = [env]*len(seedList)
-        reportPeriodList = [update_period]*len(seedList)
-        trainProgress_i = pool.starmap(multi_experiment, zip(seedList, argsList, configList, envList, reportPeriodList))
-    trainProgressList = trainProgressList + trainProgress_i
-#print(trainProgressList)   
+# trainProgressList = []
+# L = args.num_test
+# nThr = args.num_worker
+# for ith in range( int(L/(nThr+1e-6))+1 ):
+#     print('{} / {}'.format(ith+1, int(L/(nThr+1e-6))+1) )
+#     with Pool(processes = nThr) as pool:
+#         seedList = list(range(ith*nThr, min(L, (ith+1)*nThr) ))
+#         argsList = [args]*len(seedList)
+#         configList = [CONFIG]*len(seedList)
+#         envList = [env]*len(seedList)
+#         reportPeriodList = [update_period]*len(seedList)
+#         trainProgress_i = pool.starmap(multi_experiment, zip(seedList, argsList, configList, envList, reportPeriodList))
+#     trainProgressList = trainProgressList + trainProgress_i
+# #print(trainProgressList)
 
 
 #== RECORD ==
-import pickle
-with open("data/{:s}.txt".format(args.outFile), "wb") as fp:   #Pickling
-    pickle.dump(trainProgressList, fp)
+# import pickle
+# with open("data/{:s}.txt".format(args.outFile), "wb") as fp:   #Pickling
+#     pickle.dump(trainProgressList, fp)

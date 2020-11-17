@@ -2,7 +2,7 @@
 # Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
 import torch
-import torch.nn as nn             
+import torch.nn as nn
 
 class model(nn.Module):
     def __init__(self, state_num, action_num):
@@ -19,7 +19,7 @@ class model(nn.Module):
         #out1 = torch.sin(out1)
         a = self.fc2(out1)
         return a
-    
+
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):

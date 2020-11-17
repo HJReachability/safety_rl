@@ -533,9 +533,9 @@ class ZermeloShowEnv(gym.Env):
 
 
     def visualize_analytic_comparison( self, q_func, no_show=False, 
-                                       vmin=-50, vmax=50, nx=61, ny=61,
+                                       vmin=-50, vmax=50, nx=181, ny=181,
                                        labels=None, boolPlot=False, plotZero=False,
-                                       cmap='plasma'):
+                                       cmap='seismic'):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
@@ -556,27 +556,11 @@ class ZermeloShowEnv(gym.Env):
             cbar = plt.colorbar(im, pad=0.01, shrink=0.95, ticks=[vmin, 0, vmax])
             cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
         
-        # Plot bounadries of constraint set.
-        for one_boundary in self.constraint_set_boundary:
-            plt.plot(one_boundary[:, 0], one_boundary[:, 1], color="black")
+        self.plot_target_failure_set()
+        self.plot_reach_avoid_set()
 
-        # Plot boundaries of target set.
-        for one_boundary in self.target_set_boundary:
-            plt.plot(one_boundary[:, 0], one_boundary[:, 1], color="black")
-
-        # Plot zero level set
-        if plotZero:
-            it = np.nditer(v, flags=['multi_index'])
-            while not it.finished:
-                idx = it.multi_index
-                x = xs[idx[0]]
-                y = ys[idx[1]]
-                
-                if v[idx] <= 1e-2 and v[idx] >= -1e-2:
-                    plt.scatter(x,y, c='k', s=6)
-                    #print(idx, end=' | ')
-
-                it.iternext()
+        #== Plot Trajectories ==
+        self.plot_trajectories(q_func, states=self.visual_initial_states, toEnd=False)
 
         ax.axis(axes[0])
         ax.grid(False)
@@ -607,8 +591,8 @@ class ZermeloShowEnv(gym.Env):
             plt.plot(one_boundary[:, 0], one_boundary[:, 1], color="black")
 
 
-    def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None, 
-                          keepOutOf=False, toEnd=False, c='w'):
+    def plot_trajectories(self, q_func, T=200, num_rnd_traj=None, states=None, 
+                          keepOutOf=False, toEnd=False, c='y', lw=2):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -621,7 +605,7 @@ class ZermeloShowEnv(gym.Env):
             #print(traj_x)
             #print(traj_y)
             plt.scatter(traj_x[0], traj_y[0], s=48, c=c)
-            plt.plot(traj_x, traj_y, color=c, linewidth=2)
+            plt.plot(traj_x, traj_y, color=c, linewidth=lw)
 
         return results
 
@@ -638,16 +622,6 @@ class ZermeloShowEnv(gym.Env):
             return xs, ys
 
         # unsafe set
-        '''
-        x, y, w, h = self.constraint_x_y_w_h[0]
-        x1 = x - w/2.0
-        x2 = x + w/2.0
-        y_min = y - h/2.0
-        xs, ys = get_line(-slope, end_point=[x1, y_min], x_limit=x)
-        plt.plot(xs, ys, color='r', linewidth=1.5)
-        xs, ys = get_line( slope, end_point=[x2, y_min], x_limit=x)
-        plt.plot(xs, ys, color='r', linewidth=1.5)
-        '''
         for idx, constraint_set in enumerate(self.constraint_x_y_w_h):
             x, y, w, h = constraint_set
             x1 = x - w/2.0
@@ -657,7 +631,6 @@ class ZermeloShowEnv(gym.Env):
             plt.plot(xs, ys, color='g', linewidth=3)
             xs, ys = get_line( slope, end_point=[x2, y_min], x_limit=x)
             plt.plot(xs, ys, color='g', linewidth=3)
-
 
         # border unsafe set
         x, y, w, h = self.target_x_y_w_h[0]

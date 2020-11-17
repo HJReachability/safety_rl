@@ -553,27 +553,11 @@ class ZermeloKCEnv(gym.Env):
             cbar = plt.colorbar(im, pad=0.01, shrink=0.95, ticks=[vmin, 0, vmax])
             cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
 
+        self.plot_target_failure_set()
+        self.plot_reach_avoid_set()
         
-        # Plot bounadries of constraint set.
-        plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
-        plt.plot(self.x_box2_pos, self.y_box2_pos, color="black")
-        plt.plot(self.x_box3_pos, self.y_box3_pos, color="black")
-
-        # Plot boundaries of target set.
-        plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
-
-        # Plot zero level set
-        if plotZero:
-            it = np.nditer(v, flags=['multi_index'])
-            while not it.finished:
-                idx = it.multi_index
-                x = xs[idx[0]]
-                y = ys[idx[1]]
-
-                if v[idx] <= 0:
-                    plt.scatter(x,y, c='k', s=48)
-                it.iternext()
-
+        #== Plot Trajectories ==
+        self.plot_trajectories(q_func, states=self.visual_initial_states, toEnd=False)
 
         ax.axis(axes[0])
         ax.grid(False)
@@ -592,8 +576,8 @@ class ZermeloKCEnv(gym.Env):
             plt.show()
 
 
-    def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None, 
-                          keepOutOf=False, toEnd=False, c='w'):
+    def plot_trajectories(self, q_func, T=200, num_rnd_traj=None, states=None, 
+                          keepOutOf=False, toEnd=False, c='y', lw=2):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -604,9 +588,19 @@ class ZermeloKCEnv(gym.Env):
         for traj in trajectories:
             traj_x, traj_y = traj
             plt.scatter(traj_x[0], traj_y[0], s=48, c=c)
-            plt.plot(traj_x, traj_y, color=c, linewidth=2)
+            plt.plot(traj_x, traj_y, color=c, linewidth=lw)
 
         return results
+
+
+    def plot_target_failure_set(self):
+        # Plot bounadries of constraint set.
+        plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
+        plt.plot(self.x_box2_pos, self.y_box2_pos, color="black")
+        plt.plot(self.x_box3_pos, self.y_box3_pos, color="black")
+
+        # Plot boundaries of target set.
+        plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
 
 
     def plot_reach_avoid_set(self):

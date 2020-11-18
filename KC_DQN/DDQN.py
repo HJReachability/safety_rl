@@ -109,7 +109,8 @@ class DDQN():
             l_x_nxt = torch.FloatTensor([info['l_x_nxt'] for info in batch.info],
                                     device=self.device).view(-1)
         #== get Q(s,a) ==
-        # gather reguires idx to be Long, i/p and idx should have the same shape with only diff at the dim we want to extract value
+        # gather reguires idx to be Long, i/p and idx should have the same
+        # shape with only diff at the dim we want to extract value
         # o/p = Q [ i ][ action[i] ], which has the same dim as idx,
         state_action_values = self.Q_network(state).gather(1, action).view(-1)
 
@@ -236,12 +237,12 @@ class DDQN():
                 self.optimizer.step()
                 '''
                 if ep_tmp % 500 == 0:
-                    env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
+                    env.visualize(self.Q_network, True, vmin=vmin, vmax=vmax)
                     plt.pause(0.001)
                 '''
             print(" --- Warmup Q Ends")
-            env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin,
-                                              vmax=vmax, cmap='seismic')
+            env.visualize(self.Q_network, True, vmin=vmin,
+                          vmax=vmax, cmap='seismic')
             plt.pause(0.001)
             self.target_network.load_state_dict(
                 self.Q_network.state_dict())  # hard replace
@@ -300,9 +301,9 @@ class DDQN():
                             self.cntUpdate, self.EPSILON, self.GAMMA, lr))
                     if plotFigure:
                         if showBool:
-                            env.visualize_analytic_comparison(self.Q_network, True, vmin=0, vmax=1, boolPlot=True, cmap='coolwarm')
+                            env.visualize(self.Q_network, True, vmin=0, vmax=1, boolPlot=True, cmap='coolwarm')
                         else:
-                            env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic')
+                            env.visualize(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic')
                         # env.plot_reach_avoid_set()
                         # if randomPlot:
                         #     _ = env.plot_trajectories(self.Q_network, T=MAX_EP_STEPS, num_rnd_traj=num_rnd_traj,
@@ -314,6 +315,7 @@ class DDQN():
                         if storeFigure:
                             figureFolder = 'figure/{:s}/'.format(outFolder)
                             os.makedirs(figureFolder, exist_ok=True)
+                            print("Saving figure in: ", figureFolder)
                             plt.savefig('{:s}/{:d}.eps'.format(figureFolder, self.cntUpdate))
                         plt.pause(0.001)
 

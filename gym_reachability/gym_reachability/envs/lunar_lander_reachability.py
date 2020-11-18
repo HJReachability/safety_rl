@@ -59,7 +59,7 @@ class LunarLanderReachability(LunarLander):
     # this makes reading the lunar_lander.py file difficult so I have tried to make clear what scale
     # is being used here by calling them: pixel scale, simulator scale, and observation scale
 
-    def __init__(self, device, mode='normal', doneType='toEnd'):
+    def __init__(self, device=torch.device("cpu"), mode='normal', doneType='toEnd'):
 
         # in LunarLander init() calls reset() which calls step() so some variables need
         # to be set up before calling init() to prevent problems from variables not being defined
@@ -77,7 +77,6 @@ class LunarLanderReachability(LunarLander):
 
         self.hover_min_x = W / (CHUNKS - 1) * (CHUNKS // 2 - 1)  # calc of edges of landing pad based
         self.hover_max_x = W / (CHUNKS - 1) * (CHUNKS // 2 + 1)  # on calc in parent reset()
-        print("x hovers: ", self.hover_min_x, " ", self.hover_max_x)
 
         self.theta_hover_max = np.radians(15.0)  # most the lander can be tilted when landing
         self.theta_hover_min = np.radians(-15.0)
@@ -524,11 +523,20 @@ class LunarLanderReachability(LunarLander):
                          self.bounds_observation[1, 1] + 0.15])
         return [axes, aspect_ratio]
 
-    def visualize_analytic_comparison(self, q_func, no_show=False,
-                                      vmin=-50, vmax=50, nx=121, ny=361,
-                                      labels=['', ''],
-                                      boolPlot=False, plotZero=False,
-                                      cmap='coolwarm'):
+    def imshow_lander(self, extent=None, alpha=0.4):
+        # todo{vrubies} can we find way to supress gym window?
+        img_data = self.render(mode="rgb_array")
+        self.close()
+        img_data = img_data[::2, ::3, :]  # Reduce image size.
+        plt.imshow(img_data,
+                   interpolation='none', extent=extent,
+                   origin='upper', alpha=alpha)
+
+    def visualize(self, q_func, no_show=False,
+                  vmin=-50, vmax=50, nx=121, ny=121,
+                  labels=['', ''],
+                  boolPlot=False, plotZero=False,
+                  cmap='coolwarm'):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
@@ -537,7 +545,7 @@ class LunarLanderReachability(LunarLander):
         plt.clf()
         axes = self.get_axes()
         v, xs, ys = self.get_value(q_func, nx, ny,
-                                   x_dot=0, y_dot=-2, theta=0, theta_dot=0)
+                                   x_dot=0, y_dot=0, theta=0, theta_dot=0)
         #im = visualize_matrix(v.T, self.get_axes(labels), no_show, vmin=vmin, vmax=vmax)
 
         if boolPlot:
@@ -551,6 +559,7 @@ class LunarLanderReachability(LunarLander):
             cbar = plt.colorbar(im, pad=0.01, shrink=0.95, ticks=[vmin, 0, vmax])
             cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
 
+        self.imshow_lander(extent=axes[0], alpha=0.4)
         ax = plt.gca()
         # Plot bounadries of constraint set.
         # plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")

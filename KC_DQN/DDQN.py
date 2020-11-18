@@ -299,7 +299,7 @@ class DDQN():
                     if verbose:
                         print('\nAfter [{:d}] updates, eps={:.2f}, gamma={:.6f}, lr={:.1e}.'.format(
                             self.cntUpdate, self.EPSILON, self.GAMMA, lr))
-                    if plotFigure:
+                    if plotFigure or storeFigure:
                         if showBool:
                             env.visualize(self.Q_network, True, vmin=0, vmax=1, boolPlot=True, cmap='coolwarm')
                         else:
@@ -315,9 +315,10 @@ class DDQN():
                         if storeFigure:
                             figureFolder = 'figure/{:s}/'.format(outFolder)
                             os.makedirs(figureFolder, exist_ok=True)
-                            print("Saving figure in: ", figureFolder)
+                            # print("Saving figure in: ", figureFolder)
                             plt.savefig('{:s}/{:d}.eps'.format(figureFolder, self.cntUpdate))
-                        plt.pause(0.001)
+                        if plotFigure:
+                            plt.pause(0.001)
 
                 # Perform one step of the optimization (on the target network)
                 loss_c = self.update(addBias=addBias)

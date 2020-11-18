@@ -482,7 +482,7 @@ class LunarLanderReachability(LunarLander):
         (_, _,
          x_dot, y_dot, theta, theta_dot) = self.simulator_scale_to_obs_scale(
             np.array([0, 0, x_dot, y_dot, theta, theta_dot]))
-        print("Start value collection on grid...")
+        # print("Start value collection on grid...")
         while not it.finished:
             idx = it.multi_index
 
@@ -505,7 +505,7 @@ class LunarLanderReachability(LunarLander):
 
             v[idx] = q_func(state).min(dim=1)[0].item()
             it.iternext()
-        print("End value collection on grid.")
+        # print("End value collection on grid.")
         return v, xs, ys
 
     def get_axes(self):
@@ -527,16 +527,16 @@ class LunarLanderReachability(LunarLander):
         # todo{vrubies} can we find way to supress gym window?
         img_data = self.render(mode="rgb_array")
         self.close()
-        img_data = img_data[::2, ::3, :]  # Reduce image size.
-        plt.imshow(img_data,
+        self.img_data = img_data[::2, ::3, :]  # Reduce image size.
+        plt.imshow(self.img_data,
                    interpolation='none', extent=extent,
                    origin='upper', alpha=alpha)
 
     def visualize(self, q_func, no_show=False,
-                  vmin=-50, vmax=50, nx=121, ny=121,
+                  vmin=-50, vmax=50, nx=21, ny=21,
                   labels=['', ''],
                   boolPlot=False, plotZero=False,
-                  cmap='coolwarm'):
+                  cmap='coolwarm', scale=3.0):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
@@ -544,56 +544,65 @@ class LunarLanderReachability(LunarLander):
         """
         plt.clf()
         axes = self.get_axes()
-        v, xs, ys = self.get_value(q_func, nx, ny,
-                                   x_dot=0, y_dot=0, theta=0, theta_dot=0)
-        #im = visualize_matrix(v.T, self.get_axes(labels), no_show, vmin=vmin, vmax=vmax)
+        slices_y = np.array([1, 0, -1]) * scale
+        slices_x = np.array([-1, 0, 1]) * scale
+        for y_jj, y_dot in enumerate(slices_y):
+            for x_ii, x_dot in enumerate(slices_x):
+                plt.subplot(len(slices_y), len(slices_x),
+                            x_ii*len(slices_x)+y_jj+1)
+                v, xs, ys = self.get_value(q_func, nx, ny,
+                                           x_dot=x_dot, y_dot=y_dot, theta=0,
+                                           theta_dot=0)
+                #im = visualize_matrix(v.T, self.get_axes(labels), no_show, vmin=vmin, vmax=vmax)
 
-        if boolPlot:
-            im = plt.imshow(v.T > vmin,
-                            interpolation='none', extent=axes[0],
-                            origin="lower", cmap=cmap)
-        else:
-            im = plt.imshow(v.T,
-                            interpolation='none', extent=axes[0],
-                            origin="lower", cmap=cmap)  #,vmin=vmin, vmax=vmax)
-            cbar = plt.colorbar(im, pad=0.01, shrink=0.95, ticks=[vmin, 0, vmax])
-            cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
+                if boolPlot:
+                    im = plt.imshow(v.T > vmin,
+                                    interpolation='none', extent=axes[0],
+                                    origin="lower", cmap=cmap)
+                else:
+                    im = plt.imshow(v.T,
+                                    interpolation='none', extent=axes[0],
+                                    origin="lower", cmap=cmap)  #,vmin=vmin, vmax=vmax)
+                    # cbar = plt.colorbar(im, pad=0.01, shrink=0.95,
+                    #                     ticks=[vmin, 0, vmax])
+                    # cbar.ax.set_yticklabels(labels=[vmin, 0, vmax],
+                    #                         fontsize=24)
 
-        self.imshow_lander(extent=axes[0], alpha=0.4)
-        ax = plt.gca()
-        # Plot bounadries of constraint set.
-        # plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
-        # plt.plot(self.x_box2_pos, self.y_box2_pos, color="black")
-        # plt.plot(self.x_box3_pos, self.y_box3_pos, color="black")
+                # self.imshow_lander(extent=axes[0], alpha=0.4)
+                ax = plt.gca()
+                # Plot bounadries of constraint set.
+                # plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
+                # plt.plot(self.x_box2_pos, self.y_box2_pos, color="black")
+                # plt.plot(self.x_box3_pos, self.y_box3_pos, color="black")
 
-        # Plot boundaries of target set.
-        # plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
+                # Plot boundaries of target set.
+                # plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
 
-        # Plot zero level set
-        if plotZero:
-            it = np.nditer(v, flags=['multi_index'])
-            while not it.finished:
-                idx = it.multi_index
-                x = xs[idx[0]]
-                y = ys[idx[1]]
+                # Plot zero level set
+                if plotZero:
+                    it = np.nditer(v, flags=['multi_index'])
+                    while not it.finished:
+                        idx = it.multi_index
+                        x = xs[idx[0]]
+                        y = ys[idx[1]]
 
-                if v[idx] <= 0:
-                    plt.scatter(x, y, c='k', s=48)
-                it.iternext()
+                        if v[idx] <= 0:
+                            plt.scatter(x, y, c='k', s=48)
+                        it.iternext()
 
 
-        ax.axis(axes[0])
-        ax.grid(False)
-        ax.set_aspect(axes[1])  # makes equal aspect ratio
-        if labels is not None:
-            ax.set_xlabel(labels[0], fontsize=52)
-            ax.set_ylabel(labels[1], fontsize=52)
+                ax.axis(axes[0])
+                ax.grid(False)
+                ax.set_aspect(axes[1])  # makes equal aspect ratio
+                if labels is not None:
+                    ax.set_xlabel(labels[0], fontsize=52)
+                    ax.set_ylabel(labels[1], fontsize=52)
 
-        ax.tick_params(axis='both', which='both',  # both x and y axes, both major and minor ticks are affected
-                       bottom=False, top=False,    # ticks along the top and bottom edges are off
-                       left=False, right=False)    # ticks along the left and right edges are off
-        ax.set_xticklabels([])
-        ax.set_yticklabels([])
+                ax.tick_params(axis='both', which='both',  # both x and y axes, both major and minor ticks are affected
+                               bottom=False, top=False,    # ticks along the top and bottom edges are off
+                               left=False, right=False)    # ticks along the left and right edges are off
+                ax.set_xticklabels([])
+                ax.set_yticklabels([])
 
         if not no_show:
             plt.show()

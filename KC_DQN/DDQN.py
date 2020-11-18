@@ -18,22 +18,22 @@ import matplotlib.pyplot as plt
 import os
 import glob
 
-from .model import model
+from .model import *
 from .ReplayMemory import ReplayMemory
 
 Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
 
 class DDQN():
 
-    def __init__(self, state_num, action_num, CONFIG, action_list, mode='normal', RA_scaling=1.):
+    def __init__(self, state_num, action_num, CONFIG, action_list, mode='normal', model='TanhTwo'):
         self.action_list = action_list
         self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)
         self.mode = mode # 'normal' or 'RA'
+        self.model = model
         
         #== ENV PARAM ==
         self.state_num = state_num
         self.action_num = action_num
-        self.RA_scaling = RA_scaling
         
         #== PARAM ==
         # Exploration
@@ -66,8 +66,20 @@ class DDQN():
 
 
     def build_network(self):
-        self.Q_network = model(self.state_num, self.action_num)
-        self.target_network = model(self.state_num, self.action_num)
+        if self.model == 'TanhTwo':
+            self.Q_network = modelTanhTwo(self.state_num, self.action_num)
+            self.target_network = modelTanhTwo(self.state_num, self.action_num)
+        elif self.model == 'TanhThree':
+            self.Q_network = modelTanhThree(self.state_num, self.action_num)
+            self.target_network = modelTanhThree(self.state_num, self.action_num)
+        elif self.model == 'SinTwo':
+            self.Q_network = modelSinTwo(self.state_num, self.action_num)
+            self.target_network = modelSinTwo(self.state_num, self.action_num)
+        else:
+            assert self.model == 'SinThree', "Define your own model"
+            self.Q_network = modelSinThree(self.state_num, self.action_num)
+            self.target_network = modelSinThree(self.state_num, self.action_num)
+
         if self.device == torch.device('cuda'):
             self.Q_network.cuda()
             self.target_network.cuda()
@@ -131,9 +143,6 @@ class DDQN():
         if self.mode == 'RA':
             expected_state_action_values = torch.zeros(self.BATCH_SIZE).float().to(self.device)
             
-            l_x [l_x < 0] *=  self.RA_scaling
-            l_x_nxt [l_x_nxt < 0] *=  self.RA_scaling
-            #g_x [g_x > 0] *=  self.RA_scaling
             # Bias version
             if addBias:
                 min_term = torch.min(l_x, state_value_nxt+torch.max(l_x_nxt, g_x_nxt))
@@ -182,10 +191,10 @@ class DDQN():
 
 
     def learn(self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100, running_cost_th=None,
-                warmupBuffer=True, warmupQ=False, toEnd=False, addBias=False,
+                warmupBuffer=True, warmupQ=False, toEnd=False, addBias=False, warmupIter=10000,
                 reportPeriod=5000, plotFigure=True, showBool=False, storeFigure=False,
                 vmin=-100, vmax=100, randomPlot=False, num_rnd_traj=10,
-                checkPeriod=50000, storeModel=True, storeBest=True, outFolder='RA', verbose=True):
+                checkPeriod=50000, storeModel=True, storeBest=False, outFolder='RA', verbose=True):
 
         #== TRAINING RECORD ==
         TrainingRecord = namedtuple('TrainingRecord', ['ep', 'avg_cost', 'cost', 'loss_c'])
@@ -199,7 +208,7 @@ class DDQN():
         # == Warmup Buffer ==
         if warmupBuffer:
             cnt = 0
-            while len(self.memory) < self.BATCH_SIZE*20:
+            while len(self.memory) < self.memory.capacity:
                 cnt += 1
                 print('\rWarmup Buffer [{:d}]'.format(cnt), end='')
                 s = env.reset()
@@ -212,10 +221,9 @@ class DDQN():
         
         # == Warmup Q ==
         if warmupQ:
-            ep_warmup = 10000
             num_warmup_samples = 200
-            for ep_tmp in range(ep_warmup):
-                print('\rWarmup Q [{:d}]'.format(ep_tmp), end='')
+            for ep_tmp in range(warmupIter):
+                print('\rWarmup Q [{:d}]'.format(ep_tmp+1), end='')
                 states, heuristic_v = env.get_warmup_examples(num_warmup_samples=num_warmup_samples)
 
                 self.Q_network.train()
@@ -291,14 +299,6 @@ class DDQN():
                             env.visualize_analytic_comparison(self.Q_network, True, vmin=0, vmax=1, boolPlot=True, cmap='coolwarm')
                         else:
                             env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic')
-                        env.plot_reach_avoid_set()
-                        if randomPlot:
-                            _ = env.plot_trajectories(self.Q_network, T=MAX_EP_STEPS, num_rnd_traj=num_rnd_traj, 
-                                                    keepOutOf=True, toEnd=False)
-                        else:
-                            _ = env.plot_trajectories(self.Q_network, T=MAX_EP_STEPS, 
-                                                    states=env.visual_initial_states, toEnd=False)
-                        plt.tight_layout()
                         if storeFigure:
                             figureFolder = 'figure/{:s}/'.format(outFolder)
                             os.makedirs(figureFolder, exist_ok=True)

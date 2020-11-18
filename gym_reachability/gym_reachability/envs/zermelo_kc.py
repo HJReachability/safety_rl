@@ -600,7 +600,7 @@ class ZermeloKCEnv(gym.Env):
         plt.plot(self.x_box3_pos, self.y_box3_pos, color="black")
 
         # Plot boundaries of target set.
-        plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
+        plt.plot(self.x_box4_pos, self.y_box4_pos, color="m")
 
 
     def plot_reach_avoid_set(self):

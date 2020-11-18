@@ -38,9 +38,9 @@ class ZermeloShowEnv(gym.Env):
         self.upward_speed = 1.
         self.horizontal_rate = 1.
         self.upward_speed_slow = .5
-        self.discrete_controls = np.array([[-self.horizontal_rate, self.upward_speed_slow],
+        self.discrete_controls = np.array([[-self.horizontal_rate, self.upward_speed],
                                            [0, self.upward_speed],
-                                           [self.horizontal_rate, self.upward_speed_slow]])
+                                           [self.horizontal_rate, self.upward_speed]])
 
         # Constraint Set Parameters.
         # [X-position, Y-position, width, height].
@@ -320,7 +320,7 @@ class ZermeloShowEnv(gym.Env):
         return self.scaling * target_margin
 
 
-    def set_costParam(self, penalty=1, reward=-1, costType='normal', scaling=4.):
+    def set_costParam(self, penalty=1, reward=-1, costType='normal', scaling=1.):
         self.penalty = penalty
         self.reward = reward
         self.costType = costType
@@ -588,7 +588,7 @@ class ZermeloShowEnv(gym.Env):
 
         # Plot boundaries of target set.
         for one_boundary in self.target_set_boundary:
-            plt.plot(one_boundary[:, 0], one_boundary[:, 1], color="black")
+            plt.plot(one_boundary[:, 0], one_boundary[:, 1], color="m")
 
 
     def plot_trajectories(self, q_func, T=200, num_rnd_traj=None, states=None, 
@@ -611,7 +611,7 @@ class ZermeloShowEnv(gym.Env):
 
 
     def plot_reach_avoid_set(self):
-        slope = self.upward_speed_slow / self.horizontal_rate
+        slope = self.upward_speed / self.horizontal_rate
 
         def get_line(slope, end_point, x_limit, ns=100):
             x_end, y_end = end_point

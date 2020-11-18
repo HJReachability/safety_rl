@@ -14,7 +14,7 @@
 
 #from gym_reachability.gym_reachability.envs.double_integrator import DoubleIntegratorEnv
 
-#from gym_reachability.gym_reachability.envs.dubins_car import DubinsCarEnv
+from gym_reachability.gym_reachability.envs.dubins_car import DubinsCarEnv
 
 from gym_reachability.gym_reachability.envs.point_mass import PointMassEnv
 

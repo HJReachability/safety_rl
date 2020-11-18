@@ -6,27 +6,19 @@
 #
 # Please contact the author(s) of this library if you have any questions.
 # Authors: Vicenc Rubies-Royo   ( vrubies@berkeley.edu )
+#          Kai-Chieh Hsu        ( kaichieh@princeton.edu )
 
 import gym.spaces
 import numpy as np
 import gym
 import matplotlib
 import matplotlib.pyplot as plt
-
-from utils import nearest_real_grid_point
-from utils import visualize_matrix
-from utils import q_values_from_q_func
-from utils import state_to_index
-from utils import index_to_state
-from utils import v_from_q
-
-matplotlib.use("TkAgg")
-matplotlib.style.use('ggplot')
+import torch
 
 
 class DubinsCarEnv(gym.Env):
 
-    def __init__(self):
+    def __init__(self, device, mode='normal', doneType='toEnd'):
 
         # State bounds.
         self.bounds = np.array([[-1.1, 1.1],  # axis_0 = state, axis_1 = bounds.
@@ -39,51 +31,60 @@ class DubinsCarEnv(gym.Env):
         self.time_step = 0.05
 
         # Dubins car parameters.
-        self.speed = 1.0
+        self.speed = 0.5 # v
 
         # Control parameters.
-        # TODO{vrubies: Check proper rates.}
-        self.max_turning_rate = 1.5
-        self.discrete_controls = np.array([-self.max_turning_rate,
-                                           self.max_turning_rate])
+        self.R_turn = .6
+        self.max_turning_rate = self.speed / self.R_turn # w
+        self.discrete_controls = np.array([ -self.max_turning_rate,
+                                            0.,
+                                            self.max_turning_rate])
 
         # Constraint set parameters.
-        self.inner_radius = 0.25
+        self.constraint_center = np.array([0, 0])
+        self.inner_radius = .3
         self.outer_radius = 1.0
 
         # Target set parameters.
-        self.target_radius = self.inner_radius
-        # self.target_radius = 1.0/16.0
-        self.target_center_x = (self.inner_radius + self.outer_radius) / 2.0
-        self.target_center_y = 0
+        # self.target_center_x = (self.inner_radius + self.outer_radius) / 2.0
+        # self.target_center_y = 0
         # self.target_center = np.array([self.target_center_x,
         #                                self.target_center_y])
-        self.target_center = np.array([0,
-                                       0])
+        self.target_center = np.array([0, 0])
 
         # Gym variables.
-        self.action_space = gym.spaces.Discrete(2)  # angular_rate = {-1,1}
+        self.action_space = gym.spaces.Discrete(self.discrete_controls.shape[0])
         midpoint = (self.low + self.high)/2.0
         interval = self.high - self.low
-        self.observation_space = gym.spaces.Box(midpoint - interval,
-                                                midpoint + interval)
+        self.observation_space = gym.spaces.Box(np.float32(midpoint - interval/2),
+                                                np.float32(midpoint + interval/2))
         self.viewer = None
 
-        # Discretization.
-        self.grid_cells = None
-
         # Internal state.
+        self.mode = mode
         self.state = np.zeros(3)
-
-        self.seed_val = 0
-
-        # Visualization params
-        self.angle_slices = [0]
-        self.vis_init_flag = True
-        self.scaling = 4.0
+        self.doneType = doneType
 
         # Set random seed.
+        self.seed_val = 0
         np.random.seed(self.seed_val)
+
+        # Visualization params
+        self.visual_initial_states = [  np.array([ .6*self.outer_radius,  -.5, np.pi/2]),
+                                        np.array([ -.4*self.outer_radius, -.5, np.pi/2]),
+                                        np.array([ -0.95*self.outer_radius, 0., np.pi/2]),
+                                        np.array([ self.R_turn, 0.95*(self.outer_radius-self.R_turn), np.pi/2]),
+                                     ]
+        # Cost Params
+        self.targetScaling = 1.
+        self.safetyScaling = 1.
+        self.penalty = 1.
+        self.reward = -1.
+        self.costType = 'sparse'
+        self.device = device
+
+        print("Env: mode---{:s}; doneType---{:s}".format(mode, doneType))
+
 
     def reset(self, start=None):
         """ Reset the state of the environment.
@@ -102,19 +103,24 @@ class DubinsCarEnv(gym.Env):
             self.state = start
         return np.copy(self.state)
 
-    def sample_random_state(self):
-        # Sample between -pi to pi.
-        angle = (2.0 * np.random.uniform() - 1.0) * np.pi
 
-        # Sample inside a ring uniformly at random.
-        dist = np.sqrt(np.random.uniform() *
-                       (self.outer_radius**2 - self.inner_radius**2) +
-                       self.inner_radius**2)
-        assert (dist <= self.outer_radius and dist >= self.inner_radius)
-        x_rnd = dist * np.cos(angle)
-        y_rnd = dist * np.sin(angle)
-        theta_rnd = np.random.uniform(low=self.low[-1], high=self.high[-1])
+    def sample_random_state(self, keepOutOf=False, theta=None):
+
+        if keepOutOf:
+            angle = 2.0 * np.random.uniform() * np.pi     # the position angle
+            dist = np.random.uniform(low=self.outer_radius, high=self.inner_radius)
+            x_rnd = dist * np.cos(angle)
+            y_rnd = dist * np.sin(angle)
+            if theta is None:
+                theta_rnd = 2.0 * np.random.uniform() * np.pi
+            else:
+                theta_rnd = theta
+        else:
+            x_rnd, y_rnd, theta_rnd = np.random.uniform(low=self.low,
+                                                        high=self.high)
+        
         return x_rnd, y_rnd, theta_rnd
+
 
     def step(self, action):
         """ Evolve the environment one step forward under given input action.
@@ -126,31 +132,58 @@ class DubinsCarEnv(gym.Env):
             Tuple of (next state, signed distance of current state, whether the
             episode is done, info dictionary).
         """
-        # The signed distance must be computed before the environment steps
-        # forward.
-        if self.grid_cells is None:
-            l_x = self.target_margin(self.state)
-            g_x = self.safety_margin(self.state)
-        else:
-            nearest_point = nearest_real_grid_point(
-                self.grid_cells, self.bounds, self.state)
-            l_x = self.target_margin(nearest_point)
-            g_x = self.safety_margin(nearest_point)
-
-        # Move dynamics one step forward.
+        # The signed distance must be computed before the environment steps forward.
         x, y, theta = self.state
+
+        l_x_cur = self.target_margin(self.state[:2])
+        g_x_cur = self.safety_margin(self.state[:2])
+
         u = self.discrete_controls[action]
+        state, [l_x_nxt, g_x_nxt] = self.integrate_forward(self.state, u)
+        self.state = state
 
-        x, y, theta = self.integrate_forward(x, y, theta, u)
-        self.state = np.array([x, y, theta])
+        # cost
+        if self.mode == 'RA':
+            fail = g_x_cur > 0
+            success = l_x_cur <= 0
+            if fail:
+                cost = self.penalty
+            elif success:
+                cost = self.reward
+            else:
+                cost = 0.
+        else:
+            fail = g_x_nxt > 0
+            success = l_x_nxt <= 0
+            if g_x_nxt > 0 or g_x_cur > 0:
+                cost = self.penalty
+            elif l_x_nxt <= 0 or l_x_cur <= 0:
+                cost = self.reward
+            else:
+                if self.costType == 'dense_ell':
+                    cost = l_x_nxt
+                elif self.costType == 'dense_ell_g':
+                    cost = l_x_nxt + g_x_nxt
+                elif self.costType == 'sparse':
+                    cost = 0. * self.scaling
+                else:
+                    cost = 0.
+        # done
+        if self.doneType == 'toEnd':
+            outsideTop    = (self.state[1] > self.bounds[1,1])
+            outsideBottom = (self.state[1] < self.bounds[1,0])
+            outsideLeft   = (self.state[0] < self.bounds[0,0])
+            outsideRight  = (self.state[0] > self.bounds[0,1])
+            done = outsideTop or outsideLeft or outsideRight or outsideBottom
+        else:
+            done = fail or success
+            assert self.doneType == 'TF', 'invalid doneType'
 
-        # Calculate whether episode is done.
-        dist_origin = np.linalg.norm(self.state[:2])
-        done = ((g_x > 0.0) or (l_x <= 0.0))  # TODO(vrubies) more efficient in 142.
-        info = {"g_x": g_x}
-        return np.copy(self.state), l_x, done, info
+        info = {"g_x": g_x_cur, "l_x": l_x_cur, "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}    
+        return np.copy(self.state), cost, done, info
 
-    def integrate_forward(self, x, y, theta, u):
+
+    def integrate_forward(self, state, u):
         """ Integrate the dynamics forward by one step.
 
         Args:
@@ -162,10 +195,39 @@ class DubinsCarEnv(gym.Env):
         Returns:
             State variables (x,y,theta) integrated one step forward in time.
         """
+        x, y, theta = state
+
         x = x + self.time_step * self.speed * np.cos(theta)
         y = y + self.time_step * self.speed * np.sin(theta)
         theta = np.mod(theta + self.time_step * u, 2*np.pi)
-        return x, y, theta
+        
+        l_x = self.target_margin(np.array([x, y]))
+        g_x = self.safety_margin(np.array([x, y]))
+
+        state = np.array([x, y, theta])
+        info = np.array([l_x, g_x])
+        
+        return state, info
+
+
+    def set_costParam(self, penalty=1, reward=-1, costType='normal', targetScaling=1., safetyScaling=1.):
+        self.penalty = penalty
+        self.reward = reward
+        self.costType = costType
+        self.safetyScaling = safetyScaling
+        self.targetScaling = targetScaling
+
+
+    def set_radius(self, inner_radius=.3, outer_radius=1., R_turn=.6):
+        self.inner_radius = inner_radius
+        self.outer_radius = outer_radius
+        self.R_turn = R_turn
+        self.max_turning_rate = self.speed / self.R_turn # w
+        self.discrete_controls = np.array([ -self.max_turning_rate,
+                                            0.,
+                                            self.max_turning_rate])
+        print(self.discrete_controls)
+
 
     def set_seed(self, seed):
         """ Set the random seed.
@@ -176,52 +238,6 @@ class DubinsCarEnv(gym.Env):
         self.seed_val = seed
         np.random.seed(self.seed_val)
 
-    def safety_margin(self, s):
-        """ Computes the margin (e.g. distance) between state and failue set.
-
-        Args:
-            s: State.
-
-        Returns:
-            Margin for the state s.
-        """
-        dist_to_origin = np.linalg.norm(s[:2])
-        outer_dist = dist_to_origin - self.outer_radius
-        # inner_dist = self.inner_radius - dist_to_origin
-        # Note the "-" sign. This ensures x \in K \iff g(x) <= 0.
-        # safety_margin = maxmin?(outer_dist, inner_dist)
-        safety_margin = outer_dist
-        # if safety_margin > 0:
-        #     safety_margin = 10
-        # if x_in:
-        #     return -1 * x_dist
-        return self.scaling * safety_margin
-
-    def target_margin(self, s):
-        """ Computes the margin (e.g. distance) between state and target set.
-
-        Args:
-            s: State.
-
-        Returns:
-            Margin for the state s.
-        """
-        dist_to_target = np.linalg.norm(s[:2] - self.target_center)
-        target_margin = dist_to_target - self.target_radius
-        # if x_in:
-        #     return -1 * x_dist
-        return self.scaling * target_margin
-
-    def set_grid_cells(self, grid_cells):
-        """ Set number of grid cells.
-
-        Args:
-            grid_cells: Number of grid cells as a tuple.
-        """
-        self.grid_cells = grid_cells
-
-        (self.x_opos, self.y_opos, self.x_ipos,
-         self.y_ipos) = self.constraint_set_boundary()
 
     def set_bounds(self, bounds):
         """ Set state bounds.
@@ -238,135 +254,146 @@ class DubinsCarEnv(gym.Env):
         # Double the range in each state dimension for Gym interface.
         midpoint = (self.low + self.high)/2.0
         interval = self.high - self.low
-        self.observation_space = gym.spaces.Box(midpoint - interval,
-                                                midpoint + interval)
+        self.observation_space = gym.spaces.Box(np.float32(midpoint - interval/2),
+                                                np.float32(midpoint + interval/2))
 
-    def set_discretization(self, grid_cells, bounds):
-        """ Set number of grid cells and state bounds.
+
+    def safety_margin(self, s):
+        """ Computes the margin (e.g. distance) between state and failue set.
 
         Args:
-            grid_cells: Number of grid cells as a tuple.
-            bounds: Bounds for the state.
+            s: State.
+
+        Returns:
+            Margin for the state s.
         """
-        self.set_grid_cells(grid_cells)
-        self.set_bounds(bounds)
+        dist_to_constraint_center = np.linalg.norm(s[:2] - self.constraint_center)
+        # dist. to the boundary = | dist_to_constraint_center - radius |
+        outer_dist = dist_to_constraint_center - self.outer_radius # This ensures x \in K \iff g(x) <= 0.
+        # safety_margin = maxmin?(outer_dist, inner_dist)
+        safety_margin = outer_dist
+        # if safety_margin > 0:
+        #     safety_margin = 10
+        # if x_in:
+        #     return -1 * x_dist
+        return self.safetyScaling * safety_margin
+
+
+    def target_margin(self, s):
+        """ Computes the margin (e.g. distance) between state and target set.
+
+        Args:
+            s: State.
+
+        Returns:
+            Margin for the state s.
+        """
+        dist_to_target = np.linalg.norm(s[:2] - self.target_center)
+        target_margin = dist_to_target - self.inner_radius
+        # if x_in:
+        #     return -1 * x_dist
+        return self.targetScaling * target_margin
+
 
     def render(self, mode='human'):
         pass
 
-    # def ground_truth_comparison(self, q_func):
-    #     """ Compares the state-action value function to the ground truth.
 
-    #     The state-action value function is first converted to a state value
-    #     function, and then compared to the ground truth analytical solution.
+    def get_warmup_examples(self, num_warmup_samples=100):
 
-    #     Args:
-    #         q_func: State-action value function.
+        rv = np.random.uniform( low=self.low,
+                                high=self.high,
+                                size=(num_warmup_samples,3))
+        x_rnd, y_rnd, theta_rnd = rv[:,0], rv[:,1], rv[:,2]
 
-    #     Returns:
-    #         Tuple containing number of misclassified safe and misclassified
-    #         unsafe states.
-    #     """
-    #     computed_v = v_from_q(
-    #         q_values_from_q_func(q_func, self.grid_cells, self.bounds, 2))
-    #     return self.ground_truth_comparison_v(computed_v)
+        heuristic_v = np.zeros((num_warmup_samples, self.action_space.n))
+        states = np.zeros((num_warmup_samples, self.observation_space.shape[0]))
 
-    # def ground_truth_comparison_v(self, computed_v):
-    #     """ Compares the state value function to the analytical solution.
+        for i in range(num_warmup_samples):
+            x, y, theta = x_rnd[i], y_rnd[i], theta_rnd[i]
+            l_x = self.target_margin(np.array([x, y]))
+            g_x = self.safety_margin(np.array([x, y]))
+            heuristic_v[i,:] = np.maximum(l_x, g_x)
+            states[i, :] = x, y, theta
 
-    #     The state value function is compared to the ground truth analytical
-    #     solution by checking for sign mismatches between state-value pairs.
+        return states, heuristic_v
 
-    #     Args:
-    #         computed_v: State value function.
 
-    #     Returns:
-    #         Tuple containing number of misclassified safe and misclassified
-    #         unsafe states.
-    #     """
-    #     analytic_v = self.analytic_v()
-    #     misclassified_safe = 0
-    #     misclassified_unsafe = 0
-    #     it = np.nditer(analytic_v, flags=['multi_index'])
-    #     while not it.finished:
-    #         if analytic_v[it.multi_index] < 0 < computed_v[it.multi_index]:
-    #             misclassified_safe += 1
-    #         elif computed_v[it.multi_index] < 0 < analytic_v[it.multi_index]:
-    #             misclassified_unsafe += 1
-    #         it.iternext()
-    #     return misclassified_safe, misclassified_unsafe
-
-    def constraint_set_boundary(self):
-        """ Computes the safe set boundary based on the analytic solution.
-
-        The boundary of the safe set for the double integrator is determined by
-        two parabolas and two line segments.
+    def get_axes(self):
+        """ Gets the bounds for the environment.
 
         Returns:
-            Set of discrete points describing each parabola. The first and last
-            two elements of the list describe the set of coordinates for the
-            first and second parabola respectively.
+            List containing a list of bounds for each state coordinate and a
         """
-        num_points = self.grid_cells[0]
-        x_opos = np.zeros((num_points,))
-        y_opos = np.zeros((num_points,))
-        x_ipos = np.zeros((num_points,))
-        y_ipos = np.zeros((num_points,))
-        linspace = 2.1 * np.pi * np.arange(start=0, stop=1, step=1/num_points)
+        aspect_ratio = (self.bounds[0,1]-self.bounds[0,0])/(self.bounds[1,1]-self.bounds[1,0])
+        axes = np.array([self.bounds[0,0], self.bounds[0,1], self.bounds[1,0], self.bounds[1,1]])
+        return [axes, aspect_ratio]
 
-        x_opos = self.outer_radius * np.cos(linspace)
-        y_opos = self.outer_radius * np.sin(linspace)
-        x_ipos = self.inner_radius * np.cos(linspace)
-        y_ipos = self.inner_radius * np.sin(linspace)
 
-        return (x_opos, y_opos, x_ipos, y_ipos)
+    def get_value(self, q_func, theta, nx=101, ny=101):
+        v = np.zeros((nx, ny))
+        it = np.nditer(v, flags=['multi_index'])
+        xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)
+        ys = np.linspace(self.bounds[1,0], self.bounds[1,1], ny)
+        while not it.finished:
+            idx = it.multi_index
+            x = xs[idx[0]]
+            y = ys[idx[1]]
+            l_x = self.target_margin(np.array([x, y]))
+            g_x = self.safety_margin(np.array([x, y]))
 
-    def visualize_analytic_comparison(self, v, no_show=False,
-                                      labels=["x", "y"]):
-        """ Overlays analytic safe set on top of state value function.
+            if self.mode == 'normal' or self.mode == 'RA':
+                state = torch.FloatTensor([x, y, theta], device=self.device).unsqueeze(0)
+            else:
+                z = max([l_x, g_x])
+                state = torch.FloatTensor([x, y, theta, z], device=self.device).unsqueeze(0)
+            v[idx] = q_func(state).min(dim=1)[0].item()
+            it.iternext()
+        return v
 
-        Args:
-            v: State value function.
-        """
-        plt.clf()
-        # Plot analytic parabolas.
-        plt.plot(self.x_opos, self.y_opos, color="black")
-        plt.plot(self.x_ipos, self.y_ipos, color="black")
 
-        # num_subfigs = len(self.angle_slices)
-        # if self.vis_init_flag:
-        #     fig, ax = plt.subplots(nrows=1, ncols=num_subfigs)
-        #     self.vis_init_flag = False
-        # for ii in range(num_subfigs):
-        #     plt.subplot(1, num_subfigs, ii+1)
-        #     # Visualize state value.
-        visualize_matrix(v[:, :, self.angle_slices[0]].T,
-                         self.get_axes(labels), no_show)
-
-    def simulate_one_trajectory(self, q_func, T=10, state=None):
+    def simulate_one_trajectory(self, q_func, T=10, state=None, theta=None,
+                                keepOutOf=False, toEnd=False):
 
         if state is None:
-            state = self.sample_random_state()
-        x, y, theta = state
+            state = self.sample_random_state(keepOutOf=keepOutOf, theta=theta)
+        x, y = state[:2]
         traj_x = [x]
         traj_y = [y]
+        result = 0 # not finished
 
         for t in range(T):
-            if self.safety_margin(state) > 0 or self.target_margin(state) < 0:
-                break
-            state_ix = state_to_index(self.grid_cells, self.bounds, state)
-            action_ix = np.argmin(q_func[state_ix])
-            u = self.discrete_controls[action_ix]
+            if toEnd:
+                outsideTop    = (self.state[1] > self.bounds[1,1])
+                outsideBottom = (self.state[1] < self.bounds[1,0])
+                outsideLeft   = (self.state[0] < self.bounds[0,0])
+                outsideRight  = (self.state[0] > self.bounds[0,1])
+                done = outsideTop or outsideLeft or outsideRight or outsideBottom
+                if done:
+                    result = 1
+                    break
+            else:
+                if self.safety_margin(state[:2]) > 0:
+                    result = -1 # failed
+                    break
+                elif self.target_margin(state[:2]) <= 0:
+                    result = 1 # succeeded
+                    break
 
-            x, y, theta = self.integrate_forward(x, y, theta, u)
-            state = np.array([x, y, theta])
-            traj_x.append(x)
-            traj_y.append(y)
+            state_tensor = torch.FloatTensor(state, device=self.device).unsqueeze(0)
+            action_index = q_func(state_tensor).min(dim=1)[1].item()
+            u = self.discrete_controls[action_index]
 
-        return traj_x, traj_y
+            state, _ = self.integrate_forward(state, u)
+            traj_x.append(state[0])
+            traj_y.append(state[1])
 
-    def simulate_trajectories(self, q_func, T=10, num_rnd_traj=None,
-                              states=None):
+        return traj_x, traj_y, result
+
+
+    def simulate_trajectories(self, q_func, T=10,
+                              num_rnd_traj=None, states=None, theta=None,
+                              keepOutOf=False, toEnd=False):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -374,60 +401,199 @@ class DubinsCarEnv(gym.Env):
         trajectories = []
 
         if states is None:
-            for _ in range(num_rnd_traj):
-                trajectories.append(self.simulate_one_trajectory(q_func, T=T))
+            results = np.empty(shape=(num_rnd_traj,), dtype=int)
+            for idx in range(num_rnd_traj):
+                traj_x, traj_y, result = self.simulate_one_trajectory(q_func, T=T, theta=theta, 
+                                                                      keepOutOf=keepOutOf, toEnd=toEnd)
+                trajectories.append((traj_x, traj_y))
+                results[idx] = result
         else:
-            for state in states:
-                trajectories.append(
-                    self.simulate_one_trajectory(q_func, T=T, state=state))
+            results = np.empty(shape=(len(states),), dtype=int)
+            for idx, state in enumerate(states):
+                traj_x, traj_y, result = self.simulate_one_trajectory(q_func, T=T, state=state, toEnd=toEnd)
+                trajectories.append((traj_x, traj_y))
+                results[idx] = result
 
-        return trajectories
+        return trajectories, results
 
-    def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None):
+
+    def visualize_analytic_comparison(self, q_func, no_show=False,
+                                      vmin=-1, vmax=1, nx=101, ny=101, cmap='coolwarm',
+                                      labels=None, boolPlot=False, theta=np.pi/2):
+        """ Overlays analytic safe set on top of state value function.
+
+        Args:
+            q_func: NN or Tabular-Q
+        """
+        fig = plt.figure(figsize=(12,4))
+        ax1 = fig.add_subplot(131)
+        ax2 = fig.add_subplot(132)
+        ax3 = fig.add_subplot(133)
+        axStyle = self.get_axes()
+        axList = [ax1, ax2, ax3]
+        thetaList = [np.pi/6, np.pi/3, np.pi/2]
+
+        for i, (ax, theta) in enumerate(zip(axList, thetaList)):
+            if i == len(thetaList)-1:
+                cbarPlot=True
+            else: 
+                cbarPlot=False
+
+            #== Plot failure / target set ==
+            self.plot_target_failure_set(ax)
+
+            #== Plot reach-avoid set ==
+            self.plot_reach_avoid_set(ax, orientation=theta)
+
+            #== Plot V ==
+            self.plot_v_values(q_func, ax=ax, fig=fig, theta=theta,
+                                vmin=vmin, vmax=vmax, nx=nx, ny=ny, cmap=cmap,
+                                boolPlot=boolPlot, cbarPlot=cbarPlot)
+            #== Formatting ==
+            self.plot_formatting(ax=ax, labels=labels)
+
+            #== Plot Trajectories ==
+            self.plot_trajectories(q_func, T=200, states=self.visual_initial_states, toEnd=False, 
+                                   ax=ax, c='y', lw=2, orientation=theta-np.pi/2)
+
+            ax.set_xlabel(r'$\theta={:.0f}^\circ$'.format(theta*180/np.pi), fontsize=28)
+
+        plt.tight_layout()
+        if not no_show:
+            plt.show()
+
+
+    def plot_formatting(self, ax=None, labels=None):
+        axStyle = self.get_axes()
+        #== Formatting ==
+        ax.axis(axStyle[0])
+        ax.set_aspect(axStyle[1])  # makes equal aspect ratio
+        ax.grid(False)
+        if labels is not None:
+            ax.set_xlabel(labels[0], fontsize=52)
+            ax.set_ylabel(labels[1], fontsize=52)
+
+        ax.tick_params( axis='both', which='both',  # both x and y axes, both major and minor ticks are affected
+                        bottom=False, top=False,    # ticks along the top and bottom edges are off
+                        left=False, right=False)    # ticks along the left and right edges are off
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        #ax.set_title(r"$\theta$={:.1f}".format(theta * 180 / np.pi), fontsize=24)
+
+
+    def plot_v_values(self, q_func, theta=np.pi/2, ax=None, fig=None,
+                        vmin=-1, vmax=1, nx=201, ny=201, cmap='seismic',
+                        boolPlot=False, cbarPlot=True):
+        axStyle = self.get_axes()
+        ax.plot([0., 0.], [axStyle[0][2], axStyle[0][3]], c='k')
+        ax.plot([axStyle[0][0], axStyle[0][1]], [0., 0.], c='k')
+
+        #== Plot V ==
+        if theta == None:
+            theta = 2.0 * np.random.uniform() * np.pi
+        v = self.get_value(q_func, theta, nx, ny)
+
+        if boolPlot:
+            im = ax.imshow(v.T>0., interpolation='none', extent=axStyle[0], origin="lower",
+                       cmap=cmap)
+        else:
+            im = ax.imshow(v.T, interpolation='none', extent=axStyle[0], origin="lower",
+                       cmap=cmap, vmin=vmin, vmax=vmax)
+            if cbarPlot:
+                cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95, ticks=[vmin, 0, vmax])
+                cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
+
+
+    def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None, theta=None,
+                          keepOutOf=False, toEnd=False, ax=None, c='y', lw=1.5, orientation=0):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
-        trajectories = self.simulate_trajectories(q_func, T=T,
-                                                  num_rnd_traj=num_rnd_traj,
-                                                  states=states)
 
+        if states != None:
+            tmpStates = []
+            for state in states:
+                x, y, theta = state
+                xtilde = x*np.cos(orientation) - y*np.sin(orientation)
+                ytilde = y*np.cos(orientation) + x*np.sin(orientation)
+                thetatilde = theta+orientation
+                tmpStates.append(np.array([xtilde, ytilde, thetatilde]))
+            states = tmpStates
+                
+        trajectories, results = self.simulate_trajectories(q_func, T=T, num_rnd_traj=num_rnd_traj, 
+                                                           states=states, theta=theta, 
+                                                           keepOutOf=keepOutOf, toEnd=toEnd)
+        if ax == None:
+            ax = plt.gca()
         for traj in trajectories:
             traj_x, traj_y = traj
-            plt.plot(traj_x, traj_y, color="black")
+            ax.scatter(traj_x[0], traj_y[0], s=48, c=c)
+            ax.plot(traj_x, traj_y, color=c,  linewidth=lw)
 
-    # def analytic_v(self):
-    #     """ Computes the discretized analytic value function.
+        return results
 
-    #     Returns:
-    #         Discretized form of the analytic state value function.
-    #     """
-    #     x_low = self.target_low[0]
-    #     x_high = self.target_high[0]
-    #     u_max = self.control_bounds[1]  # Assumes u_max = -u_min.
 
-    #     def analytic_function(x, x_dot):
-    #         if x_dot >= 0:
-    #             return min(x - x_low,
-    #                        x_high - x - x_dot ** 2 / (2 * u_max))
-    #         else:
-    #             return min(x_high - x,
-    #                        x - x_dot ** 2 / (2 * u_max) - x_low)
+    def plot_reach_avoid_set(self, ax, c='g', lw=3, orientation=0):
+        r = self.inner_radius
+        R = self.outer_radius
+        R_turn = self.R_turn
+        if r >=  2*R_turn - R:
+            # plot arc
+            tmpY = (r**2 - R**2 + 2*R_turn*R) / (2*R_turn)
+            tmpX = np.sqrt(r**2 - tmpY**2)
+            tmpTheta = np.arcsin(tmpX / (R-R_turn))
+            # two sides
+            self.plot_arc((0.,  R_turn), R-R_turn, (tmpTheta-np.pi/2, np.pi/2),  ax, c=c, lw=lw, orientation=orientation)
+            self.plot_arc((0., -R_turn), R-R_turn, (-np.pi/2, np.pi/2-tmpTheta), ax, c=c, lw=lw, orientation=orientation)
+            # middle
+            tmpPhi = np.arcsin(tmpX/r)
+            self.plot_arc((0., 0), r, (tmpPhi - np.pi/2, np.pi/2-tmpPhi), ax, c=c, lw=lw, orientation=orientation)
+            # outer boundary
+            self.plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c=c, lw=lw, orientation=orientation)
+        else:
+            # two sides
+            tmpY = (R**2 + 2*R_turn*r - r**2) / (2*R_turn)
+            tmpX = np.sqrt(R**2 - tmpY**2)
+            tmpTheta = np.arcsin( tmpX / (R_turn-r))
+            self.plot_arc((0.,  R_turn), R_turn-r, (np.pi/2+tmpTheta, 3*np.pi/2), ax, c=c, lw=lw, orientation=orientation)
+            self.plot_arc((0., -R_turn), R_turn-r, (np.pi/2, 3*np.pi/2-tmpTheta), ax, c=c, lw=lw, orientation=orientation)
+            # middle
+            self.plot_arc((0., 0), r, (np.pi/2, -np.pi/2), ax, c=c, lw=lw, orientation=orientation)
+            # outer boundary
+            self.plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c=c, lw=lw, orientation=orientation)
 
-    #     v = np.zeros(self.grid_cells)
-    #     it = np.nditer(v, flags=['multi_index'])
-    #     while not it.finished:
-    #         x, x_dot = index_to_state(self.grid_cells, self.bounds,
-    #                                   it.multi_index)
-    #         v[it.multi_index] = analytic_function(x, x_dot)
-    #         it.iternext()
-    #     return v
 
-    def get_axes(self, labels=["x", "y"]):
-        """ Gets the bounds for the environment.
+    def plot_target_failure_set(self, ax):
+        self.plot_circle(self.constraint_center, self.outer_radius, ax, c='k', lw=3)
+        self.plot_circle(self.target_center,     self.inner_radius, ax, c='m', lw=3)
 
-        Returns:
-            List containing a list of bounds for each state coordinate and a
-            list for the name of each state coordinate.
-        """
-        return [np.append(self.bounds[0], self.bounds[1]), labels]
+    
+    def plot_arc(self, p, r, thetaParam, ax, c='b', lw=1.5, orientation=0):
+        x, y = p
+        thetaInit, thetaFinal = thetaParam
+        
+        xtilde = x*np.cos(orientation) - y*np.sin(orientation)
+        ytilde = y*np.cos(orientation) + x*np.sin(orientation)
+        
+        theta = np.linspace(thetaInit+orientation, thetaFinal+orientation, 100)
+        xs = xtilde + r * np.cos(theta)
+        ys = ytilde + r * np.sin(theta)
+        
+        ax.plot(xs, ys, c=c, lw=lw)
+
+    
+    def plot_circle(self, center, r, ax, c='b', lw=1.5, orientation=0, scatter=False):
+        x, y = center
+        xtilde = x*np.cos(orientation) - y*np.sin(orientation)
+        ytilde = y*np.cos(orientation) + x*np.sin(orientation)
+        
+        theta = np.linspace(0, 2*np.pi, 200)
+        xs = xtilde + r * np.cos(theta)
+        ys = ytilde + r * np.sin(theta)
+        ax.plot(xs, ys, c=c, lw=lw)
+        if scatter:
+            ax.scatter(xtilde+r, ytilde, c=c, s=80)
+            ax.scatter(xtilde-r, ytilde, c=c, s=80)
+            print(xtilde+r, ytilde, xtilde-r, ytilde)
+ 

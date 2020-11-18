@@ -271,9 +271,8 @@ class DDQN():
 
                 # Check after fixed number of gradient updates / accesses
                 if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
-                    num_rnd_traj_test = 2000
-                    # _, results = env.simulate_trajectories(self.Q_network, T=MAX_EP_STEPS, num_rnd_traj=num_rnd_traj_test,
-                    #                                        keepOutOf=False, toEnd=False)
+                    num_rnd_traj_test = 200
+                    _, results = env.simulate_trajectories(self.Q_network, T=MAX_EP_STEPS, num_rnd_traj=num_rnd_traj_test)
                     success = np.sum(results == 1) / num_rnd_traj_test
                     failure = np.sum(results == -1) / num_rnd_traj_test
                     unfinish = np.sum(results == 0) / num_rnd_traj_test
@@ -305,13 +304,18 @@ class DDQN():
                         else:
                             env.visualize(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic')
                         # env.plot_reach_avoid_set()
-                        # if randomPlot:
-                        #     _ = env.plot_trajectories(self.Q_network, T=MAX_EP_STEPS, num_rnd_traj=num_rnd_traj,
-                        #                             keepOutOf=True, toEnd=False)
-                        # else:
-                        #     _ = env.plot_trajectories(self.Q_network, T=MAX_EP_STEPS,
-                        #                             states=env.visual_initial_states, toEnd=False)
-                        plt.tight_layout()
+                        if randomPlot:
+                            _ = env.plot_trajectories(
+                                    self.Q_network,
+                                    T=MAX_EP_STEPS,
+                                    num_rnd_traj=num_rnd_traj)
+                        else:
+                            _ = env.plot_trajectories(
+                                    self.Q_network,
+                                    T=MAX_EP_STEPS,
+                                    states=env.visual_initial_states)
+                        # todo{vrubies} tight layout causes issues on
+                        # plt.tight_layout()
                         if storeFigure:
                             figureFolder = 'figure/{:s}/'.format(outFolder)
                             os.makedirs(figureFolder, exist_ok=True)

@@ -83,11 +83,14 @@ class LunarLanderReachability(LunarLander):
 
         self.fly_min_x = 0  # first chunk
         self.fly_max_x = W / (CHUNKS - 1) * (CHUNKS - 1)  # last chunk
+        self.midpoint_x = (self.fly_max_x + self.fly_min_x) / 2
+        self.width_x = (self.fly_max_x - self.fly_min_x)
 
         self.fly_max_y = VIEWPORT_H / SCALE
         self.fly_min_y = HELIPAD_Y
-
         self.midpoint_y = (self.fly_max_y + self.fly_min_y) / 2
+        self.width_y = (self.fly_max_y - self.fly_min_y)
+
         self.hover_min_y = self.midpoint_y + 1  # calc of edges of landing pad based
         self.hover_max_y = self.midpoint_y - 1  # on calc in parent reset()
 
@@ -117,8 +120,19 @@ class LunarLanderReachability(LunarLander):
             self.sim_state = np.zeros(6)
         self.doneType = doneType
 
-        # if mode == 'extend':
-        #     self.visual_initial_states = self.extend_state(self.visual_initial_states)
+        # Visualization params
+        self.scaling_factor = 3.0
+        self.slices_y = np.array([1, 0, -1]) * self.scaling_factor
+        self.slices_x = np.array([-1, 0, 1]) * self.scaling_factor
+        self.vis_init_flag = True
+        self.visual_initial_states = [
+            np.array([self.midpoint_x + self.width_x/4,
+                      self.midpoint_y + self.width_y/4,
+                      0, 0, 0, 0])]
+
+        if mode == 'extend':
+            self.visual_initial_states = self.extend_state(
+                self.visual_initial_states)
 
         print("Env: mode---{:s}; doneType---{:s}".format(mode, doneType))
 
@@ -129,8 +143,10 @@ class LunarLanderReachability(LunarLander):
 
         self.before_parent_init = False
 
-        # we don't use the states about whether the legs are touching so 6 dimensions total
-        self.observation_space = spaces.Box(-np.inf, np.inf, shape=(6,), dtype=np.float32)
+        # we don't use the states about whether the legs are touching
+        # so 6 dimensions total.
+        self.observation_space = spaces.Box(-np.inf, np.inf, shape=(6,),
+                                            dtype=np.float32)
 
         # this is the hack from above to make the ground flat
         self.np_random = RandomAlias
@@ -157,13 +173,13 @@ class LunarLanderReachability(LunarLander):
             self.bounds_simulation[:, 1].T)
 
 
-    # def extend_state(self, states):
-    #     new_states = []
-    #     for state in states:
-    #         l_x = self.target_margin(state)
-    #         g_x = self.safety_margin(state)
-    #         new_states.append(np.append(state, max(l_x, g_x)))
-    #     return new_states
+    def extend_state(self, states):
+        new_states = []
+        for state in states:
+            l_x = self.target_margin(state)
+            g_x = self.safety_margin(state)
+            new_states.append(np.append(state, max(l_x, g_x)))
+        return new_states
 
 
     def set_lander_state(self, state):
@@ -186,7 +202,8 @@ class LunarLanderReachability(LunarLander):
 
     def reset(self, state_in=None):
         """
-        resets the environment accoring to a uniform distribution
+        resets the environment accoring to a uniform distribution.
+        state_in assumed to be in simulation scale.
         :return: current state as 6d NumPy array of floats
         """
         # This returns something in --> observation scale <--.
@@ -207,9 +224,9 @@ class LunarLanderReachability(LunarLander):
             # our simulation bounds.
             for ii in range(len(state_in)):
                 state_in[ii] = np.float64(
-                    min(state_in, self.bounds_simulation[ii, 1]))
+                    min(state_in[ii], self.bounds_simulation[ii, 1]))
                 state_in[ii] = np.float64(
-                    max(state_in, self.bounds_simulation[ii, 0]))
+                    max(state_in[ii], self.bounds_simulation[ii, 0]))
         self.set_lander_state(state_in)
 
         # Convert from simulator scale to observation scale.
@@ -232,16 +249,19 @@ class LunarLanderReachability(LunarLander):
 
     def step(self, action):
         if self.before_parent_init:
-            cost = None  # can't be computed
-            obs_s, _, done, info = super(LunarLanderReachability, self).step(action)
+            cost = None  # Can't be computed.
+            obs_s, _, done, info = super(LunarLanderReachability, self).step(
+                action)
             return np.copy(obs_s[:-2]), cost, False, {}
         else:
-            # note that l function must be computed before environment steps see reamdme for proof
+            # Note that l function must be computed before environment
+            # steps see reamdme for proof.
             l_x_cur = self.target_margin(self.get_state())
             g_x_cur = self.safety_margin(self.get_state())
 
-        obs_s, _, done, info = super(LunarLanderReachability, self).step(action)
-        self.obs_state = obs_s[:-2]  # Remove last two states dealing with contacts.
+        obs_s, _, done, info = super(LunarLanderReachability, self).step(
+            action)
+        self.obs_state = obs_s[:-2]  # Remove states dealing with contacts.
         self.sim_state = self.obs_scale_to_simulator_scale(self.obs_state)
         l_x_nxt = self.target_margin(self.get_state())
         g_x_nxt = self.safety_margin(self.get_state())
@@ -288,18 +308,19 @@ class LunarLanderReachability(LunarLander):
             done = fail or success
             assert self.doneType == 'TF', 'invalid doneType'
 
-        info = {"g_x": g_x_cur, "l_x": l_x_cur, "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
+        info = {"g_x": g_x_cur,  "l_x": l_x_cur, "g_x_nxt": g_x_nxt,
+                "l_x_nxt": l_x_nxt}
         return np.copy(self.obs_state), cost, done, info
 
     def safety_margin(self, state):
 
         x = state[0]
         y = state[1]
-        flying_distance = np.min([x - self.fly_min_x - LANDER_RADIUS,  # distance to left wall
-                                  self.fly_max_x - x - LANDER_RADIUS,  # distance to right wall
-                                  self.fly_max_y - y - LANDER_RADIUS,  # distance to ceiling
-                                  y - self.fly_min_y - LANDER_RADIUS])  # distance to ground
-
+        flying_distance = np.min(
+            [x - self.fly_min_x - LANDER_RADIUS,  # distance to left wall
+             self.fly_max_x - x - LANDER_RADIUS,  # distance to right wall
+             self.fly_max_y - y - LANDER_RADIUS,  # distance to ceiling
+             y - self.fly_min_y - LANDER_RADIUS])  # distance to ground
 
         return -flying_distance
 
@@ -312,17 +333,17 @@ class LunarLanderReachability(LunarLander):
         y_dot = state[3]
         theta = state[4]
 
-        landing_distance = np.min([10 * (theta - self.theta_hover_min),  # heading error multiply 10
-                                   10 * (self.theta_hover_max - theta),  # for similar scale of units
-                                   x - self.hover_min_x - LANDER_RADIUS,
-                                   self.hover_max_x - x - LANDER_RADIUS,
-                                   y - self.hover_min_y - LANDER_RADIUS,
-                                   self.hover_max_y - y - LANDER_RADIUS,
-                                   y_dot - self.hover_min_y_dot,
-                                   self.hover_max_y_dot - y_dot,
-                                   x_dot - self.hover_min_x_dot,
-                                   self.hover_max_x_dot - x_dot])  # speed check
-
+        landing_distance = np.min([
+            10 * (theta - self.theta_hover_min),  # heading error multiply 10
+            10 * (self.theta_hover_max - theta),  # for similar scale of units
+            x - self.hover_min_x - LANDER_RADIUS,
+            self.hover_max_x - x - LANDER_RADIUS,
+            y - self.hover_min_y - LANDER_RADIUS,
+            self.hover_max_y - y - LANDER_RADIUS,
+            y_dot - self.hover_min_y_dot,
+            self.hover_max_y_dot - y_dot,
+            x_dot - self.hover_min_x_dot,
+            self.hover_max_x_dot - x_dot])  # speed check
 
         return -landing_distance
 
@@ -384,70 +405,43 @@ class LunarLanderReachability(LunarLander):
         self.seed_val = seed
         np.random.seed(self.seed_val)
 
-    # def sample_random_state(self, keepOutOf=False):
-    #     flag = True
-    #     while flag:
-    #         rnd_state = np.random.uniform(low=self.bounds[:, 0],
-    #                                       high=self.bound[:, 1])
-    #         l_x = self.target_margin(rnd_state)
-    #         g_x = self.safety_margin(rnd_state)
-
-    #         if self.mode == 'extend':
-    #             rnd_state = np.append(rnd_state, max(l_x, g_x))
-
-    #         terminal = (g_x > 0) or (l_x <= 0)
-    #         flag = terminal and keepOutOf
-
-    #     return rnd_state
-
-    def simulate_one_trajectory(self, q_func, T=10, state=None,
-                                keepOutOf=False, toEnd=False):
+    def simulate_one_trajectory(self, q_func, T=10, state=None):
         """
         simulates one trajectory in observation scale.
         """
         if state is None:
             state = self.reset()
         else:
-            state = self.reset(state_in=state)
-        x, y = state[:2]
-        traj_x = [x]
-        traj_y = [y]
-        result = 0  # not finished
+            state = self.reset(state)
+        traj_x = [state[0]]
+        traj_y = [state[1]]
+        result = 0  # Not finished.
 
         for t in range(T):
-            if toEnd:
-                outsideTop = (state[1] >= self.bounds[1, 1])
-                outsideLeft = (state[0] <= self.bounds[0, 0])
-                outsideRight = (state[0] >= self.bounds[0, 1])
-                outsideBottom = (state[1] <= self.bounds[1, 0])
-                done = (outsideTop or outsideLeft or
-                        outsideRight or outsideBottom)
-                if done:
-                    result = 1
-                    break
-            else:
-                if self.safety_margin(state) > 0:
-                    result = -1 # failed
-                    break
-                elif self.target_margin(state) <= 0:
-                    result = 1 # succeeded
-                    break
+            if self.safety_margin(
+                    self.obs_scale_to_simulator_scale(state)) > 0:
+                result = -1  # Failed.
+                break
+            elif self.target_margin(
+                    self.obs_scale_to_simulator_scale(state)) <= 0:
+                result = 1  # Succeeded.
+                break
 
             state_tensor = torch.FloatTensor(state,
                                              device=self.device).unsqueeze(0)
             action_index = q_func(state_tensor).min(dim=1)[1].item()
-            u = self.discrete_controls[action_index]
 
-            state, _, done, _ = self.step(u)
+            state, _, done, _ = self.step(action_index)
             traj_x.append(state[0])
             traj_y.append(state[1])
             if done:
+                result = -1
                 break
 
         return traj_x, traj_y, result
 
     def simulate_trajectories(self, q_func, T=10, num_rnd_traj=None,
-                              states=None, keepOutOf=False, toEnd=False):
+                              states=None):
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
@@ -457,18 +451,35 @@ class LunarLanderReachability(LunarLander):
             results = np.empty(shape=(num_rnd_traj,), dtype=int)
             for idx in range(num_rnd_traj):
                 traj_x, traj_y, result = self.simulate_one_trajectory(
-                    q_func, T=T, keepOutOf=keepOutOf, toEnd=toEnd)
+                    q_func, T=T)
                 trajectories.append((traj_x, traj_y))
                 results[idx] = result
         else:
             results = np.empty(shape=(len(states),), dtype=int)
             for idx, state in enumerate(states):
                 traj_x, traj_y, result = self.simulate_one_trajectory(
-                    q_func, T=T, state=state, toEnd=toEnd)
+                    q_func, T=T, state=state)
                 trajectories.append((traj_x, traj_y))
                 results[idx] = result
 
         return trajectories, results
+
+    def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None,
+                          c='w'):
+        # plt.figure(2)
+        assert ((num_rnd_traj is None and states is not None) or
+                (num_rnd_traj is not None and states is None) or
+                (len(states) == num_rnd_traj))
+        # plt.clf()
+        plt.subplot(len(self.slices_y), len(self.slices_x), 1)
+        trajectories, results = self.simulate_trajectories(
+            q_func, T=T, num_rnd_traj=num_rnd_traj, states=states)
+        for traj in trajectories:
+            traj_x, traj_y = traj
+            plt.scatter(traj_x[0], traj_y[0], s=48, c=c)
+            plt.plot(traj_x, traj_y, color=c, linewidth=2)
+
+        return results
 
     def get_value(self, q_func, nx=41, ny=121,
                   x_dot=0, y_dot=0, theta=0, theta_dot=0):
@@ -536,20 +547,20 @@ class LunarLanderReachability(LunarLander):
                   vmin=-50, vmax=50, nx=21, ny=21,
                   labels=['', ''],
                   boolPlot=False, plotZero=False,
-                  cmap='coolwarm', scale=3.0):
+                  cmap='coolwarm'):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
             v: State value function.
         """
+        # plt.figure(1)
         plt.clf()
         axes = self.get_axes()
-        slices_y = np.array([1, 0, -1]) * scale
-        slices_x = np.array([-1, 0, 1]) * scale
-        for y_jj, y_dot in enumerate(slices_y):
-            for x_ii, x_dot in enumerate(slices_x):
-                plt.subplot(len(slices_y), len(slices_x),
-                            x_ii*len(slices_x)+y_jj+1)
+        for y_jj, y_dot in enumerate(self.slices_y):
+            for x_ii, x_dot in enumerate(self.slices_x):
+                plt.subplot(len(self.slices_y), len(self.slices_x),
+                            y_jj*len(self.slices_y)+x_ii+1)
+                # print("Subplot -> ", y_jj*len(self.slices_y)+x_ii+1)
                 v, xs, ys = self.get_value(q_func, nx, ny,
                                            x_dot=x_dot, y_dot=y_dot, theta=0,
                                            theta_dot=0)
@@ -604,8 +615,10 @@ class LunarLanderReachability(LunarLander):
                 ax.set_xticklabels([])
                 ax.set_yticklabels([])
 
+
         if not no_show:
             plt.show()
+
 
 class RandomAlias:
     # Note: This is a little hacky. The LunarLander uses the instance attribute self.np_random to

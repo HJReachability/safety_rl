@@ -50,7 +50,7 @@ class DDQN():
         self.BATCH_SIZE = CONFIG.BATCH_SIZE
         self.MAX_MODEL = CONFIG.MAX_MODEL
         self.device = CONFIG.DEVICE
-        # Contraction Mapping
+        # Discount Factor
         self.GAMMA = CONFIG.GAMMA
         self.GAMMA_END = CONFIG.GAMMA_END
         self.GAMMA_PERIOD = CONFIG.GAMMA_PERIOD
@@ -60,7 +60,7 @@ class DDQN():
         self.TAU = CONFIG.TAU
         self.HARD_UPDATE = CONFIG.HARD_UPDATE # int, update period
         self.SOFT_UPDATE = CONFIG.SOFT_UPDATE # bool
-        # Build NN(s) for DQN 
+        # Build NN for (D)DQN 
         self.build_network()
         self.build_optimizer()
 
@@ -94,16 +94,15 @@ class DDQN():
          
     def update(self, verbose=False, addBias=False):
         if len(self.memory) < self.BATCH_SIZE*20:
-        #if not self.memory.isfull:
             return
         
         #== EXPERIENCE REPLAY ==
         transitions = self.memory.sample(self.BATCH_SIZE)
-        # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
-        # detailed explanation). This converts batch-array of Transitions
-        # to Transition of batch-arrays.
+        # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for detailed explanation). 
+        # This converts batch-array of Transitions to Transition of batch-arrays.
         batch = Transition(*zip(*transitions))
         
+        # `non_final_mask` is used for environments that have next state to be None
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)), 
                                       device=self.device, dtype=torch.bool)
         non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None], 
@@ -120,50 +119,56 @@ class DDQN():
                                     device=self.device).view(-1)
             l_x_nxt = torch.FloatTensor([info['l_x_nxt'] for info in batch.info], 
                                     device=self.device).view(-1)
+        
         #== get Q(s,a) ==
-        # gather reguires idx to be Long, i/p and idx should have the same shape with only diff at the dim we want to extract value
-        # o/p = Q [ i ][ action[i] ], which has the same dim as idx, 
+        # `gather` reguires idx to be Long, input and index should have the same shape 
+        # with only difference at the dimension we want to extract value
+        # out[i][j][k] = input[i][j][ index[i][j][k] ], which has the same dim as index
+        # -> state_action_values = Q [ i ][ action[i] ]
+        # view(-1): from mtx to vector
         state_action_values = self.Q_network(state).gather(1, action).view(-1)
         
         #== get a' by Q_policy: a' = argmin_a' Q_policy(s', a') ==
         with torch.no_grad():
             action_nxt = self.Q_network(non_final_state_nxt).min(1, keepdim=True)[1]
         
-        #== get expected value: y = r + gamma * Q_tar(s', a') ==
+        #== get expected value ==
         state_value_nxt = torch.zeros(self.BATCH_SIZE, device=self.device)
         
-        with torch.no_grad():
+        with torch.no_grad(): # V(s') = Q_tar(s', a'), a' is from Q_policy
             if self.double:
                 Q_expect = self.target_network(non_final_state_nxt)
             else:
                 Q_expect = self.Q_network(non_final_state_nxt)
         state_value_nxt[non_final_mask] = Q_expect.gather(1, action_nxt).view(-1)
 
-        #== Discounted Reach-Avoid Bellman Equation ==
+        #== Discounted Reach-Avoid Bellman Equation (DRABE) ==
         if self.mode == 'RA':
             expected_state_action_values = torch.zeros(self.BATCH_SIZE).float().to(self.device)
             
-            # Bias version
-            if addBias:
+            if addBias: # Bias version: V(s) = gamma ( max{ g(s), min{ l(s), V_diff(s') } } - max{ g(s), l(s) } ),
+                        # where V_diff(s') = V(s') + max{ g(s'), l(s') }
                 min_term = torch.min(l_x, state_value_nxt+torch.max(l_x_nxt, g_x_nxt))
                 terminal = torch.max(l_x, g_x)
                 non_terminal = torch.max(min_term, g_x) - terminal
                 expected_state_action_values[non_final_mask] = self.GAMMA * non_terminal[non_final_mask]
                 expected_state_action_values[torch.logical_not(non_final_mask)] = terminal[torch.logical_not(non_final_mask)]
-            else:
-                success_mask = torch.logical_and(torch.logical_not(non_final_mask), l_x<=0)
-                failure_mask = torch.logical_and(torch.logical_not(non_final_mask), g_x>0)
-
-                min_term = torch.min(l_x, state_value_nxt)
+            else: # Better version instead of DRABE on the paper (discussed on Nov. 18, 2020)
+                  # V(s) = gamma ( max{ g(s), min{ l(s), V_better(s') } } + (1-gamma) max{ g(s), l(s) },
+                  # where V_better(s') = max{ g(s'), min{ l(s'), V(s') } }
+                #success_mask = torch.logical_and(torch.logical_not(non_final_mask), l_x<=0)
+                #failure_mask = torch.logical_and(torch.logical_not(non_final_mask), g_x>0)
+                V_better = torch.max( g_x_nxt, torch.min(l_x_nxt, state_value_nxt))
+                #V_better = state_value_nxt
+                min_term = torch.min(l_x, V_better)
                 non_terminal = torch.max(min_term, g_x)
                 terminal = torch.max(l_x, g_x)
 
                 expected_state_action_values[non_final_mask] = non_terminal[non_final_mask] * self.GAMMA + \
                                                                terminal[non_final_mask] * (1-self.GAMMA)
-                #expected_state_action_values[success_mask] = -10.
-                #expected_state_action_values[failure_mask] = 10.
-                #expected_state_action_values[success_mask] = l_x[success_mask]
-                expected_state_action_values[torch.logical_not(non_final_mask)] = terminal[torch.logical_not(non_final_mask)]
+                # if next state is None, we will use g(x) as the expected V(s)
+                expected_state_action_values[torch.logical_not(non_final_mask)] = g_x[torch.logical_not(non_final_mask)]
+            '''
             if verbose:
                 np.set_printoptions(precision=3)
                 print(non_final_mask[:10])
@@ -172,14 +177,15 @@ class DDQN():
                 print('g       :', g_x[:10].numpy())
                 print('V_expect:', expected_state_action_values[:10].numpy())
                 print('V_policy:', state_action_values[:10].detach().numpy(), end='\n\n')
-        else:
+            '''
+        else: # V(s) = c(s, a) + gamma * V(s')
             expected_state_action_values = state_value_nxt * self.GAMMA + reward
         
-        #== regression Q(s, a) -> y ==
+        #== regression: Q(s, a) <- V(s) ==
         self.Q_network.train()
         loss = smooth_l1_loss(input=state_action_values, target=expected_state_action_values.detach())
         
-        #== backward optimize ==
+        #== backpropagation ==
         self.optimizer.zero_grad()
         loss.backward()
         nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
@@ -191,7 +197,8 @@ class DDQN():
 
 
     def learn(self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100, running_cost_th=None,
-                warmupBuffer=True, warmupQ=False, toEnd=False, addBias=False, warmupIter=10000,
+                warmupBuffer=True, warmupQ=False, warmupIter=10000,
+                toEnd=False, addBias=False, doneTerminate=True,
                 reportPeriod=5000, plotFigure=True, showBool=False, storeFigure=False,
                 vmin=-100, vmax=100, randomPlot=False, num_rnd_traj=10,
                 checkPeriod=50000, storeModel=True, storeBest=False, outFolder='RA', verbose=True):
@@ -259,11 +266,11 @@ class DDQN():
             for step_num in range(MAX_EP_STEPS):
                 # Select action
                 a, a_idx = self.select_action(s)
+
                 # Interact with env
                 s_, r, done, info = env.step(a_idx)
                 ep_cost += r
-                if done:
-                    s_ = None
+
                 # Store the transition in memory
                 self.store_transition(s, a_idx, r, s_, info)
                 s = s_
@@ -311,7 +318,7 @@ class DDQN():
                 self.updateHyperParam()
 
                 # Terminate early
-                if done:
+                if done and doneTerminate:
                     break
 
             # Rollout report

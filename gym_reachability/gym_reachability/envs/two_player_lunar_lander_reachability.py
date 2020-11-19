@@ -5,13 +5,13 @@
 # included in this repository.
 #
 # Please contact the author(s) of this library if you have any questions.
-# Authors: Vicenc Rubies Royo ( vrubies@berkeley.edu )
-#          Neil Lugovoy   ( nflugovoy@berkeley.edu )
+# Authors: Vicenc Rubies Royo   ( vrubies@berkeley.edu )
 
 import numpy as np
 import gym
 from gym import spaces
 from gym.envs.box2d.lunar_lander import LunarLander
+from gym.utils import seeding, EzPickle
 from gym.envs.box2d.lunar_lander import SCALE, VIEWPORT_W, VIEWPORT_H, LEG_DOWN, FPS, LEG_AWAY, \
     LANDER_POLY, LEG_H, LEG_W
 from Box2D.b2 import edgeShape
@@ -50,7 +50,7 @@ LANDER_RADIUS = ((LANDER_H / 2 + LEG_Y_DIST + LEG_H / SCALE) ** 2 +
                  (LANDER_W / 2 + LEG_X_DIST + LEG_W / SCALE) ** 2) ** 0.5
 
 
-class LunarLanderReachability(LunarLander):
+class TwoPlayerLunarLanderReachability(LunarLander):
 
     # in the LunarLander environment the variables LANDER_POLY, LEG_AWAY, LEG_DOWN, LEG_W, LEG_H
     # SIDE_ENGINE_HEIGHT, SIDE_ENGINE_AWAY, VIEWPORT_W and VIEWPORT_H are measured in pixels
@@ -151,6 +151,26 @@ class LunarLanderReachability(LunarLander):
         # for torch
         self.device = device
 
+        # From parent constuctor.
+        EzPickle.__init__(self)
+        self.seed()
+        self.viewer = None
+        self.world = Box2D.b2World()
+        self.moon = None
+        self.lander = {}
+        self.particles = []
+        self.prev_reward = None
+
+        # we don't use the states about whether the legs are touching
+        # so 6 dimensions total.
+        self.observation_space = spaces.Box(-np.inf, np.inf, shape=(6 * 2,),
+                                            dtype=np.float32)
+
+        self.action_space = spaces.Discrete(4 ** 4)
+
+        # this is the hack from above to make the ground flat
+        # self.np_random = RandomAlias
+
         self.bounds_simulation = np.array([[self.fly_min_x, self.fly_max_x],
                                            [self.fly_min_y, self.fly_max_y],
                                            [-self.vx_bound, self.vx_bound],
@@ -158,28 +178,15 @@ class LunarLanderReachability(LunarLander):
                                            [-self.theta_bound,
                                             self.theta_bound],
                                            [-self.theta_dot_bound,
+                                            self.theta_dot_bound],
+                                           [self.fly_min_x, self.fly_max_x],
+                                           [self.fly_min_y, self.fly_max_y],
+                                           [-self.vx_bound, self.vx_bound],
+                                           [-self.vy_bound, self.vy_bound],
+                                           [-self.theta_bound,
+                                            self.theta_bound],
+                                           [-self.theta_dot_bound,
                                             self.theta_dot_bound]])
-
-        self.tested_margins_flag = False
-        self.polygon_target = [
-            (self.helipad_x1, self.helipad_y),
-            (self.helipad_x2, self.helipad_y),
-            (self.helipad_x2, self.helipad_y + 2),
-            (self.helipad_x1, self.helipad_y + 2),
-            (self.helipad_x1, self.helipad_y)]
-        self.target_xy_polygon = Polygon(self.polygon_target)
-
-        super(LunarLanderReachability, self).__init__()
-
-        self.before_parent_init = False
-
-        # we don't use the states about whether the legs are touching
-        # so 6 dimensions total.
-        self.observation_space = spaces.Box(-np.inf, np.inf, shape=(6,),
-                                            dtype=np.float32)
-
-        # This makes dynamics deterministic.
-        self.np_random = RandomAlias
 
         # Check conversions are ok.
         assert np.all(np.abs(self.obs_scale_to_simulator_scale(
@@ -193,41 +200,11 @@ class LunarLanderReachability(LunarLander):
         self.bounds_observation[:, 1] = self.simulator_scale_to_obs_scale(
             self.bounds_simulation[:, 1].T)
 
-    def _test_margins(self):
-        if self.tested_margins_flag is False:
-            self.tested_margins_flag = True
-        else:
-            return True
-        for _ in range(200):
-            sampled_state = np.random.uniform(
-                low=self.bounds_simulation[:, 0],
-                high=self.bounds_simulation[:, 1])
-            s_contains_bool = self.obstacle_polyline.contains(
-                Point(sampled_state[0], sampled_state[1]))
-            t_contains_bool = self.target_xy_polygon.contains(
-                Point(sampled_state[0], sampled_state[1]))
-            # Check possible mistmatches.
-            s_margin = self.safety_margin(sampled_state)
-            t_margin = self.target_margin(sampled_state)
-            if (((s_margin <= 0) and  # Inside constraint set.
-                    s_contains_bool is False)  # Outside constraint set.
-                    or
-                    ((s_margin > 0) and  # Outside constraint set.
-                     s_contains_bool is True)):  # Inside constraint set.
-                return False
-            elif (((t_margin <= 0) and  # Inside target set.
-                    t_contains_bool is False)  # Outside target set.
-                    or
-                    ((t_margin > 0) and  # Outside target set.
-                     t_contains_bool is True)):  # Inside target set.
-                return False
-        return True
-
+        self.reset()
 
     # found online at:
     # https://codereview.stackexchange.com/questions/69833/..
     # generate-sample-coordinates-inside-a-polygon
-    # todo{vrubies} why buggy?
     @staticmethod
     def random_points_in_polygon(polygon, k):
         "Return list of k points uniformly at random inside the polygon."
@@ -255,33 +232,91 @@ class LunarLanderReachability(LunarLander):
             new_states.append(np.append(state, max(l_x, g_x)))
         return new_states
 
-    def set_lander_state(self, state):
+    def set_lander_state(self, state, key):
         # convention is x,y,x_dot,y_dot, theta, theta_dot
         # These internal variables are in --> simulator scale <--
         # changes need to be in np.float64
-        self.lander.position = np.array([state[0], state[1]], dtype=np.float64)
-        self.lander.linearVelocity = np.array([state[2], state[3]], dtype=np.float64)
-        self.lander.angle = np.float64(state[4])
-        self.lander.angularVelocity = np.float64(state[5])
+        self.lander[key].position = np.array([state[0], state[1]],
+                                             dtype=np.float64)
+        self.lander[key].linearVelocity = np.array([state[2], state[3]],
+                                                   dtype=np.float64)
+        self.lander[key].angle = np.float64(state[4])
+        self.lander[key].angularVelocity = np.float64(state[5])
 
         # after lander position is set have to set leg positions to be where
         # new lander position is.
-        self.legs[0].position = np.array(
-            [self.lander.position.x + LEG_AWAY/SCALE,
-             self.lander.position.y], dtype=np.float64)
-        self.legs[1].position = np.array(
-            [self.lander.position.x - LEG_AWAY/SCALE,
-             self.lander.position.y], dtype=np.float64)
+        self.legs[key][0].position = np.array(
+            [self.lander[key].position.x + LEG_AWAY/SCALE,
+             self.lander[key].position.y], dtype=np.float64)
+        self.legs[key][1].position = np.array(
+            [self.lander[key].position.x - LEG_AWAY/SCALE,
+             self.lander[key].position.y], dtype=np.float64)
 
-    def generate_terrain(self, terrain_polyline=None):
+    def generate_lander(self, initial_state, key):
+        # Generate Landers
+        initial_y = initial_state.y
+        initial_x = initial_state.x  # VIEWPORT_W/SCALE/2
+        self.lander[key] = self.world.CreateDynamicBody(
+            position=(initial_x, initial_y),
+            angle=0.0,
+            fixtures = fixtureDef(
+                shape=polygonShape(vertices=[(x/SCALE, y/SCALE) for x, y in LANDER_POLY]),
+                density=5.0,
+                friction=0.1,
+                categoryBits=0x0010,
+                maskBits=0x001,   # collide only with ground
+                restitution=0.0)  # 0.99 bouncy
+                )
+        self.lander[key].color1 = (0.5, 0.4, 0.9)
+        self.lander[key].color2 = (0.3, 0.3, 0.5)
+        self.lander[key].ApplyForceToCenter( (
+            self.np_random.uniform(-INITIAL_RANDOM, INITIAL_RANDOM),
+            self.np_random.uniform(-INITIAL_RANDOM, INITIAL_RANDOM)
+            ), True)
+
+        self.legs[key] = []
+        for i in [-1, +1]:
+            leg = self.world.CreateDynamicBody(
+                position=(initial_x - i*LEG_AWAY/SCALE, initial_y),
+                angle=(i * 0.05),
+                fixtures=fixtureDef(
+                    shape=polygonShape(box=(LEG_W/SCALE, LEG_H/SCALE)),
+                    density=1.0,
+                    restitution=0.0,
+                    categoryBits=0x0020,
+                    maskBits=0x001)
+                )
+            leg.ground_contact = False
+            leg.color1 = (0.5, 0.4, 0.9)
+            leg.color2 = (0.3, 0.3, 0.5)
+            rjd = revoluteJointDef(
+                bodyA=self.lander[key],
+                bodyB=leg,
+                localAnchorA=(0, 0),
+                localAnchorB=(i * LEG_AWAY/SCALE, LEG_DOWN/SCALE),
+                enableMotor=True,
+                enableLimit=True,
+                maxMotorTorque=LEG_SPRING_TORQUE,
+                motorSpeed=+0.3 * i  # low enough not to jump back into the sky
+                )
+            if i == -1:
+                rjd.lowerAngle = +0.9 - 0.5  # The most esoteric numbers here, angled legs have freedom to travel within
+                rjd.upperAngle = +0.9
+            else:
+                rjd.lowerAngle = -0.9
+                rjd.upperAngle = -0.9 + 0.5
+            leg.joint = self.world.CreateJoint(rjd)
+            self.legs[key].append(leg)
+
+    def generate_terrain_and_landers(self, terrain_polyline=None):
         # Destroy moon.
         self.world.DestroyBody(self.moon)
         self.moon = None
 
-        self.chunk_x = [W/(CHUNKS-1)*i for i in range(CHUNKS)]
-        self.helipad_x1 = self.chunk_x[CHUNKS//2-1]
-        self.helipad_x2 = self.chunk_x[CHUNKS//2+1]
-        self.helipad_y = HELIPAD_Y
+        # self.chunk_x = [W/(CHUNKS-1)*i for i in range(CHUNKS)]
+        # self.helipad_x1 = self.chunk_x[CHUNKS//2-1]
+        # self.helipad_x2 = self.chunk_x[CHUNKS//2+1]
+        # self.helipad_y = HELIPAD_Y
         # terrain
         if terrain_polyline is None:
             height = np.ones((CHUNKS+1,))
@@ -317,12 +352,18 @@ class LunarLanderReachability(LunarLander):
         obstacle_polyline.append((0, H))
         obstacle_polyline.append(obstacle_polyline[0])
         self.obstacle_polyline = Polygon(obstacle_polyline)
-        assert self._test_margins()
 
         self.moon.color1 = (0.0, 0.0, 0.0)
         self.moon.color2 = (0.0, 0.0, 0.0)
-        # return super(LunarLanderReachability, self).step(
-        #     np.array([0, 0]) if self.continuous else 0)[0]
+
+        initial_states = [self.rejection_sample() for _ in range(2)]
+        self.drawlist = []
+        for ii, initial_state in enumerate(initial_states):
+            self.generate_landers(initial_state)
+            self.drawlist += [self.lander[ii], self.legs[ii]]
+
+        s, _, _, _ = self.step(0)
+        return s
 
     def rejection_sample(self):
         flag_sample = False
@@ -335,26 +376,19 @@ class LunarLanderReachability(LunarLander):
                 Point(xy_sample[0], xy_sample[1]))
         return xy_sample
 
-    def reset(self, state_in=None, terrain_polyline=None,
-              rejection_sampling=True):
+    def reset(self, state_in=None, terrain_polyline=None):
         """
         resets the environment accoring to a uniform distribution.
         state_in assumed to be in simulation scale.
         :return: current state as 6d NumPy array of floats
         """
         # This returns something in --> observation scale <--.
-        s = super(LunarLanderReachability, self).reset()
-        self.generate_terrain(terrain_polyline=terrain_polyline)
+        s = self.generate_terrain_and_landers(
+            terrain_polyline=terrain_polyline)
 
         # Rewrite internal lander variables in --> simulation scale <--.
         if state_in is None:
             state_in = np.copy(self.obs_scale_to_simulator_scale(s))
-            # Have to sample uniformly to get good coverage of the state space.
-            if rejection_sampling:
-                state_in[:2] = self.rejection_sample()
-            else:
-                point = self.random_points_in_polygon(self.obstacle_polyline, 1)[0]
-                state_in[:2] = np.array([point.x, point.y])
             state_in[4] = np.random.uniform(low=-self.theta_bound,
                                             high=self.theta_bound)
         else:
@@ -365,7 +399,8 @@ class LunarLanderReachability(LunarLander):
                     min(state_in[ii], self.bounds_simulation[ii, 1]))
                 state_in[ii] = np.float64(
                     max(state_in[ii], self.bounds_simulation[ii, 0]))
-        self.set_lander_state(state_in)
+        self.set_lander_state(state_in[:6], 1)
+        self.set_lander_state(state_in[6:], 2)
 
         # Convert from simulator scale to observation scale.
         s = self.simulator_scale_to_obs_scale(state_in)
@@ -373,36 +408,110 @@ class LunarLanderReachability(LunarLander):
         # Return in --> observation scale <--.
         return s
 
-    def get_state(self):
-        """
-        gets the current state of the environment
-        :return: length 6 array of x, y, x_dot, y_dot, theta, theta_dot in simulator scale
-        """
-        return np.array([self.lander.position.x,
-                         self.lander.position.y,
-                         self.lander.linearVelocity.x,
-                         self.lander.linearVelocity.y,
-                         self.lander.angle,
-                         self.lander.angularVelocity])
+    def parent_step(self, action, key):
+        # Action needs to be single action 0-3.
+        assert self.action_space.contains(action), "%r (%s) invalid " % (action, type(action))
+
+        # Engines
+        tip  = (math.sin(self.lander[key].angle), math.cos(self.lander[key].angle))
+        side = (-tip[1], tip[0])
+
+        m_power = 0.0
+        if action == 2:
+            # Main engine
+            m_power = 1.0
+            ox = tip[0] * 4/SCALE  # 4 is move a bit downwards, +-2 for randomness
+            oy = -tip[1] * 4/SCALE
+            impulse_pos = (self.lander[key].position[0] + ox, self.lander[key].position[1] + oy)
+            p = self._create_particle(3.5,  # 3.5 is here to make particle speed adequate
+                                      impulse_pos[0],
+                                      impulse_pos[1],
+                                      m_power)  # particles are just a decoration
+            p.ApplyLinearImpulse((ox * MAIN_ENGINE_POWER * m_power, oy * MAIN_ENGINE_POWER * m_power),
+                                 impulse_pos,
+                                 True)
+            self.lander[key].ApplyLinearImpulse((-ox * MAIN_ENGINE_POWER * m_power, -oy * MAIN_ENGINE_POWER * m_power),
+                                           impulse_pos,
+                                           True)
+
+        s_power = 0.0
+        if action in [1, 3]:
+            # Orientation engines
+            direction = action-2
+            s_power = 1.0
+            ox = side[0] * direction * SIDE_ENGINE_AWAY/SCALE
+            oy = side[1] * direction * SIDE_ENGINE_AWAY/SCALE
+            impulse_pos = (self.lander[key].position[0] + ox - tip[0] * 17/SCALE,
+                           self.lander[key].position[1] + oy + tip[1] * SIDE_ENGINE_HEIGHT/SCALE)
+            p = self._create_particle(0.7, impulse_pos[0], impulse_pos[1], s_power)
+            p.ApplyLinearImpulse((ox * SIDE_ENGINE_POWER * s_power, oy * SIDE_ENGINE_POWER * s_power),
+                                 impulse_pos
+                                 , True)
+            self.lander[key].ApplyLinearImpulse((-ox * SIDE_ENGINE_POWER * s_power, -oy * SIDE_ENGINE_POWER * s_power),
+                                           impulse_pos,
+                                           True)
+
+        self.world.Step(1.0/FPS, 6*30, 2*30)
+
+        pos = self.lander[key].position
+        vel = self.lander[key].linearVelocity
+        state = [
+            (pos.x - VIEWPORT_W/SCALE/2) / (VIEWPORT_W/SCALE/2),
+            (pos.y - (self.helipad_y+LEG_DOWN/SCALE)) / (VIEWPORT_H/SCALE/2),
+            vel.x*(VIEWPORT_W/SCALE/2)/FPS,
+            vel.y*(VIEWPORT_H/SCALE/2)/FPS,
+            self.lander[key].angle,
+            20.0*self.lander[key].angularVelocity/FPS
+            ]
+        assert len(state) == 6
+
+        reward = 0
+        shaping = \
+            - 100*np.sqrt(state[0]*state[0] + state[1]*state[1]) \
+            - 100*np.sqrt(state[2]*state[2] + state[3]*state[3]) \
+            - 100*abs(state[4]) + 10*state[6] + 10*state[7]  # And ten points for legs contact, the idea is if you
+                                                             # lose contact again after landing, you get negative reward
+        if self.prev_shaping is not None:
+            reward = shaping - self.prev_shaping
+        self.prev_shaping = shaping
+
+        reward -= m_power*0.30  # less fuel spent is better, about -30 for heuristic landing
+        reward -= s_power*0.03
+
+        done = False
+        if self.game_over or abs(state[0]) >= 1.0:
+            done = True
+            reward = -100
+        if not self.lander[key].awake:
+            done = True
+            reward = +100
+        return np.array(state, dtype=np.float32), reward, done, {}
 
     def step(self, action):
-        if self.before_parent_init:
-            cost = None  # Can't be computed.
-            obs_s, _, done, info = super(LunarLanderReachability, self).step(
-                action)
-            return np.copy(obs_s[:-2]), cost, False, {}
-        else:
-            # Note that l function must be computed before environment
-            # steps see reamdme for proof.
-            l_x_cur = self.target_margin(self.get_state())
-            g_x_cur = self.safety_margin(self.get_state())
 
-        obs_s, _, done, info = super(LunarLanderReachability, self).step(
-            action)
-        self.obs_state = obs_s[:-2]  # Remove states dealing with contacts.
+        l_x_cur = {}
+        g_x_cur = {}
+        l_x_nxt = {}
+        g_x_nxt = {}
+
+        actions = [int(action/4), action % 4]
+        state_list = []
+        reward_list = []
+        done_list = []
+        info_list = []
+        for ii in range(2):
+            l_x_cur[ii] = self.target_margin(self.get_state(ii))
+            g_x_cur[ii] = self.safety_margin(self.get_state(ii))
+            state_ii, reward_ii, done_ii, info_ii = self.parent_step(
+                actions[ii], ii)
+            l_x_nxt[ii] = self.target_margin(self.get_state(ii))
+            g_x_nxt[ii] = self.safety_margin(self.get_state(ii))
+            state_list.append(state_ii)
+            reward_list.append(reward_ii)
+            done_list.append(done_ii)
+            info_list.append(info_ii)
+        self.obs_state = np.concatenate(state_list)
         self.sim_state = self.obs_scale_to_simulator_scale(self.obs_state)
-        l_x_nxt = self.target_margin(self.get_state())
-        g_x_nxt = self.safety_margin(self.get_state())
 
         # cost
         if self.mode == 'extend' or self.mode == 'RA':
@@ -450,13 +559,51 @@ class LunarLanderReachability(LunarLander):
                 "l_x_nxt": l_x_nxt}
         return np.copy(self.obs_state), cost, done, info
 
+    def _create_particle(self, mass, x, y, ttl):
+        p = self.world.CreateDynamicBody(
+            position = (x, y),
+            angle=0.0,
+            fixtures = fixtureDef(
+                shape=circleShape(radius=2/SCALE, pos=(0, 0)),
+                density=mass,
+                friction=0.1,
+                categoryBits=0x0100,
+                maskBits=0x001,  # collide only with ground
+                restitution=0.3)
+                )
+        p.ttl = ttl
+        self.particles.append(p)
+        self._clean_particles(False)
+        return p
+
+    def _clean_particles(self, all):
+        while self.particles and (all or self.particles[0].ttl < 0):
+            self.world.DestroyBody(self.particles.pop(0))
+
+    def get_state(self, key):
+        """
+        gets the current state of the environment
+        :return: length 6 array of x, y, x_dot, y_dot, theta, theta_dot in simulator scale
+        """
+        return np.array([self.lander[key].position.x,
+                         self.lander[key].position.y,
+                         self.lander[key].linearVelocity.x,
+                         self.lander[key].linearVelocity.y,
+                         self.lander[key].angle,
+                         self.lander[key].angularVelocity])
+
     def safety_margin(self, state):
 
-        x = state[0]
-        y = state[1]
-        p = Point(x, y)
-        L2_distance = self.obstacle_polyline.exterior.distance(p)
-        inside = 2*self.obstacle_polyline.contains(p) - 1
+        x1 = state[0]
+        y1 = state[1]
+        x2 = state[6]
+        y2 = state[7]
+        p1 = Point(x1, y1)
+        p2 = Point(x2, y2)
+        L2_distance1 = self.obstacle_polyline.exterior.distance(p1)
+        L2_distance2 = self.obstacle_polyline.exterior.distance(p2)
+        inside1 = 2*self.obstacle_polyline.contains(p1) - 1
+        inside2 = 2*self.obstacle_polyline.contains(p2) - 1
         return -inside*L2_distance
 
     def target_margin(self, state):
@@ -469,17 +616,16 @@ class LunarLanderReachability(LunarLander):
         theta = state[4]
 
         landing_distance = np.min([
-            # 10 * (theta - self.theta_hover_min),  # heading error multiply 10
-            # 10 * (self.theta_hover_max - theta),  # for similar scale of units
-            x - self.helipad_x1,# - LANDER_RADIUS,
-            self.helipad_x2 - x,# - LANDER_RADIUS,
-            y - self.helipad_y,# - LANDER_RADIUS,
-            (self.helipad_y + 2) - y])# - LANDER_RADIUS])
-            # ,
-            # y_dot - self.hover_min_y_dot,
-            # self.hover_max_y_dot - y_dot,
-            # x_dot - self.hover_min_x_dot,
-            # self.hover_max_x_dot - x_dot])  # speed check
+            10 * (theta - self.theta_hover_min),  # heading error multiply 10
+            10 * (self.theta_hover_max - theta),  # for similar scale of units
+            x - self.hover_min_x - LANDER_RADIUS,
+            self.hover_max_x - x - LANDER_RADIUS,
+            y - self.hover_min_y - LANDER_RADIUS,
+            self.hover_max_y - y - LANDER_RADIUS,
+            y_dot - self.hover_min_y_dot,
+            self.hover_max_y_dot - y_dot,
+            x_dot - self.hover_min_x_dot,
+            self.hover_max_x_dot - x_dot])  # speed check
 
         return -landing_distance
 
@@ -554,17 +700,14 @@ class LunarLanderReachability(LunarLander):
         result = 0  # Not finished.
 
         for t in range(T):
-            state_sim = self.obs_scale_to_simulator_scale(state)
-            s_margin = self.safety_margin(state_sim)
-            t_margin = self.target_margin(state_sim)
-            if s_margin > 0:
+            if self.safety_margin(
+                    self.obs_scale_to_simulator_scale(state)) > 0:
                 result = -1  # Failed.
                 break
-            elif t_margin <= 0:
+            elif self.target_margin(
+                    self.obs_scale_to_simulator_scale(state)) <= 0:
                 result = 1  # Succeeded.
                 break
-            # print("S_Margin: ", s_margin)
-            # print("T_Margin: ", t_margin)
 
             state_tensor = torch.FloatTensor(state,
                                              device=self.device).unsqueeze(0)
@@ -615,12 +758,13 @@ class LunarLanderReachability(LunarLander):
             q_func, T=T, num_rnd_traj=num_rnd_traj, states=states)
         for traj in trajectories:
             traj_x, traj_y = traj
-            plt.scatter(traj_x[0], traj_y[0], s=24, c=c)
+            plt.scatter(traj_x[0], traj_y[0], s=48, c=c)
             plt.plot(traj_x, traj_y, color=c, linewidth=2)
 
         return results
 
-    def get_value(self, q_func, nx=41, ny=121, x_dot=0, y_dot=0, theta=0, theta_dot=0):
+    def get_value(self, q_func, nx=41, ny=121,
+                  x_dot=0, y_dot=0, theta=0, theta_dot=0):
         v = np.zeros((nx, ny))
         it = np.nditer(v, flags=['multi_index'])
         xs = np.linspace(self.bounds_observation[0, 0],
@@ -737,7 +881,7 @@ class LunarLanderReachability(LunarLander):
                         y = ys[idx[1]]
 
                         if v[idx] <= 0:
-                            plt.scatter(x, y, c='k', s=24)
+                            plt.scatter(x, y, c='k', s=48)
                         it.iternext()
 
 
@@ -759,21 +903,21 @@ class LunarLanderReachability(LunarLander):
             plt.show()
 
 
-class RandomAlias:
-    # Note: This is a little hacky. The LunarLander uses the instance attribute self.np_random to
-    # pick the moon chunks placements and also determine the randomness in the dynamics and
-    # starting conditions. The size argument is only used for determining the height of the
-    # chunks so this can be used to set the height of the chunks. When low=-1.0 and high=1.0 the
-    # dispersion on the particles is determined on line 247 in step LunarLander which makes the
-    # dynamics probabilistic. Safety Bellman Equation assumes deterministic dynamics so we set that
-    # to be constant
+# class RandomAlias:
+#     # Note: This is a little hacky. The LunarLander uses the instance attribute self.np_random to
+#     # pick the moon chunks placements and also determine the randomness in the dynamics and
+#     # starting conditions. The size argument is only used for determining the height of the
+#     # chunks so this can be used to set the height of the chunks. When low=-1.0 and high=1.0 the
+#     # dispersion on the particles is determined on line 247 in step LunarLander which makes the
+#     # dynamics probabilistic. Safety Bellman Equation assumes deterministic dynamics so we set that
+#     # to be constant
 
-    @staticmethod
-    def uniform(low, high, size=None):
-        if size is None:
-            if low == -1.0 and high == 1.0:
-                return 0
-            else:
-                return np.random.uniform(low=low, high=high)
-        else:
-            return np.ones(12) * HELIPAD_Y * 0.1 # this makes the ground flat
+#     @staticmethod
+#     def uniform(low, high, size=None):
+#         if size is None:
+#             if low == -1.0 and high == 1.0:
+#                 return 0
+#             else:
+#                 return np.random.uniform(low=low, high=high)
+#         else:
+#             return np.ones(12) * HELIPAD_Y * 0.1 # this makes the ground flat

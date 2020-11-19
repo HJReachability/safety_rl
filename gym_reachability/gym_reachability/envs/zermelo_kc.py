@@ -529,7 +529,7 @@ class ZermeloKCEnv(gym.Env):
 
 
     def visualize_analytic_comparison( self, q_func, no_show=False, 
-                                       vmin=-50, vmax=50, nx=121, ny=361,
+                                       vmin=-50, vmax=50, nx=61, ny=181,
                                        labels=['', ''],
                                        boolPlot=False, plotZero=False,
                                        cmap='coolwarm'):

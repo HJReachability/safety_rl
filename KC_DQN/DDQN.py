@@ -187,7 +187,7 @@ class DDQN():
               running_cost_th=None, warmupBuffer=True, warmupQ=False,
               toEnd=False, addBias=False, reportPeriod=5000, plotFigure=True,
               showBool=False, storeFigure=False, vmin=-100, vmax=100,
-              randomPlot=False, num_rnd_traj=10, checkPeriod=50000,
+              randomPlot=False, num_rnd_traj=5, checkPeriod=50000,
               storeModel=True, storeBest=True, outFolder='RA', verbose=True):
 
         # == TRAINING RECORD ==
@@ -320,7 +320,7 @@ class DDQN():
                             figureFolder = 'figure/{:s}/'.format(outFolder)
                             os.makedirs(figureFolder, exist_ok=True)
                             # print("Saving figure in: ", figureFolder)
-                            plt.savefig('{:s}/{:d}.eps'.format(figureFolder, self.cntUpdate))
+                            plt.savefig('{:s}/{:d}.png'.format(figureFolder, self.cntUpdate))
                         if plotFigure:
                             plt.pause(0.001)
 

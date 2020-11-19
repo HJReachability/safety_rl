@@ -5,7 +5,8 @@
 # included in this repository.
 #
 # Please contact the author(s) of this library if you have any questions.
-# Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
+# Authors: Vicenc Rubies Royo ( vrubies@berkeley.edu )
+#          Neil Lugovoy   ( nflugovoy@berkeley.edu )
 
 import numpy as np
 import gym
@@ -28,6 +29,7 @@ from shapely.ops import triangulate
 # in LunarLander reset() unfortunately
 
 W = VIEWPORT_W / SCALE
+H = VIEWPORT_H / SCALE
 CHUNKS = 17 #11  # number of polygons used to make the lunar surface
 HELIPAD_Y = (VIEWPORT_H / SCALE) / 2  # height of helipad in simulator scale
 
@@ -71,6 +73,11 @@ class LunarLanderReachability(LunarLander):
 
         self.before_parent_init = True
 
+        self.chunk_x = [W/(CHUNKS-1)*i for i in range(CHUNKS)]
+        self.helipad_x1 = self.chunk_x[CHUNKS//2-1]
+        self.helipad_x2 = self.chunk_x[CHUNKS//2+1]
+        self.helipad_y = HELIPAD_Y
+
         # safety problem limits in --> simulator scale <--
 
         self.hover_min_y_dot = -0.1
@@ -79,9 +86,6 @@ class LunarLanderReachability(LunarLander):
         self.hover_max_x_dot = 0.1
 
         self.land_min_v = -1.6  # fastest that lander can be falling when it hits the ground
-
-        self.hover_min_x = W / (CHUNKS - 1) * (CHUNKS // 2 - 1)  # calc of edges of landing pad based
-        self.hover_max_x = W / (CHUNKS - 1) * (CHUNKS // 2 + 1)  # on calc in parent reset()
 
         self.theta_hover_max = np.radians(15.0)  # most the lander can be tilted when landing
         self.theta_hover_min = np.radians(-15.0)
@@ -96,8 +100,10 @@ class LunarLanderReachability(LunarLander):
         self.midpoint_y = (self.fly_max_y + self.fly_min_y) / 2
         self.width_y = (self.fly_max_y - self.fly_min_y)
 
-        self.hover_min_y = self.midpoint_y + 1  # calc of edges of landing pad based
-        self.hover_max_y = self.midpoint_y - 1  # on calc in parent reset()
+        self.hover_min_x = W / (CHUNKS - 1) * (CHUNKS // 2 - 1)
+        self.hover_max_x = W / (CHUNKS - 1) * (CHUNKS // 2 + 1)
+        self.hover_min_y = HELIPAD_Y  # calc of edges of landing pad based
+        self.hover_max_y = HELIPAD_Y + 2  # on calc in parent reset()
 
         # set up state space bounds used in evaluating the q value function
         self.vx_bound = 10  # bounds centered at 0 so take negative for lower bound
@@ -154,8 +160,8 @@ class LunarLanderReachability(LunarLander):
         self.observation_space = spaces.Box(-np.inf, np.inf, shape=(6,),
                                             dtype=np.float32)
 
-        # this is the hack from above to make the ground flat
-        # self.np_random = RandomAlias
+        # This makes dynamics deterministic.
+        self.np_random = RandomAlias
 
         self.bounds_simulation = np.array([[self.fly_min_x, self.fly_max_x],
                                            [self.fly_min_y, self.fly_max_y],
@@ -181,6 +187,7 @@ class LunarLanderReachability(LunarLander):
     # found online at:
     # https://codereview.stackexchange.com/questions/69833/..
     # generate-sample-coordinates-inside-a-polygon
+    # todo{vrubies} why buggy?
     @staticmethod
     def random_points_in_polygon(polygon, k):
         "Return list of k points uniformly at random inside the polygon."
@@ -227,20 +234,20 @@ class LunarLanderReachability(LunarLander):
              self.lander.position.y], dtype=np.float64)
 
     def generate_terrain(self, terrain_polyline=None):
-        W = VIEWPORT_W/SCALE
-        H = VIEWPORT_H/SCALE
         # Destroy moon.
         self.world.DestroyBody(self.moon)
         self.moon = None
+
+        self.chunk_x = [W/(CHUNKS-1)*i for i in range(CHUNKS)]
+        self.helipad_x1 = self.chunk_x[CHUNKS//2-1]
+        self.helipad_x2 = self.chunk_x[CHUNKS//2+1]
+        self.helipad_y = HELIPAD_Y
         # terrain
         if terrain_polyline is None:
             height = np.ones((CHUNKS+1,))
         else:
             height = terrain_polyline
-        chunk_x = [W/(CHUNKS-1)*i for i in range(CHUNKS)]
-        self.helipad_x1 = chunk_x[CHUNKS//2-1]
-        self.helipad_x2 = chunk_x[CHUNKS//2+1]
-        self.helipad_y = HELIPAD_Y
+        height[CHUNKS//2-3] = self.helipad_y + 2.5
         height[CHUNKS//2-2] = self.helipad_y
         height[CHUNKS//2-1] = self.helipad_y
         height[CHUNKS//2+0] = self.helipad_y
@@ -255,10 +262,10 @@ class LunarLanderReachability(LunarLander):
         self.moon = self.world.CreateStaticBody(shapes=edgeShape(
             vertices=[(0, 0), (W, 0)]))
         self.sky_polys = []
-        obstacle_polyline = [(chunk_x[0], smooth_y[0])]
+        obstacle_polyline = [(self.chunk_x[0], smooth_y[0])]
         for i in range(CHUNKS-1):
-            p1 = (chunk_x[i], smooth_y[i])
-            p2 = (chunk_x[i+1], smooth_y[i+1])
+            p1 = (self.chunk_x[i], smooth_y[i])
+            p2 = (self.chunk_x[i+1], smooth_y[i+1])
             obstacle_polyline.append(p2)
             self.moon.CreateEdgeFixture(
                 vertices=[p1, p2],
@@ -276,7 +283,8 @@ class LunarLanderReachability(LunarLander):
         # return super(LunarLanderReachability, self).step(
         #     np.array([0, 0]) if self.continuous else 0)[0]
 
-    def reset(self, state_in=None, terrain_polyline=None):
+    def reset(self, state_in=None, terrain_polyline=None,
+              rejection_sampling=True):
         """
         resets the environment accoring to a uniform distribution.
         state_in assumed to be in simulation scale.
@@ -290,12 +298,19 @@ class LunarLanderReachability(LunarLander):
         if state_in is None:
             state_in = np.copy(self.obs_scale_to_simulator_scale(s))
             # Have to sample uniformly to get good coverage of the state space.
-            point = self.random_points_in_polygon(self.obstacle_polyline, 1)[0]
-            state_in[:2] = np.array([point.x, point.y])
-            # state_in[:2] = np.random.uniform(low=[self.fly_min_x,
-            #                                       self.fly_min_y],
-            #                                  high=[self.fly_max_x,
-            #                                        self.fly_max_y])
+            if rejection_sampling:
+                flag_sample = False
+                while not flag_sample:
+                    xy_sample = np.random.uniform(low=[self.fly_min_x,
+                                                       self.fly_min_y],
+                                                  high=[self.fly_max_x,
+                                                        self.fly_max_y])
+                    flag_sample = self.obstacle_polyline.contains(
+                        Point(xy_sample[0], xy_sample[1]))
+                state_in[:2] = xy_sample
+            else:
+                point = self.random_points_in_polygon(self.obstacle_polyline, 1)[0]
+                state_in[:2] = np.array([point.x, point.y])
             state_in[4] = np.random.uniform(low=-self.theta_bound,
                                             high=self.theta_bound)
         else:
@@ -412,10 +427,10 @@ class LunarLanderReachability(LunarLander):
         landing_distance = np.min([
             10 * (theta - self.theta_hover_min),  # heading error multiply 10
             10 * (self.theta_hover_max - theta),  # for similar scale of units
-            x - self.hover_min_x - LANDER_RADIUS,
-            self.hover_max_x - x - LANDER_RADIUS,
-            y - self.hover_min_y - LANDER_RADIUS,
-            self.hover_max_y - y - LANDER_RADIUS,
+            x - self.helipad_x1 - LANDER_RADIUS,
+            self.helipad_x2 - x - LANDER_RADIUS,
+            y - self.helipad_y - LANDER_RADIUS,
+            (self.helipad_y + 2) - y - LANDER_RADIUS,
             y_dot - self.hover_min_y_dot,
             self.hover_max_y_dot - y_dot,
             x_dot - self.hover_min_x_dot,
@@ -552,13 +567,12 @@ class LunarLanderReachability(LunarLander):
             q_func, T=T, num_rnd_traj=num_rnd_traj, states=states)
         for traj in trajectories:
             traj_x, traj_y = traj
-            plt.scatter(traj_x[0], traj_y[0], s=48, c=c)
+            plt.scatter(traj_x[0], traj_y[0], s=24, c=c)
             plt.plot(traj_x, traj_y, color=c, linewidth=2)
 
         return results
 
-    def get_value(self, q_func, nx=41, ny=121,
-                  x_dot=0, y_dot=0, theta=0, theta_dot=0):
+    def get_value(self, q_func, nx=41, ny=121, x_dot=0, y_dot=0, theta=0, theta_dot=0):
         v = np.zeros((nx, ny))
         it = np.nditer(v, flags=['multi_index'])
         xs = np.linspace(self.bounds_observation[0, 0],
@@ -675,7 +689,7 @@ class LunarLanderReachability(LunarLander):
                         y = ys[idx[1]]
 
                         if v[idx] <= 0:
-                            plt.scatter(x, y, c='k', s=48)
+                            plt.scatter(x, y, c='k', s=24)
                         it.iternext()
 
 
@@ -697,21 +711,21 @@ class LunarLanderReachability(LunarLander):
             plt.show()
 
 
-# class RandomAlias:
-#     # Note: This is a little hacky. The LunarLander uses the instance attribute self.np_random to
-#     # pick the moon chunks placements and also determine the randomness in the dynamics and
-#     # starting conditions. The size argument is only used for determining the height of the
-#     # chunks so this can be used to set the height of the chunks. When low=-1.0 and high=1.0 the
-#     # dispersion on the particles is determined on line 247 in step LunarLander which makes the
-#     # dynamics probabilistic. Safety Bellman Equation assumes deterministic dynamics so we set that
-#     # to be constant
+class RandomAlias:
+    # Note: This is a little hacky. The LunarLander uses the instance attribute self.np_random to
+    # pick the moon chunks placements and also determine the randomness in the dynamics and
+    # starting conditions. The size argument is only used for determining the height of the
+    # chunks so this can be used to set the height of the chunks. When low=-1.0 and high=1.0 the
+    # dispersion on the particles is determined on line 247 in step LunarLander which makes the
+    # dynamics probabilistic. Safety Bellman Equation assumes deterministic dynamics so we set that
+    # to be constant
 
-#     @staticmethod
-#     def uniform(low, high, size=None):
-#         if size is None:
-#             if low == -1.0 and high == 1.0:
-#                 return 0
-#             else:
-#                 return np.random.uniform(low=low, high=high)
-#         else:
-#             return np.ones(12) * HELIPAD_Y * 0.1 # this makes the ground flat
+    @staticmethod
+    def uniform(low, high, size=None):
+        if size is None:
+            if low == -1.0 and high == 1.0:
+                return 0
+            else:
+                return np.random.uniform(low=low, high=high)
+        else:
+            return np.ones(12) * HELIPAD_Y * 0.1 # this makes the ground flat

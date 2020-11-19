@@ -161,6 +161,7 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
             sys.stdout.flush()
         if ((num_rnd_traj is not None or visualization_states is not None)
                 and (episode + 1) % (60*5000) == 0):
+            np.save('models/TQ/{:d}.npy'.format(episode + 1), q_values)
             env.visualize_analytic_comparison(v_from_q(q_values), True, labels=["",""], boolPlot=True)
             env.plot_reach_avoid_set()
             env.plot_trajectories(q_values, T=vis_T, num_rnd_traj=num_rnd_traj,

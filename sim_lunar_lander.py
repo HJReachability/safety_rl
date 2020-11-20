@@ -54,7 +54,7 @@ print(args)
 # == CONFIGURATION ==
 env_name = "lunar_lander_reachability-v0"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-maxSteps = 120
+maxSteps = 20
 if args.toEnd:
     maxEpisodes = int(args.maxAccess / maxSteps * 2)
 else:
@@ -113,11 +113,15 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period):
     agent = DDQN(s_dim, action_num, CONFIG, action_list, mode=agentMode,
                  RA_scaling=args.scaling)
 
+    # If *true* episode ends when gym environment gives done flag.
+    # If *false* end
     # == TRAINING ==
     _, trainProgress = agent.learn(
         env,
-        # MAX_EPISODES=CONFIG.MAX_EPISODES,
+        MAX_UPDATES=2000000,  # 6000000 for Dubins
         MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
+        warmupBuffer=True,
+        warmupQ=False,  # Need to implement inside env.
         addBias=True,  # args.addBias,
         toEnd=args.toEnd,
         reportPeriod=report_period,  # How often to report Value function figs.

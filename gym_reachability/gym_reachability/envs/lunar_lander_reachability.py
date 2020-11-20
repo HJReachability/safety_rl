@@ -437,14 +437,14 @@ class LunarLanderReachability(LunarLander):
                 else:
                     cost = 0.
         # done
-        if not done and self.doneType == 'toEnd':
-            outsideTop = (self.sim_state[1] >= self.bounds_simulation[1, 1])
-            outsideLeft = (self.sim_state[0] <= self.bounds_simulation[0, 0])
-            outsideRight = (self.sim_state[0] >= self.bounds_simulation[0, 1])
-            done = outsideTop or outsideLeft or outsideRight
-        elif not done:
+        # if not done and self.doneType == 'toEnd':
+        #     outsideTop = (self.sim_state[1] >= self.bounds_simulation[1, 1])
+        #     outsideLeft = (self.sim_state[0] <= self.bounds_simulation[0, 0])
+        #     outsideRight = (self.sim_state[0] >= self.bounds_simulation[0, 1])
+        #     done = outsideTop or outsideLeft or outsideRight
+        if not done:
             done = fail or success
-            assert self.doneType == 'TF', 'invalid doneType'
+            # assert self.doneType == 'TF', 'invalid doneType'
 
         info = {"g_x": g_x_cur,  "l_x": l_x_cur, "g_x_nxt": g_x_nxt,
                 "l_x_nxt": l_x_nxt}

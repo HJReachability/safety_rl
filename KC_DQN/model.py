@@ -2,39 +2,97 @@
 # Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
 import torch
-import torch.nn as nn
+import torch.nn as nn             
 
-class model(nn.Module):
+class modelTanhTwo(nn.Module):
     def __init__(self, state_num, action_num):
-        super(model, self).__init__()
+        super(modelTanhTwo, self).__init__()
+        # nn.ReLU() nn.Tanh()
         self.fc1 = nn.Sequential(
             nn.Linear(in_features=state_num, out_features=100),
             nn.Tanh())
-        #self.fc1 = nn.Linear(in_features=state_num, out_features=100)
-        self.fc2 = nn.Linear(100, action_num)
+        self.final = nn.Linear(100, action_num)
         self._initialize_weights()
+        print("Using two-layer NN architecture with Tanh act.")
 
     def forward(self, x):
         out1 = self.fc1(x)
-        #out1 = torch.sin(out1)
-        a = self.fc2(out1)
+        a = self.final(out1)
         return a
-
+    
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 m.weight.data.normal_(0, 1)
-                #m.weight.data.zero_()
                 m.bias.data.zero_()
 
-    def outputGrad(self):
-        curMax = torch.FloatTensor((0,))
+
+class modelTanhThree(nn.Module):
+    def __init__(self, state_num, action_num):
+        super(modelTanhThree, self).__init__()
+        self.fc1 = nn.Sequential(
+            nn.Linear(in_features=state_num, out_features=100),
+            nn.Tanh())
+        self.fc2 = nn.Sequential(
+            nn.Linear(in_features=100, out_features=100),
+            nn.Tanh())
+        self.final = nn.Linear(100, action_num)
+        self._initialize_weights()
+        print("Using three-layer NN architecture with Tanh act.")
+
+    def forward(self, x):
+        out1 = self.fc1(x)
+        out2 = self.fc2(out1)
+        a = self.final(out2)
+        return a
+    
+    def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                tmp1 = torch.max(torch.abs(m.weight.grad.clone()))
-                tmp2 = torch.max(torch.abs(m.bias.grad.clone()))
-                tmp3 = torch.max(tmp1, tmp2)
-                curMax = torch.max(curMax, tmp3)
-                #print(tmp1, tmp2, tmp3, curMax)
-                print(m.bias.grad.clone())
-        return curMax
+                m.weight.data.normal_(0, 1)
+                m.bias.data.zero_()
+
+
+class modelSinTwo(nn.Module):
+    def __init__(self, state_num, action_num):
+        super(modelSinTwo, self).__init__()
+        self.fc1 = nn.Linear(in_features=state_num, out_features=100)
+        self.final = nn.Linear(100, action_num)
+        self._initialize_weights()
+        print("Using two-layer NN architecture with Sin act.")
+
+    def forward(self, x):
+        out1 = self.fc1(x)
+        out1 = torch.sin(out1)
+        a = self.final(out1)
+        return a
+    
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                m.weight.data.normal_(0, 1)
+                m.bias.data.zero_()
+
+
+class modelSinThree(nn.Module):
+    def __init__(self, state_num, action_num):
+        super(modelSinThree, self).__init__()
+        self.fc1 = nn.Linear(in_features=state_num, out_features=100)
+        self.fc2 = nn.Linear(in_features=100, out_features=100)
+        self.final = nn.Linear(100, action_num)
+        self._initialize_weights()
+        print("Using three-layer NN architecture with Sin act.")
+
+    def forward(self, x):
+        out1 = self.fc1(x)
+        out1 = torch.sin(out1)
+        out2 = self.fc2(out1)
+        out2 = torch.sin(out2)
+        a = self.final(out2)
+        return a
+    
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                m.weight.data.normal_(0, 1)
+                m.bias.data.zero_()

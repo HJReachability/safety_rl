@@ -243,17 +243,13 @@ class DDQN():
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
                 self.optimizer.step()
-                '''
-                if ep_tmp % 500 == 0:
-                    env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax)
-                    plt.pause(0.001)
-                '''
+
             print(" --- Warmup Q Ends")
             env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic')
             plt.pause(0.001)
             self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
             self.build_optimizer()
- 
+
         # == Main Training ==
         trainProgress = []
         checkPointSucc = 0.
@@ -309,8 +305,9 @@ class DDQN():
                         if storeFigure:
                             figureFolder = 'figure/{:s}/'.format(outFolder)
                             os.makedirs(figureFolder, exist_ok=True)
-                            plt.savefig('{:s}/{:d}.eps'.format(figureFolder, self.cntUpdate))
-                        plt.pause(0.001)
+                            plt.savefig('{:s}/{:d}.png'.format(figureFolder, self.cntUpdate))
+                        if plotFigure:
+                            plt.pause(0.001)
 
                 # Perform one step of the optimization (on the target network)
                 loss_c = self.update(addBias=addBias)
@@ -328,8 +325,8 @@ class DDQN():
                 print('\r{:3.0f}: This episode gets running/episode cost = ({:3.2f}/{:.2f}) after {:d} steps.'.format(\
                     ep, running_cost, ep_cost, step_num+1), end=' ')
                 print('The agent currently updates {:d} times'.format(self.cntUpdate), end='\t\t')
-            
-            # Check stopping criteria  
+
+            # Check stopping criteria
             if running_cost_th != None:
                 if running_cost <= running_cost_th:
                     print("\n At Updates[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(self.cntUpdate, running_cost))
@@ -385,7 +382,7 @@ class DDQN():
     def store_transition(self, *args):
         self.memory.update(Transition(*args))
 
-        
+
     def save(self, step, logs_path):
         os.makedirs(logs_path, exist_ok=True)
         model_list =  glob.glob(os.path.join(logs_path, '*.pth'))

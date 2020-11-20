@@ -70,6 +70,8 @@ class DubinsCarEnv(gym.Env):
         np.random.seed(self.seed_val)
 
         # Visualization params
+        self.fig = None
+        self.axes = None
         self.visual_initial_states = [  np.array([ .6*self.outer_radius,  -.5, np.pi/2]),
                                         np.array([ -.4*self.outer_radius, -.5, np.pi/2]),
                                         np.array([ -0.95*self.outer_radius, 0., np.pi/2]),
@@ -422,21 +424,28 @@ class DubinsCarEnv(gym.Env):
 
     def visualize_analytic_comparison(self, q_func, no_show=False,
                                       vmin=-1, vmax=1, nx=101, ny=101, cmap='coolwarm',
-                                      labels=None, boolPlot=False, theta=np.pi/2):
+                                      labels=None, boolPlot=False, addBias=False, theta=np.pi/2):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
             q_func: NN or Tabular-Q
         """
+        axStyle = self.get_axes()
+        thetaList = [np.pi/6, np.pi/3, np.pi/2]
+        # numX = 1
+        # numY = 3
+        # if self.axes is None:
+        #     self.fig, self.axes = plt.subplots(
+        #         numX, numY, figsize=(4*numY, 4*numX), sharex=True, sharey=True)
         fig = plt.figure(figsize=(12,4))
         ax1 = fig.add_subplot(131)
         ax2 = fig.add_subplot(132)
-        ax3 = fig.add_subplot(133)
-        axStyle = self.get_axes()
+        ax3 = fig.add_subplot(133)  
         axList = [ax1, ax2, ax3]
-        thetaList = [np.pi/6, np.pi/3, np.pi/2]
 
         for i, (ax, theta) in enumerate(zip(axList, thetaList)):
+        # for i, (ax, theta) in enumerate(zip(self.axes, thetaList)):
+            ax.cla()
             if i == len(thetaList)-1:
                 cbarPlot=True
             else: 
@@ -451,7 +460,7 @@ class DubinsCarEnv(gym.Env):
             #== Plot V ==
             self.plot_v_values(q_func, ax=ax, fig=fig, theta=theta,
                                 vmin=vmin, vmax=vmax, nx=nx, ny=ny, cmap=cmap,
-                                boolPlot=boolPlot, cbarPlot=cbarPlot)
+                                boolPlot=boolPlot, cbarPlot=cbarPlot, addBias=addBias)
             #== Formatting ==
             self.plot_formatting(ax=ax, labels=labels)
 
@@ -462,8 +471,7 @@ class DubinsCarEnv(gym.Env):
             ax.set_xlabel(r'$\theta={:.0f}^\circ$'.format(theta*180/np.pi), fontsize=28)
 
         plt.tight_layout()
-        if not no_show:
-            plt.show()
+        plt.show()
 
 
     def plot_formatting(self, ax=None, labels=None):
@@ -486,7 +494,7 @@ class DubinsCarEnv(gym.Env):
 
     def plot_v_values(self, q_func, theta=np.pi/2, ax=None, fig=None,
                         vmin=-1, vmax=1, nx=201, ny=201, cmap='seismic',
-                        boolPlot=False, cbarPlot=True):
+                        boolPlot=False, cbarPlot=True, addBias=False):
         axStyle = self.get_axes()
         ax.plot([0., 0.], [axStyle[0][2], axStyle[0][3]], c='k')
         ax.plot([axStyle[0][0], axStyle[0][1]], [0., 0.], c='k')
@@ -494,7 +502,7 @@ class DubinsCarEnv(gym.Env):
         #== Plot V ==
         if theta == None:
             theta = 2.0 * np.random.uniform() * np.pi
-        v = self.get_value(q_func, theta, nx, ny)
+        v = self.get_value(q_func, theta, nx, ny, addBias=addBias)
 
         if boolPlot:
             im = ax.imshow(v.T>0., interpolation='none', extent=axStyle[0], origin="lower",

@@ -197,7 +197,7 @@ class DDQN():
 
     def learn(self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100, running_cost_th=None,
                 warmupBuffer=True, warmupQ=False, warmupIter=10000,
-                toEnd=False, addBias=False, doneTerminate=True,
+                toEnd=False, addBias=False, doneTerminate=True, curUpdates=None,
                 reportPeriod=5000, plotFigure=True, showBool=False, storeFigure=False,
                 vmin=-100, vmax=100, randomPlot=False, num_rnd_traj=10,
                 checkPeriod=50000, storeModel=True, storeBest=False, outFolder='RA', verbose=True):
@@ -244,7 +244,7 @@ class DDQN():
                 self.optimizer.step()
 
             print(" --- Warmup Q Ends")
-            env.visualize(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
+            env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
             plt.pause(0.001)
             self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
             self.build_optimizer()
@@ -253,6 +253,9 @@ class DDQN():
         trainProgress = []
         checkPointSucc = 0.
         ep = 0
+        if curUpdates is not None:
+            self.cntUpdate = curUpdates
+            print("starting from {:d} updates".format(self.cntUpdate))
         while self.cntUpdate <= MAX_UPDATES:
             s = env.reset()
             ep_cost = 0.
@@ -298,9 +301,9 @@ class DDQN():
                             self.cntUpdate, self.EPSILON, self.GAMMA, lr))
                     if plotFigure or storeFigure:
                         if showBool:
-                            env.visualize(self.Q_network, True, vmin=0, vmax=1, boolPlot=True, cmap='coolwarm', addBias=addBias)
+                            env.visualize_analytic_comparison(self.Q_network, True, vmin=0, vmax=1, boolPlot=True, cmap='coolwarm', addBias=addBias)
                         else:
-                            env.visualize(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
+                            env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
                         # todo{vrubies} tight layout causes issues on
                         # plt.tight_layout()
                         if storeFigure:

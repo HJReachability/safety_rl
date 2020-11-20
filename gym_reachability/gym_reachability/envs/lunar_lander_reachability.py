@@ -17,7 +17,7 @@ from gym.envs.box2d.lunar_lander import SCALE, VIEWPORT_W, VIEWPORT_H, LEG_DOWN,
 from Box2D.b2 import edgeShape
 # NOTE the overrides cause crashes with ray in this file but I would like to include them for
 # clarity in the future
-from ray.rllib.utils.annotations import override
+#from ray.rllib.utils.annotations import override
 import matplotlib.pyplot as plt
 import torch
 from shapely.geometry import Polygon, Point

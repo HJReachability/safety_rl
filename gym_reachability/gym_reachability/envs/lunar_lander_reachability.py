@@ -580,7 +580,7 @@ class LunarLanderReachability(LunarLander):
         return traj_x, traj_y, result
 
     def simulate_trajectories(self, q_func, T=10, num_rnd_traj=None,
-                              states=None):
+                              states=None, keepOutOf=False, toEnd=False):
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
@@ -604,19 +604,20 @@ class LunarLanderReachability(LunarLander):
         return trajectories, results
 
     def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None,
-                          c='w'):
+                          c='w', ax=None):
         # plt.figure(2)
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
         # plt.clf()
-        plt.subplot(len(self.slices_y), len(self.slices_x), 1)
+        if ax == None:
+            ax=plt.gca()
         trajectories, results = self.simulate_trajectories(
             q_func, T=T, num_rnd_traj=num_rnd_traj, states=states)
         for traj in trajectories:
             traj_x, traj_y = traj
-            plt.scatter(traj_x[0], traj_y[0], s=24, c=c)
-            plt.plot(traj_x, traj_y, color=c, linewidth=2)
+            ax.scatter(traj_x[0], traj_y[0], s=24, c=c)
+            ax.plot(traj_x, traj_y, color=c, linewidth=2)
 
         return results
 
@@ -672,13 +673,15 @@ class LunarLanderReachability(LunarLander):
                          self.bounds_observation[1, 1] + 0.15])
         return [axes, aspect_ratio]
 
-    def imshow_lander(self, extent=None, alpha=0.4):
+    def imshow_lander(self, extent=None, alpha=0.4, ax=None):
         if self.img_data is None:
             # todo{vrubies} can we find way to supress gym window?
             img_data = self.render(mode="rgb_array")
             self.close()
             self.img_data = img_data[::2, ::3, :]  # Reduce image size.
-        plt.imshow(self.img_data,
+        if ax == None:
+            ax=plt.gca()
+        ax.imshow(self.img_data,
                    interpolation='none', extent=extent,
                    origin='upper', alpha=alpha)
 
@@ -686,7 +689,7 @@ class LunarLanderReachability(LunarLander):
                   vmin=-50, vmax=50, nx=81, ny=81,
                   labels=['', ''],
                   boolPlot=False, plotZero=False,
-                  cmap='coolwarm'):
+                  cmap='seismic'):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
@@ -694,36 +697,43 @@ class LunarLanderReachability(LunarLander):
         """
         # plt.figure(1)
         plt.clf()
-        axes = self.get_axes()
+        axStyle = self.get_axes()
+        numX = len(self.slices_x)
+        numY = len(self.slices_y)
+        fig, axes = plt.subplots(numX, numY, figsize=(2*numY, 2*numX), sharex=True, sharey=True)
         for y_jj, y_dot in enumerate(self.slices_y):
             for x_ii, x_dot in enumerate(self.slices_x):
-                plt.subplot(len(self.slices_y), len(self.slices_x),
-                            y_jj*len(self.slices_y)+x_ii+1)
+                ax = axes[y_jj][x_ii]
+                #plt.subplot(len(self.slices_y), len(self.slices_x),
+                #            y_jj*len(self.slices_y)+x_ii+1)
                 # print("Subplot -> ", y_jj*len(self.slices_y)+x_ii+1)
                 v, xs, ys = self.get_value(q_func, nx, ny,
                                            x_dot=x_dot, y_dot=y_dot, theta=0,
                                            theta_dot=0)
                 #im = visualize_matrix(v.T, self.get_axes(labels), no_show, vmin=vmin, vmax=vmax)
 
+                #== Plot Value Function ==
                 if boolPlot:
-                    im = plt.imshow(v.T > vmin,
-                                    interpolation='none', extent=axes[0],
+                    im = ax.imshow(v.T > vmin,
+                                    interpolation='none', extent=axStyle[0],
                                     origin="lower", cmap=cmap)
                 else:
-                    im = plt.imshow(v.T,
-                                    interpolation='none', extent=axes[0],
+                    im = ax.imshow(v.T,
+                                    interpolation='none', extent=axStyle[0],
                                     origin="lower", cmap=cmap)  #,vmin=vmin, vmax=vmax)
                     # cbar = plt.colorbar(im, pad=0.01, shrink=0.95,
                     #                     ticks=[vmin, 0, vmax])
                     # cbar.ax.set_yticklabels(labels=[vmin, 0, vmax],
                     #                         fontsize=24)
+                #== Plot Environment ==
+                self.imshow_lander(extent=axStyle[0], alpha=0.4, ax=ax)
 
-                self.imshow_lander(extent=axes[0], alpha=0.4)
-                ax = plt.gca()
 
-                ax.axis(axes[0])
+                _ = self.plot_trajectories( q_func, T=100, states=self.visual_initial_states, ax=ax)
+
+                ax.axis(axStyle[0])
                 ax.grid(False)
-                ax.set_aspect(axes[1])  # makes equal aspect ratio
+                ax.set_aspect(axStyle[1])  # makes equal aspect ratio
                 if labels is not None:
                     ax.set_xlabel(labels[0], fontsize=52)
                     ax.set_ylabel(labels[1], fontsize=52)
@@ -733,7 +743,7 @@ class LunarLanderReachability(LunarLander):
                                left=False, right=False)    # ticks along the left and right edges are off
                 ax.set_xticklabels([])
                 ax.set_yticklabels([])
-
+        plt.tight_layout()
 
         if not no_show:
             plt.show()

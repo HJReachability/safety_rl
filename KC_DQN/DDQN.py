@@ -302,17 +302,6 @@ class DDQN():
                             env.visualize(self.Q_network, True, vmin=0, vmax=1, boolPlot=True, cmap='coolwarm')
                         else:
                             env.visualize(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic')
-                        # env.plot_reach_avoid_set()
-                        if randomPlot:
-                            _ = env.plot_trajectories(
-                                    self.Q_network,
-                                    T=MAX_EP_STEPS,
-                                    num_rnd_traj=num_rnd_traj)
-                        else:
-                            _ = env.plot_trajectories(
-                                    self.Q_network,
-                                    T=MAX_EP_STEPS,
-                                    states=env.visual_initial_states)
                         # todo{vrubies} tight layout causes issues on
                         # plt.tight_layout()
                         if storeFigure:

@@ -18,6 +18,8 @@ from multiprocessing import Pool
 from KC_DQN.DDQN import DDQN
 from KC_DQN.config import dqnConfig
 
+import time
+timestr = time.strftime("%Y-%m-%d-%H_%M_%S")
 
 #== ARGS ==
 # e.g., python3 sim_zermelo.py -te -m lagrange -nt 50 -of lagrange_low_50 -ma 1500000 -p .1
@@ -31,6 +33,7 @@ parser.add_argument("-te",  "--toEnd",          help="stop until reaching bounda
 parser.add_argument("-ab",  "--addBias",        help="add bias term for RA",            action="store_true")
 parser.add_argument("-ma",  "--maxAccess",      help="maximal number of access",        default=1.5e6,  type=int)
 parser.add_argument("-cp",  "--check_period",   help="check the success ratio",         default=50000,  type=int)
+parser.add_argument("-vp",  "--vis_period",   help="visualize period",                  default=5000,  type=int)
 
 # hyper-parameters
 parser.add_argument("-r",   "--reward",         help="when entering target set",    default=-1,     type=float)
@@ -42,21 +45,21 @@ parser.add_argument("-g",   "--gamma",          help="contraction coefficient", 
 # RL type
 parser.add_argument("-m",   "--mode",           help="mode",            default='RA',       type=str)
 parser.add_argument("-ct",  "--costType",       help="cost type",       default='sparse',   type=str)
-parser.add_argument("-of",  "--outFile",        help="output file",     default='RA',       type=str)
+parser.add_argument("-of",  "--outFolder",        help="output file",     default='RA' + timestr,       type=str)
 
 args = parser.parse_args()
 print(args)
 
 
-#== CONFIGURATION ==
-env_name = "zermelo_kc-v0"
+# == CONFIGURATION ==
+env_name = "two_player_lunar_lander_reachability-v0"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 maxSteps = 120
 if args.toEnd:
     maxEpisodes = int(args.maxAccess / maxSteps * 2)
 else:
     maxEpisodes = 60000
-update_period = int(maxEpisodes / 10)
+update_period = args.vis_period  # int(maxEpisodes / 10)
 update_period_half = int(update_period/2)
 
 if args.mode == 'lagrange':
@@ -76,56 +79,63 @@ elif args.mode == 'RA':
     gamma_period = update_period
 
 CONFIG = dqnConfig(DEVICE=device,
-                ENV_NAME=env_name,
-                MAX_EPISODES=maxEpisodes,
-                MAX_EP_STEPS=maxSteps,
-                BATCH_SIZE=100,
-                MEMORY_CAPACITY=10000,
-                GAMMA=gammaInit,
-                GAMMA_PERIOD=gamma_period,
-                EPS_PERIOD=1000,
-                EPS_DECAY=0.6,
-                LR_C=args.learningRate,
-                LR_C_PERIOD=update_period,
-                LR_C_DECAY=0.8)
-#== REPORT ==
+                   ENV_NAME=env_name,
+                   MAX_EPISODES=maxEpisodes,
+                   MAX_EP_STEPS=maxSteps,
+                   BATCH_SIZE=100,
+                   MEMORY_CAPACITY=10000,
+                   GAMMA=gammaInit,
+                   GAMMA_PERIOD=gamma_period,
+                   EPS_PERIOD=1000,
+                   EPS_DECAY=0.6,
+                   LR_C=args.learningRate,
+                   LR_C_PERIOD=update_period,
+                   LR_C_DECAY=0.8)
+# == REPORT ==
 for key, value in CONFIG.__dict__.items():
     if key[:1] != '_': print(key, value)
 
 
-#== ENVIRONMENT ==
+# == ENVIRONMENT ==
 env = gym.make(env_name, device=device, mode=envMode, doneType='toEnd')
 env.set_costParam(args.penalty, args.reward, args.costType, args.scaling)
 
 
-#== EXPERIMENT ==
+# == EXPERIMENT ==
 def multi_experiment(seedNum, args, CONFIG, env, report_period):
-    #== AGENT ==
+    # == AGENT ==
     s_dim = env.observation_space.shape[0]
     action_num = env.action_space.n
     action_list = np.arange(action_num)
 
     env.set_seed(seedNum)
     np.random.seed(seedNum)
-    agent=DDQN(s_dim, action_num, CONFIG, action_list, mode=agentMode, RA_scaling=args.scaling)
+    agent = DDQN(s_dim, action_num, CONFIG, action_list, mode=agentMode,
+                 RA_scaling=args.scaling)
 
-    #== TRAINING ==
-    _, trainProgress = agent.learn(env,
-                                   # MAX_EPISODES=CONFIG.MAX_EPISODES,
-                                   MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
-                                   addBias=args.addBias,
-                                   toEnd=args.toEnd,
-                                   # report_period=report_period,
-                                   plotFigure=True,
-                                   # check_period=args.check_period,
-                                   storeModel=False,
-                                   verbose=True)
+    # == TRAINING ==
+    _, trainProgress = agent.learn(
+        env,
+        # MAX_EPISODES=CONFIG.MAX_EPISODES,
+        MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
+        addBias=False,  # args.addBias,
+        toEnd=args.toEnd,
+        reportPeriod=report_period,  # How often to report Value function figs.
+        plotFigure=False,  # Display value function while learning.
+        showBool=False,  # Show boolean reach avoid set 0/1.
+        checkPeriod=args.check_period,  # How often to compute Safe vs. Unsafe.
+        storeFigure=False,  # Store the figure in an eps file.
+        storeModel=False,
+        randomPlot=True,  # Plot from random starting points.
+        outFolder=args.outFolder,
+        verbose=True)
     return trainProgress
 
 
 multi_experiment(0, args, CONFIG, env, update_period)
 
-#== TESTING ==
+# == TESTING ==
+
 # trainProgressList = []
 # L = args.num_test
 # nThr = args.num_worker
@@ -139,10 +149,11 @@ multi_experiment(0, args, CONFIG, env, update_period)
 #         reportPeriodList = [update_period]*len(seedList)
 #         trainProgress_i = pool.starmap(multi_experiment, zip(seedList, argsList, configList, envList, reportPeriodList))
 #     trainProgressList = trainProgressList + trainProgress_i
-# #print(trainProgressList)
+# print(trainProgressList)
 
 
-#== RECORD ==
-# import pickle
-# with open("data/{:s}.txt".format(args.outFile), "wb") as fp:   #Pickling
-#     pickle.dump(trainProgressList, fp)
+# == RECORD ==
+import pickle
+with open("figure/{:s}/{:s}.txt".format(args.outFolder,
+                                        args.outFolder), "wb") as fp:
+    pickle.dump(trainProgressList, fp)

@@ -3,7 +3,7 @@
 
 # Here we aim to minimize the cost. We make the following two modifications:
 #  - a' = argmin_a' Q_policy(s', a'), y = c(s,a) + gamma * Q_tar(s', a')
-#  - loss = E[ ( y - Q_policy(s,a) )^2 ] 
+#  - loss = E[ ( y - Q_policy(s,a) )^2 ]
 
 import torch
 import torch.nn as nn
@@ -30,11 +30,11 @@ class DDQN():
         self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)
         self.mode = mode # 'normal' or 'RA'
         self.model = model
-        
+
         #== ENV PARAM ==
         self.state_num = state_num
         self.action_num = action_num
-        
+
         #== PARAM ==
         # Exploration
         self.EPSILON = CONFIG.EPSILON
@@ -60,7 +60,7 @@ class DDQN():
         self.TAU = CONFIG.TAU
         self.HARD_UPDATE = CONFIG.HARD_UPDATE # int, update period
         self.SOFT_UPDATE = CONFIG.SOFT_UPDATE # bool
-        # Build NN for (D)DQN 
+        # Build NN for (D)DQN
         self.build_network()
         self.build_optimizer()
 
@@ -83,7 +83,7 @@ class DDQN():
         if self.device == torch.device('cuda'):
             self.Q_network.cuda()
             self.target_network.cuda()
-        
+
 
     def build_optimizer(self):
         self.optimizer = optim.Adam(self.Q_network.parameters(), lr=self.LR_C)
@@ -91,50 +91,50 @@ class DDQN():
         self.max_grad_norm = 1
         self.cntUpdate = 0
 
-         
+
     def update(self, verbose=False, addBias=False):
         if len(self.memory) < self.BATCH_SIZE*20:
             return
-        
+
         #== EXPERIENCE REPLAY ==
         transitions = self.memory.sample(self.BATCH_SIZE)
-        # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for detailed explanation). 
+        # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for detailed explanation).
         # This converts batch-array of Transitions to Transition of batch-arrays.
         batch = Transition(*zip(*transitions))
-        
+
         # `non_final_mask` is used for environments that have next state to be None
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)), 
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)),
                                       device=self.device, dtype=torch.bool)
-        non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None], 
+        non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None],
                                                  device=self.device)
         state = torch.FloatTensor(batch.s, device=self.device)
         action = torch.LongTensor(batch.a, device=self.device).view(-1,1)
         reward = torch.FloatTensor(batch.r, device=self.device)
         if self.mode == 'RA':
-            g_x = torch.FloatTensor([info['g_x'] for info in batch.info], 
+            g_x = torch.FloatTensor([info['g_x'] for info in batch.info],
                                     device=self.device).view(-1)
-            l_x = torch.FloatTensor([info['l_x'] for info in batch.info], 
+            l_x = torch.FloatTensor([info['l_x'] for info in batch.info],
                                     device=self.device).view(-1)
-            g_x_nxt = torch.FloatTensor([info['g_x_nxt'] for info in batch.info], 
+            g_x_nxt = torch.FloatTensor([info['g_x_nxt'] for info in batch.info],
                                     device=self.device).view(-1)
-            l_x_nxt = torch.FloatTensor([info['l_x_nxt'] for info in batch.info], 
+            l_x_nxt = torch.FloatTensor([info['l_x_nxt'] for info in batch.info],
                                     device=self.device).view(-1)
-        
+
         #== get Q(s,a) ==
-        # `gather` reguires idx to be Long, input and index should have the same shape 
+        # `gather` reguires idx to be Long, input and index should have the same shape
         # with only difference at the dimension we want to extract value
         # out[i][j][k] = input[i][j][ index[i][j][k] ], which has the same dim as index
         # -> state_action_values = Q [ i ][ action[i] ]
         # view(-1): from mtx to vector
         state_action_values = self.Q_network(state).gather(1, action).view(-1)
-        
+
         #== get a' by Q_policy: a' = argmin_a' Q_policy(s', a') ==
         with torch.no_grad():
             action_nxt = self.Q_network(non_final_state_nxt).min(1, keepdim=True)[1]
-        
+
         #== get expected value ==
         state_value_nxt = torch.zeros(self.BATCH_SIZE, device=self.device)
-        
+
         with torch.no_grad(): # V(s') = Q_tar(s', a'), a' is from Q_policy
             if self.double:
                 Q_expect = self.target_network(non_final_state_nxt)
@@ -145,7 +145,6 @@ class DDQN():
         #== Discounted Reach-Avoid Bellman Equation (DRABE) ==
         if self.mode == 'RA':
             expected_state_action_values = torch.zeros(self.BATCH_SIZE).float().to(self.device)
-            
             if addBias: # Bias version: V(s) = gamma ( max{ g(s), min{ l(s), V_diff(s') } } - max{ g(s), l(s) } ),
                         # where V_diff(s') = V(s') + max{ g(s'), l(s') }
                 min_term = torch.min(l_x, state_value_nxt+torch.max(l_x_nxt, g_x_nxt))
@@ -180,11 +179,11 @@ class DDQN():
             '''
         else: # V(s) = c(s, a) + gamma * V(s')
             expected_state_action_values = state_value_nxt * self.GAMMA + reward
-        
+
         #== regression: Q(s, a) <- V(s) ==
         self.Q_network.train()
         loss = smooth_l1_loss(input=state_action_values, target=expected_state_action_values.detach())
-        
+
         #== backpropagation ==
         self.optimizer.zero_grad()
         loss.backward()
@@ -225,7 +224,7 @@ class DDQN():
                     s_ = None
                 self.store_transition(s, a_idx, r, s_, info)
             print(" --- Warmup Buffer Ends")
-        
+
         # == Warmup Q ==
         if warmupQ:
             num_warmup_samples = 200
@@ -245,7 +244,7 @@ class DDQN():
                 self.optimizer.step()
 
             print(" --- Warmup Q Ends")
-            env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic')
+            env.visualize(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
             plt.pause(0.001)
             self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
             self.build_optimizer()
@@ -273,10 +272,10 @@ class DDQN():
 
                 # Check after fixed number of gradient updates / accesses
                 if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
-                    num_rnd_traj_test=2000
-                    _, results = env.simulate_trajectories(self.Q_network, T=MAX_EP_STEPS, num_rnd_traj=num_rnd_traj_test, 
+                    num_rnd_traj_test=200
+                    _, results = env.simulate_trajectories(self.Q_network, T=MAX_EP_STEPS, num_rnd_traj=num_rnd_traj_test,
                                                            keepOutOf=False, toEnd=False)
-                    success  = np.sum(results==1) / num_rnd_traj_test 
+                    success  = np.sum(results==1) / num_rnd_traj_test
                     failure  = np.sum(results==-1)/ num_rnd_traj_test
                     unfinish = np.sum(results==0) / num_rnd_traj_test
                     trainProgress.append([success, failure, unfinish])
@@ -297,14 +296,17 @@ class DDQN():
                     if verbose:
                         print('\nAfter [{:d}] updates, eps={:.2f}, gamma={:.6f}, lr={:.1e}.'.format(
                             self.cntUpdate, self.EPSILON, self.GAMMA, lr))
-                    if plotFigure:
+                    if plotFigure or storeFigure:
                         if showBool:
-                            env.visualize_analytic_comparison(self.Q_network, True, vmin=0, vmax=1, boolPlot=True, cmap='coolwarm')
+                            env.visualize(self.Q_network, True, vmin=0, vmax=1, boolPlot=True, cmap='coolwarm', addBias=addBias)
                         else:
-                            env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic')
+                            env.visualize(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
+                        # todo{vrubies} tight layout causes issues on
+                        # plt.tight_layout()
                         if storeFigure:
                             figureFolder = 'figure/{:s}/'.format(outFolder)
                             os.makedirs(figureFolder, exist_ok=True)
+                            # print("Saving figure in: ", figureFolder)
                             plt.savefig('{:s}/{:d}.png'.format(figureFolder, self.cntUpdate))
                         if plotFigure:
                             plt.pause(0.001)
@@ -388,11 +390,11 @@ class DDQN():
         model_list =  glob.glob(os.path.join(logs_path, '*.pth'))
         #print(model_list)
         if len(model_list) > self.MAX_MODEL - 1 :
-            min_step = min([int(li.split('/')[-1][6:-4]) for li in model_list]) 
+            min_step = min([int(li.split('/')[-1][6:-4]) for li in model_list])
             os.remove(os.path.join(logs_path, 'model-{}.pth' .format(min_step)))
         logs_path = os.path.join(logs_path, 'model-{}.pth' .format(step))
         torch.save(self.Q_network.state_dict(), logs_path)
-        print('=> Save {} after [{}] updates' .format(logs_path, step)) 
+        print('=> Save {} after [{}] updates' .format(logs_path, step))
 
 
     def restore(self, logs_path):

@@ -23,7 +23,7 @@ class ZermeloKCEnv(gym.Env):
         # State bounds.
         self.bounds = np.array([[-2, 2],  # axis_0 = state, axis_1 = bounds.
                                 [-2, 10]])
-                                
+
         self.low = self.bounds[:, 0]
         self.high = self.bounds[:, 1]
 
@@ -59,7 +59,7 @@ class ZermeloKCEnv(gym.Env):
         # Set random seed.
         self.seed_val = 0
         np.random.seed(self.seed_val)
-        
+
         # Cost Params
         self.penalty = 1
         self.reward = -1
@@ -91,7 +91,7 @@ class ZermeloKCEnv(gym.Env):
         print("Env: mode---{:s}; doneType---{:s}".format(mode, doneType))
 
         # for torch
-        self.device = device 
+        self.device = device
 
 
     def extend_state(self, states):
@@ -202,7 +202,7 @@ class ZermeloKCEnv(gym.Env):
             done = fail or success
             assert self.doneType == 'TF', 'invalid doneType'
 
-        info = {"g_x": g_x_cur, "l_x": l_x_cur, "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}    
+        info = {"g_x": g_x_cur, "l_x": l_x_cur, "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
         return np.copy(self.state), cost, done, info
 
 
@@ -211,7 +211,7 @@ class ZermeloKCEnv(gym.Env):
 
         Args:
             state:  x, y - position
-                    [z]  - optional, extra state dimension capturing 
+                    [z]  - optional, extra state dimension capturing
                                      reach-avoid outcome so far)
             u: Contol input.
 
@@ -237,7 +237,7 @@ class ZermeloKCEnv(gym.Env):
             state = np.array([x, y])
 
         info = np.array([l_x, g_x])
-        
+
         return state, info
 
 
@@ -417,8 +417,10 @@ class ZermeloKCEnv(gym.Env):
         it = np.nditer(v, flags=['multi_index'])
         xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)
         ys = np.linspace(self.bounds[1,0], self.bounds[1,1], ny)
+        print("START")
         while not it.finished:
             idx = it.multi_index
+
             x = xs[idx[0]]
             y = ys[idx[1]]
             l_x = self.target_margin(np.array([x, y]))
@@ -432,6 +434,7 @@ class ZermeloKCEnv(gym.Env):
 
             v[idx] = q_func(state).min(dim=1)[0].item()
             it.iternext()
+        print("END")
         return v, xs, ys
 
 
@@ -444,7 +447,7 @@ class ZermeloKCEnv(gym.Env):
         aspect_ratio = (self.bounds[0,1]-self.bounds[0,0])/(self.bounds[1,1]-self.bounds[1,0])
         axes = np.array([self.bounds[0,0]-.05, self.bounds[0,1]+.05, self.bounds[1,0]-.15, self.bounds[1,1]+.15])
         return [axes, aspect_ratio]
-    
+
 
     def get_warmup_examples(self, num_warmup_samples=100):
         x_min, x_max = self.bounds[0,:]
@@ -503,7 +506,7 @@ class ZermeloKCEnv(gym.Env):
 
 
     def simulate_trajectories(self, q_func, T=10,
-                              num_rnd_traj=None, states=None, 
+                              num_rnd_traj=None, states=None,
                               keepOutOf=False, toEnd=False):
 
         assert ((num_rnd_traj is None and states is not None) or
@@ -514,7 +517,7 @@ class ZermeloKCEnv(gym.Env):
         if states is None:
             results = np.empty(shape=(num_rnd_traj,), dtype=int)
             for idx in range(num_rnd_traj):
-                traj_x, traj_y, result = self.simulate_one_trajectory(q_func, T=T, 
+                traj_x, traj_y, result = self.simulate_one_trajectory(q_func, T=T,
                                                                       keepOutOf=keepOutOf, toEnd=toEnd)
                 trajectories.append((traj_x, traj_y))
                 results[idx] = result
@@ -539,17 +542,16 @@ class ZermeloKCEnv(gym.Env):
             v: State value function.
         """
         plt.clf()
-        ax = plt.gca()
+        axes = self.get_axes()
         v, xs, ys = self.get_value(q_func, nx, ny)
         #im = visualize_matrix(v.T, self.get_axes(labels), no_show, vmin=vmin, vmax=vmax)
-        axes = self.get_axes()
-        
+
         if boolPlot:
             im = plt.imshow(v.T>vmin, interpolation='none', extent=axes[0], origin="lower",
                        cmap=cmap)
         else:
             im = plt.imshow(v.T, interpolation='none', extent=axes[0], origin="lower",
-                       cmap=cmap, vmin=vmin, vmax=vmax)
+                       cmap=cmap)#, vmin=vmin, vmax=vmax)
             cbar = plt.colorbar(im, pad=0.01, shrink=0.95, ticks=[vmin, 0, vmax])
             cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
 
@@ -582,8 +584,8 @@ class ZermeloKCEnv(gym.Env):
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
-        trajectories, results = self.simulate_trajectories(q_func, T=T, 
-                                                           num_rnd_traj=num_rnd_traj, states=states, 
+        trajectories, results = self.simulate_trajectories(q_func, T=T,
+                                                           num_rnd_traj=num_rnd_traj, states=states,
                                                            keepOutOf=keepOutOf, toEnd=toEnd)
         for traj in trajectories:
             traj_x, traj_y = traj
@@ -615,19 +617,19 @@ class ZermeloKCEnv(gym.Env):
             return xs, ys
 
         # left unsafe set
-        x = self.box2_x_y_length[0] + self.box2_x_y_length[2]/2.0 
+        x = self.box2_x_y_length[0] + self.box2_x_y_length[2]/2.0
         y = self.box2_x_y_length[1] - self.box2_x_y_length[2]/2.0
         xs, ys = get_line(slope, end_point=[x,y], x_limit=-2.)
         plt.plot(xs, ys, color='g', linewidth=3)
 
         # right unsafe set
-        x = self.box1_x_y_length[0] - self.box1_x_y_length[2]/2.0 
+        x = self.box1_x_y_length[0] - self.box1_x_y_length[2]/2.0
         y = self.box1_x_y_length[1] - self.box1_x_y_length[2]/2.0
         xs, ys = get_line(-slope, end_point=[x,y], x_limit=2.)
         plt.plot(xs, ys, color='g', linewidth=3)
 
         # middle unsafe set
-        x1 = self.box3_x_y_length[0] - self.box3_x_y_length[2]/2.0 
+        x1 = self.box3_x_y_length[0] - self.box3_x_y_length[2]/2.0
         x2 = self.box3_x_y_length[0] + self.box3_x_y_length[2]/2.0
         x3 = self.box3_x_y_length[0]
         y = self.box3_x_y_length[1] - self.box3_x_y_length[2]/2.0

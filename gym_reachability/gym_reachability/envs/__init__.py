@@ -10,7 +10,9 @@
 
 #from gym_reachability.gym_reachability.envs.cartpole_reach import CartPoleReachabilityEnv
 
-#from gym_reachability.gym_reachability.envs.lunar_lander_reachability import LunarLanderReachability
+from gym_reachability.gym_reachability.envs.lunar_lander_reachability import LunarLanderReachability
+
+from gym_reachability.gym_reachability.envs.two_player_lunar_lander_reachability import TwoPlayerLunarLanderReachability
 
 #from gym_reachability.gym_reachability.envs.double_integrator import DoubleIntegratorEnv
 

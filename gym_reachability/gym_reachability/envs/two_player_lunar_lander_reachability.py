@@ -625,7 +625,7 @@ class TwoPlayerLunarLanderReachability(LunarLander):
         p_d = Point(x_d, y_d)
         L2_distance_d = self.obstacle_polyline.exterior.distance(p_d)
         inside_d = 2*self.obstacle_polyline.contains(p_d) - 1
-        defender_safety_margin = -inside_a*L2_distance_a
+        defender_safety_margin = -inside_d*L2_distance_d
 
         return min(attacker_target_margin,
                    -defender_safety_margin)  # Flip sign.

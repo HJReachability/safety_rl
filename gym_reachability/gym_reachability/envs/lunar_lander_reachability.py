@@ -683,7 +683,7 @@ class LunarLanderReachability(LunarLander):
                    origin='upper', alpha=alpha)
 
     def visualize(self, q_func, no_show=False,
-                  vmin=-50, vmax=50, nx=21, ny=21,
+                  vmin=-50, vmax=50, nx=81, ny=81,
                   labels=['', ''],
                   boolPlot=False, plotZero=False,
                   cmap='coolwarm'):
@@ -720,26 +720,6 @@ class LunarLanderReachability(LunarLander):
 
                 self.imshow_lander(extent=axes[0], alpha=0.4)
                 ax = plt.gca()
-                # Plot bounadries of constraint set.
-                # plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
-                # plt.plot(self.x_box2_pos, self.y_box2_pos, color="black")
-                # plt.plot(self.x_box3_pos, self.y_box3_pos, color="black")
-
-                # Plot boundaries of target set.
-                # plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
-
-                # Plot zero level set
-                if plotZero:
-                    it = np.nditer(v, flags=['multi_index'])
-                    while not it.finished:
-                        idx = it.multi_index
-                        x = xs[idx[0]]
-                        y = ys[idx[1]]
-
-                        if v[idx] <= 0:
-                            plt.scatter(x, y, c='k', s=24)
-                        it.iternext()
-
 
                 ax.axis(axes[0])
                 ax.grid(False)

@@ -132,6 +132,7 @@ class LunarLanderReachability(LunarLander):
         self.doneType = doneType
 
         # Visualization params
+        self.axes = None
         self.img_data = None
         self.scaling_factor = 3.0
         self.slices_y = np.array([1, 0, -1]) * self.scaling_factor
@@ -464,24 +465,25 @@ class LunarLanderReachability(LunarLander):
         # all in simulation scale
         x = state[0]
         y = state[1]
-        x_dot = state[2]
-        y_dot = state[3]
-        theta = state[4]
+        p = Point(x, y)
+        L2_distance = self.target_xy_polygon.exterior.distance(p)
+        inside = 2*self.target_xy_polygon.contains(p) - 1
+        return -inside*L2_distance
 
-        landing_distance = np.min([
-            # 10 * (theta - self.theta_hover_min),  # heading error multiply 10
-            # 10 * (self.theta_hover_max - theta),  # for similar scale of units
-            x - self.helipad_x1,# - LANDER_RADIUS,
-            self.helipad_x2 - x,# - LANDER_RADIUS,
-            y - self.helipad_y,# - LANDER_RADIUS,
-            (self.helipad_y + 2) - y])# - LANDER_RADIUS])
-            # ,
-            # y_dot - self.hover_min_y_dot,
-            # self.hover_max_y_dot - y_dot,
-            # x_dot - self.hover_min_x_dot,
-            # self.hover_max_x_dot - x_dot])  # speed check
+        # landing_distance = np.min([
+        #     # 10 * (theta - self.theta_hover_min),  # heading error multiply 10
+        #     # 10 * (self.theta_hover_max - theta),  # for similar scale of units
+        #     x - self.helipad_x1,# - LANDER_RADIUS,
+        #     self.helipad_x2 - x,# - LANDER_RADIUS,
+        #     y - self.helipad_y,# - LANDER_RADIUS,
+        #     (self.helipad_y + 2) - y])# - LANDER_RADIUS])
+        #     # ,
+        #     # y_dot - self.hover_min_y_dot,
+        #     # self.hover_max_y_dot - y_dot,
+        #     # x_dot - self.hover_min_x_dot,
+        #     # self.hover_max_x_dot - x_dot])  # speed check
 
-        return -landing_distance
+        # return -landing_distance
 
     #@staticmethod
     def simulator_scale_to_obs_scale(self, state):
@@ -621,8 +623,10 @@ class LunarLanderReachability(LunarLander):
 
         return results
 
-    def get_value(self, q_func, nx=41, ny=121, x_dot=0, y_dot=0, theta=0, theta_dot=0):
+    def get_value(self, q_func, nx=41, ny=121, x_dot=0, y_dot=0, theta=0, theta_dot=0,
+                  addBias=False):
         v = np.zeros((nx, ny))
+        max_lg = np.zeros((nx, ny))
         it = np.nditer(v, flags=['multi_index'])
         xs = np.linspace(self.bounds_observation[0, 0],
                          self.bounds_observation[0, 1], nx)
@@ -639,9 +643,11 @@ class LunarLanderReachability(LunarLander):
             x = xs[idx[0]]
             y = ys[idx[1]]
             l_x = self.target_margin(
-                np.array([x, y, x_dot, y_dot, theta, theta_dot]))
+                self.obs_scale_to_simulator_scale(
+                    np.array([x, y, x_dot, y_dot, theta, theta_dot])))
             g_x = self.safety_margin(
-                np.array([x, y, x_dot, y_dot, theta, theta_dot]))
+                self.obs_scale_to_simulator_scale(
+                    np.array([x, y, x_dot, y_dot, theta, theta_dot])))
 
             if self.mode == 'normal' or self.mode == 'RA':
                 state = torch.FloatTensor(
@@ -652,8 +658,10 @@ class LunarLanderReachability(LunarLander):
                 state = torch.FloatTensor(
                     [x, y, x_dot, y_dot, theta, theta_dot, z],
                     device=self.device).unsqueeze(0)
-
-            v[idx] = q_func(state).min(dim=1)[0].item()
+            if addBias:
+                v[idx] = q_func(state).min(dim=1)[0].item() + max(l_x, g_x)
+            else:
+                v[idx] = q_func(state).min(dim=1)[0].item()
             it.iternext()
         # print("End value collection on grid.")
         return v, xs, ys
@@ -686,30 +694,38 @@ class LunarLanderReachability(LunarLander):
                    origin='upper', alpha=alpha)
 
     def visualize(self, q_func, no_show=False,
-                  vmin=-50, vmax=50, nx=81, ny=81,
+                  vmin=-50, vmax=50, nx=21, ny=21,
                   labels=['', ''],
                   boolPlot=False, plotZero=False,
-                  cmap='seismic'):
+                  cmap='seismic', addBias=False):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
             v: State value function.
         """
         # plt.figure(1)
-        plt.clf()
+        # plt.clf()
         axStyle = self.get_axes()
         numX = len(self.slices_x)
         numY = len(self.slices_y)
-        fig, axes = plt.subplots(numX, numY, figsize=(2*numY, 2*numX), sharex=True, sharey=True)
+        if self.axes is None:
+            self.fig, self.axes = plt.subplots(
+                numX, numY, figsize=(2*numY, 2*numX), sharex=True, sharey=True)
+        # else:
+        #     self.fig.clf()
+        #     self.fig, self.axes = plt.subplots(
+        #         numX, numY, figsize=(2*numY, 2*numX), sharex=True, sharey=True)
         for y_jj, y_dot in enumerate(self.slices_y):
             for x_ii, x_dot in enumerate(self.slices_x):
-                ax = axes[y_jj][x_ii]
+                ax = self.axes[y_jj][x_ii]
+                ax.cla()
                 #plt.subplot(len(self.slices_y), len(self.slices_x),
                 #            y_jj*len(self.slices_y)+x_ii+1)
                 # print("Subplot -> ", y_jj*len(self.slices_y)+x_ii+1)
                 v, xs, ys = self.get_value(q_func, nx, ny,
                                            x_dot=x_dot, y_dot=y_dot, theta=0,
-                                           theta_dot=0)
+                                           theta_dot=0, addBias=addBias)
+
                 #im = visualize_matrix(v.T, self.get_axes(labels), no_show, vmin=vmin, vmax=vmax)
 
                 #== Plot Value Function ==

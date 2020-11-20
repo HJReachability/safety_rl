@@ -412,7 +412,7 @@ class ZermeloKCEnv(gym.Env):
         return (x_box4_pos, y_box4_pos)
 
 
-    def get_value(self, q_func, nx=41, ny=121):
+    def get_value(self, q_func, nx=41, ny=121, addBias=False):
         v = np.zeros((nx, ny))
         it = np.nditer(v, flags=['multi_index'])
         xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)
@@ -432,7 +432,10 @@ class ZermeloKCEnv(gym.Env):
                 z = max([l_x, g_x])
                 state = torch.FloatTensor([x, y, z], device=self.device).unsqueeze(0)
 
-            v[idx] = q_func(state).min(dim=1)[0].item()
+            if addBias:
+                v[idx] = q_func(state).min(dim=1)[0].item() + max(l_x, g_x)
+            else:
+                v[idx] = q_func(state).min(dim=1)[0].item()
             it.iternext()
         print("END")
         return v, xs, ys

@@ -143,8 +143,8 @@ class DDQN():
                 expected_state_action_values[non_final_mask] = self.GAMMA * non_terminal[non_final_mask]
                 expected_state_action_values[torch.logical_not(non_final_mask)] = terminal[torch.logical_not(non_final_mask)]
             else:
-                success_mask = torch.logical_and(torch.logical_not(non_final_mask), l_x<=0)
-                failure_mask = torch.logical_and(torch.logical_not(non_final_mask), g_x>0)
+                # success_mask = torch.logical_and(torch.logical_not(non_final_mask), l_x<=0)
+                # failure_mask = torch.logical_and(torch.logical_not(non_final_mask), g_x>0)
 
                 min_term = torch.min(l_x, state_value_nxt)
                 non_terminal = torch.max(min_term, g_x)

@@ -10,10 +10,14 @@
 import numpy as np
 import gym
 from gym import spaces
+import sys, math
+import Box2D
+from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape,
+                      revoluteJointDef, contactListener)
 from gym.envs.box2d.lunar_lander import LunarLander
 from gym.utils import seeding, EzPickle
 from gym.envs.box2d.lunar_lander import SCALE, VIEWPORT_W, VIEWPORT_H, LEG_DOWN, FPS, LEG_AWAY, \
-    LANDER_POLY, LEG_H, LEG_W
+    LANDER_POLY, LEG_H, LEG_W, LEG_SPRING_TORQUE, SIDE_ENGINE_HEIGHT, SIDE_ENGINE_AWAY
 from Box2D.b2 import edgeShape
 # NOTE the overrides cause crashes with ray in this file but I would like to include them for
 # clarity in the future
@@ -32,6 +36,8 @@ W = VIEWPORT_W / SCALE
 H = VIEWPORT_H / SCALE
 CHUNKS = 17 #11  # number of polygons used to make the lunar surface
 HELIPAD_Y = (VIEWPORT_H / SCALE) / 2  # height of helipad in simulator scale
+
+INITIAL_RANDOM = 1000.0   # Set 1500 to make game harder
 
 # height of lander body in simulator scale. LANDER_POLY has the (x,y) points that define the
 # shape of the lander in pixel scale
@@ -70,7 +76,7 @@ class TwoPlayerLunarLanderReachability(LunarLander):
 
         # in LunarLander init() calls reset() which calls step() so some variables need
         # to be set up before calling init() to prevent problems from variables not being defined
-
+        print("SEG TEST 1")
         self.before_parent_init = True
 
         self.chunk_x = [W/(CHUNKS-1)*i for i in range(CHUNKS)]
@@ -126,9 +132,9 @@ class TwoPlayerLunarLanderReachability(LunarLander):
         # mode: normal or extend (keep track of ell & g)
         self.mode = mode
         if mode == 'extend':
-            self.sim_state = np.zeros(7)
+            self.sim_state = np.zeros(12+1)
         else:
-            self.sim_state = np.zeros(6)
+            self.sim_state = np.zeros(12)
         self.doneType = doneType
 
         # Visualization params
@@ -151,6 +157,7 @@ class TwoPlayerLunarLanderReachability(LunarLander):
         # for torch
         self.device = device
 
+        print("SEG TEST 2")
         # From parent constuctor.
         EzPickle.__init__(self)
         self.seed()
@@ -158,8 +165,17 @@ class TwoPlayerLunarLanderReachability(LunarLander):
         self.world = Box2D.b2World()
         self.moon = None
         self.lander = {}
+        self.legs = {}
         self.particles = []
         self.prev_reward = None
+
+        self.polygon_target = [
+            (self.helipad_x1, self.helipad_y),
+            (self.helipad_x2, self.helipad_y),
+            (self.helipad_x2, self.helipad_y + 2),
+            (self.helipad_x1, self.helipad_y + 2),
+            (self.helipad_x1, self.helipad_y)]
+        self.target_xy_polygon = Polygon(self.polygon_target)
 
         # we don't use the states about whether the legs are touching
         # so 6 dimensions total.
@@ -170,7 +186,7 @@ class TwoPlayerLunarLanderReachability(LunarLander):
 
         # this is the hack from above to make the ground flat
         # self.np_random = RandomAlias
-
+        print("SEG TEST 3")
         self.bounds_simulation = np.array([[self.fly_min_x, self.fly_max_x],
                                            [self.fly_min_y, self.fly_max_y],
                                            [-self.vx_bound, self.vx_bound],
@@ -200,6 +216,7 @@ class TwoPlayerLunarLanderReachability(LunarLander):
         self.bounds_observation[:, 1] = self.simulator_scale_to_obs_scale(
             self.bounds_simulation[:, 1].T)
 
+        print("SEG TEST 4")
         self.reset()
 
     # found online at:
@@ -254,8 +271,8 @@ class TwoPlayerLunarLanderReachability(LunarLander):
 
     def generate_lander(self, initial_state, key):
         # Generate Landers
-        initial_y = initial_state.y
-        initial_x = initial_state.x  # VIEWPORT_W/SCALE/2
+        initial_y = initial_state[0]
+        initial_x = initial_state[0]  # VIEWPORT_W/SCALE/2
         self.lander[key] = self.world.CreateDynamicBody(
             position=(initial_x, initial_y),
             angle=0.0,
@@ -308,11 +325,19 @@ class TwoPlayerLunarLanderReachability(LunarLander):
             leg.joint = self.world.CreateJoint(rjd)
             self.legs[key].append(leg)
 
-    def generate_terrain_and_landers(self, terrain_polyline=None):
-        # Destroy moon.
+    def _destroy(self):
+        if not self.moon: return
+        self.world.contactListener = None
+        self._clean_particles(True)
         self.world.DestroyBody(self.moon)
         self.moon = None
+        for ii, _ in enumerate(self.lander):
+            self.world.DestroyBody(self.lander[ii])
+            self.lander[ii] = None
+            self.world.DestroyBody(self.legs[ii][0])
+            self.world.DestroyBody(self.legs[ii][1])
 
+    def generate_terrain_and_landers(self, terrain_polyline=None):
         # self.chunk_x = [W/(CHUNKS-1)*i for i in range(CHUNKS)]
         # self.helipad_x1 = self.chunk_x[CHUNKS//2-1]
         # self.helipad_x2 = self.chunk_x[CHUNKS//2+1]
@@ -359,7 +384,7 @@ class TwoPlayerLunarLanderReachability(LunarLander):
         initial_states = [self.rejection_sample() for _ in range(2)]
         self.drawlist = []
         for ii, initial_state in enumerate(initial_states):
-            self.generate_landers(initial_state)
+            self.generate_lander(initial_state, ii)
             self.drawlist += [self.lander[ii], self.legs[ii]]
 
         s, _, _, _ = self.step(0)
@@ -382,9 +407,12 @@ class TwoPlayerLunarLanderReachability(LunarLander):
         state_in assumed to be in simulation scale.
         :return: current state as 6d NumPy array of floats
         """
+        self._destroy()
         # This returns something in --> observation scale <--.
+
         s = self.generate_terrain_and_landers(
             terrain_polyline=terrain_polyline)
+
 
         # Rewrite internal lander variables in --> simulation scale <--.
         if state_in is None:
@@ -461,9 +489,11 @@ class TwoPlayerLunarLanderReachability(LunarLander):
             vel.x*(VIEWPORT_W/SCALE/2)/FPS,
             vel.y*(VIEWPORT_H/SCALE/2)/FPS,
             self.lander[key].angle,
-            20.0*self.lander[key].angularVelocity/FPS
+            20.0*self.lander[key].angularVelocity/FPS,
+            1.0 if self.legs[key][0].ground_contact else 0.0,
+            1.0 if self.legs[key][1].ground_contact else 0.0
             ]
-        assert len(state) == 6
+        assert len(state) == 8
 
         reward = 0
         shaping = \
@@ -489,10 +519,8 @@ class TwoPlayerLunarLanderReachability(LunarLander):
 
     def step(self, action):
 
-        l_x_cur = {}
-        g_x_cur = {}
-        l_x_nxt = {}
-        g_x_nxt = {}
+        l_x_cur = self.target_margin(self.sim_state)
+        g_x_cur = self.safety_margin(self.sim_state)
 
         actions = [int(action/4), action % 4]
         state_list = []
@@ -500,18 +528,17 @@ class TwoPlayerLunarLanderReachability(LunarLander):
         done_list = []
         info_list = []
         for ii in range(2):
-            l_x_cur[ii] = self.target_margin(self.get_state(ii))
-            g_x_cur[ii] = self.safety_margin(self.get_state(ii))
             state_ii, reward_ii, done_ii, info_ii = self.parent_step(
                 actions[ii], ii)
-            l_x_nxt[ii] = self.target_margin(self.get_state(ii))
-            g_x_nxt[ii] = self.safety_margin(self.get_state(ii))
-            state_list.append(state_ii)
+            state_list.append(state_ii[:-2])
             reward_list.append(reward_ii)
             done_list.append(done_ii)
             info_list.append(info_ii)
         self.obs_state = np.concatenate(state_list)
         self.sim_state = self.obs_scale_to_simulator_scale(self.obs_state)
+
+        l_x_nxt = self.target_margin(self.sim_state)
+        g_x_nxt = self.safety_margin(self.sim_state)
 
         # cost
         if self.mode == 'extend' or self.mode == 'RA':
@@ -546,12 +573,12 @@ class TwoPlayerLunarLanderReachability(LunarLander):
                 else:
                     cost = 0.
         # done
-        if not done and self.doneType == 'toEnd':
+        if not np.any(done_list) and self.doneType == 'toEnd':
             outsideTop = (self.sim_state[1] >= self.bounds_simulation[1, 1])
             outsideLeft = (self.sim_state[0] <= self.bounds_simulation[0, 0])
             outsideRight = (self.sim_state[0] >= self.bounds_simulation[0, 1])
             done = outsideTop or outsideLeft or outsideRight
-        elif not done:
+        elif not np.any(done_list):
             done = fail or success
             assert self.doneType == 'TF', 'invalid doneType'
 
@@ -580,54 +607,52 @@ class TwoPlayerLunarLanderReachability(LunarLander):
         while self.particles and (all or self.particles[0].ttl < 0):
             self.world.DestroyBody(self.particles.pop(0))
 
-    def get_state(self, key):
-        """
-        gets the current state of the environment
-        :return: length 6 array of x, y, x_dot, y_dot, theta, theta_dot in simulator scale
-        """
-        return np.array([self.lander[key].position.x,
-                         self.lander[key].position.y,
-                         self.lander[key].linearVelocity.x,
-                         self.lander[key].linearVelocity.y,
-                         self.lander[key].angle,
-                         self.lander[key].angularVelocity])
+    def target_margin(self, state):
+        # First 6 states are for attacker. Last 6 for defender.
+        assert len(state) == 12
+
+        # Attacker target margin.
+        x_a = state[0]
+        y_a = state[1]
+        p_a = Point(x_a, y_a)
+        L2_distance_a = self.target_xy_polygon.exterior.distance(p_a)
+        inside_a = 2*self.target_xy_polygon.contains(p_a) - 1
+        attacker_target_margin = -inside_a*L2_distance_a
+
+        # Defender safety margin to obstacle.
+        x_d = state[0+6]
+        y_d = state[1+6]
+        p_d = Point(x_d, y_d)
+        L2_distance_d = self.obstacle_polyline.exterior.distance(p_d)
+        inside_d = 2*self.obstacle_polyline.contains(p_d) - 1
+        defender_safety_margin = -inside_a*L2_distance_a
+
+        return min(attacker_target_margin,
+                   -defender_safety_margin)  # Flip sign.
 
     def safety_margin(self, state):
+        # First 6 states are for attacker. Last 6 for defender.
+        assert len(state) == 12
+        capture_rad = 1.0
 
-        x1 = state[0]
-        y1 = state[1]
-        x2 = state[6]
-        y2 = state[7]
-        p1 = Point(x1, y1)
-        p2 = Point(x2, y2)
-        L2_distance1 = self.obstacle_polyline.exterior.distance(p1)
-        L2_distance2 = self.obstacle_polyline.exterior.distance(p2)
-        inside1 = 2*self.obstacle_polyline.contains(p1) - 1
-        inside2 = 2*self.obstacle_polyline.contains(p2) - 1
-        return -inside*L2_distance
+        # Attacker safety margin to obstacle.
+        x_a = state[0]
+        y_a = state[1]
+        p_a = Point(x_a, y_a)
+        L2_distance_a = self.obstacle_polyline.exterior.distance(p_a)
+        inside_a = 2*self.obstacle_polyline.contains(p_a) - 1
+        attacker_safety_margin_to_obstacle = -inside_a*L2_distance_a
 
-    def target_margin(self, state):
+        # Attacker safety margin to defender.
+        x_d = state[0+6]
+        y_d = state[1+6]
+        x_r = x_a - x_d
+        y_r = y_a - y_d
+        distance_a_d = np.sqrt(x_r ** 2 + x_r ** 2)
+        attacker_safety_margin_to_defender = capture_rad - distance_a_d
 
-        # all in simulation scale
-        x = state[0]
-        y = state[1]
-        x_dot = state[2]
-        y_dot = state[3]
-        theta = state[4]
-
-        landing_distance = np.min([
-            10 * (theta - self.theta_hover_min),  # heading error multiply 10
-            10 * (self.theta_hover_max - theta),  # for similar scale of units
-            x - self.hover_min_x - LANDER_RADIUS,
-            self.hover_max_x - x - LANDER_RADIUS,
-            y - self.hover_min_y - LANDER_RADIUS,
-            self.hover_max_y - y - LANDER_RADIUS,
-            y_dot - self.hover_min_y_dot,
-            self.hover_max_y_dot - y_dot,
-            x_dot - self.hover_min_x_dot,
-            self.hover_max_x_dot - x_dot])  # speed check
-
-        return -landing_distance
+        return max(attacker_safety_margin_to_obstacle,
+                   attacker_safety_margin_to_defender)
 
     #@staticmethod
     def simulator_scale_to_obs_scale(self, state):
@@ -639,14 +664,24 @@ class TwoPlayerLunarLanderReachability(LunarLander):
         """
         copy_state = np.copy(state)
         chg_dims = self.observation_space.shape[0]
-        x, y, x_dot, y_dot, theta, theta_dot = copy_state[:chg_dims]
-        copy_state[:chg_dims] = np.array([
-            (x - VIEWPORT_W / SCALE / 2) / (VIEWPORT_W / SCALE / 2),
-            (y - (HELIPAD_Y + LEG_DOWN/SCALE)) / (VIEWPORT_H / SCALE / 2),
-            x_dot * (VIEWPORT_W / SCALE / 2) / FPS,
-            y_dot * (VIEWPORT_H / SCALE / 2) / FPS,
-            theta,
-            20.0*theta_dot / FPS], dtype=np.float32)  # theta_dot])
+        (x_a, y_a, x_dot_a, y_dot_a,
+         theta_a, theta_dot_a,
+         x_d, y_d, x_dot_d, y_dot_d,
+         theta_d, theta_dot_d) = copy_state[:chg_dims]
+        copy_state[:int(chg_dims/2)] = np.array([
+            (x_a - VIEWPORT_W / SCALE / 2) / (VIEWPORT_W / SCALE / 2),
+            (y_a - (HELIPAD_Y + LEG_DOWN/SCALE)) / (VIEWPORT_H / SCALE / 2),
+            x_dot_a * (VIEWPORT_W / SCALE / 2) / FPS,
+            y_dot_a * (VIEWPORT_H / SCALE / 2) / FPS,
+            theta_a,
+            20.0*theta_dot_a / FPS], dtype=np.float32)  # theta_dot])
+        copy_state[int(chg_dims/2):chg_dims] = np.array([
+            (x_d - VIEWPORT_W / SCALE / 2) / (VIEWPORT_W / SCALE / 2),
+            (y_d - (HELIPAD_Y + LEG_DOWN/SCALE)) / (VIEWPORT_H / SCALE / 2),
+            x_dot_d * (VIEWPORT_W / SCALE / 2) / FPS,
+            y_dot_d * (VIEWPORT_H / SCALE / 2) / FPS,
+            theta_d,
+            20.0*theta_dot_d / FPS], dtype=np.float32)  # theta_dot])
         return copy_state
 
     #@staticmethod
@@ -659,14 +694,22 @@ class TwoPlayerLunarLanderReachability(LunarLander):
         """
         copy_state = np.copy(state)
         chg_dims = self.observation_space.shape[0]
-        x, y, x_dot, y_dot, theta, theta_dot = copy_state[:chg_dims]
-        copy_state[:chg_dims] = np.array([
-            (x * (VIEWPORT_W / SCALE / 2)) + (VIEWPORT_W / SCALE / 2),
-            (y * (VIEWPORT_H / SCALE / 2)) + (HELIPAD_Y + LEG_DOWN/SCALE),
-            x_dot / ((VIEWPORT_W / SCALE / 2) / FPS),
-            y_dot / ((VIEWPORT_H / SCALE / 2) / FPS),
-            theta,
-            theta_dot * FPS / 20.0], dtype=np.float64)  # theta_dot])
+        (x_a, y_a, x_dot_a, y_dot_a, theta_a, theta_dot_a,
+         x_d, y_d, x_dot_d, y_dot_d, theta_d, theta_dot_d) = copy_state[:chg_dims]
+        copy_state[:int(chg_dims/2)] = np.array([
+            (x_a * (VIEWPORT_W / SCALE / 2)) + (VIEWPORT_W / SCALE / 2),
+            (y_a * (VIEWPORT_H / SCALE / 2)) + (HELIPAD_Y + LEG_DOWN/SCALE),
+            x_dot_a / ((VIEWPORT_W / SCALE / 2) / FPS),
+            y_dot_a / ((VIEWPORT_H / SCALE / 2) / FPS),
+            theta_a,
+            theta_dot_a * FPS / 20.0], dtype=np.float64)  # theta_dot])
+        copy_state[int(chg_dims/2):chg_dims] = np.array([
+            (x_d * (VIEWPORT_W / SCALE / 2)) + (VIEWPORT_W / SCALE / 2),
+            (y_d * (VIEWPORT_H / SCALE / 2)) + (HELIPAD_Y + LEG_DOWN/SCALE),
+            x_dot_d / ((VIEWPORT_W / SCALE / 2) / FPS),
+            y_dot_d / ((VIEWPORT_H / SCALE / 2) / FPS),
+            theta_d,
+            theta_dot_d * FPS / 20.0], dtype=np.float64)  # theta_dot])
         return copy_state
 
     def set_doneType(self, doneType):

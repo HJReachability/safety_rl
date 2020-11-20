@@ -12,6 +12,8 @@
 
 from gym_reachability.gym_reachability.envs.lunar_lander_reachability import LunarLanderReachability
 
+from gym_reachability.gym_reachability.envs.two_player_lunar_lander_reachability import TwoPlayerLunarLanderReachability
+
 #from gym_reachability.gym_reachability.envs.double_integrator import DoubleIntegratorEnv
 
 #from gym_reachability.gym_reachability.envs.dubins_car import DubinsCarEnv

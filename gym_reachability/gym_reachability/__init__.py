@@ -20,6 +20,10 @@ register(
     entry_point="gym_reachability.gym_reachability.envs:LunarLanderReachability"
 )
 
+register(
+    id="two_player_lunar_lander_reachability-v0",
+    entry_point="gym_reachability.gym_reachability.envs:TwoPlayerLunarLanderReachability"
+)
 
 register(
     id="double_integrator-v0",

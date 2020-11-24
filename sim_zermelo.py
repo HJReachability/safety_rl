@@ -123,26 +123,26 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period):
     return trainProgress
 
 
-multi_experiment(0, args, CONFIG, env, update_period)
+# multi_experiment(0, args, CONFIG, env, update_period)
 
 #== TESTING ==
-# trainProgressList = []
-# L = args.num_test
-# nThr = args.num_worker
-# for ith in range( int(L/(nThr+1e-6))+1 ):
-#     print('{} / {}'.format(ith+1, int(L/(nThr+1e-6))+1) )
-#     with Pool(processes = nThr) as pool:
-#         seedList = list(range(ith*nThr, min(L, (ith+1)*nThr) ))
-#         argsList = [args]*len(seedList)
-#         configList = [CONFIG]*len(seedList)
-#         envList = [env]*len(seedList)
-#         reportPeriodList = [update_period]*len(seedList)
-#         trainProgress_i = pool.starmap(multi_experiment, zip(seedList, argsList, configList, envList, reportPeriodList))
-#     trainProgressList = trainProgressList + trainProgress_i
-# #print(trainProgressList)
+trainProgressList = []
+L = args.num_test
+nThr = args.num_worker
+for ith in range( int(L/(nThr+1e-6))+1 ):
+    print('{} / {}'.format(ith+1, int(L/(nThr+1e-6))+1) )
+    with Pool(processes = nThr) as pool:
+        seedList = list(range(ith*nThr, min(L, (ith+1)*nThr) ))
+        argsList = [args]*len(seedList)
+        configList = [CONFIG]*len(seedList)
+        envList = [env]*len(seedList)
+        reportPeriodList = [update_period]*len(seedList)
+        trainProgress_i = pool.starmap(multi_experiment, zip(seedList, argsList, configList, envList, reportPeriodList))
+    trainProgressList = trainProgressList + trainProgress_i
+#print(trainProgressList)
 
 
-#== RECORD ==
-# import pickle
-# with open("data/{:s}.txt".format(args.outFile), "wb") as fp:   #Pickling
-#     pickle.dump(trainProgressList, fp)
+== RECORD ==
+import pickle
+with open("data/{:s}.txt".format(args.outFile), "wb") as fp:   #Pickling
+    pickle.dump(trainProgressList, fp)

@@ -535,10 +535,10 @@ class ZermeloShowEnv(gym.Env):
         return trajectories, results
 
 
-    def visualize_analytic_comparison( self, q_func, no_show=False, 
-                                       vmin=-50, vmax=50, nx=181, ny=181,
-                                       labels=None, boolPlot=False, plotZero=False,
-                                       cmap='seismic'):
+    def visualize(  self, q_func, no_show=False, 
+                    vmin=-50, vmax=50, nx=181, ny=181,
+                    labels=None, boolPlot=False, plotZero=False,
+                    cmap='seismic'):
         """ Overlays analytic safe set on top of state value function.
 
         Args:

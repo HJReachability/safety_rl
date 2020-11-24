@@ -417,7 +417,6 @@ class ZermeloKCEnv(gym.Env):
         it = np.nditer(v, flags=['multi_index'])
         xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)
         ys = np.linspace(self.bounds[1,0], self.bounds[1,1], ny)
-        print("START")
         while not it.finished:
             idx = it.multi_index
 
@@ -437,8 +436,7 @@ class ZermeloKCEnv(gym.Env):
             else:
                 v[idx] = q_func(state).min(dim=1)[0].item()
             it.iternext()
-        print("END")
-        return v, xs, ys
+        return v
 
 
     def get_axes(self):
@@ -448,7 +446,7 @@ class ZermeloKCEnv(gym.Env):
             List containing a list of bounds for each state coordinate and a
         """
         aspect_ratio = (self.bounds[0,1]-self.bounds[0,0])/(self.bounds[1,1]-self.bounds[1,0])
-        axes = np.array([self.bounds[0,0]-.05, self.bounds[0,1]+.05, self.bounds[1,0]-.15, self.bounds[1,1]+.15])
+        axes = np.array([self.bounds[0,0], self.bounds[0,1], self.bounds[1,0], self.bounds[1,1]])
         return [axes, aspect_ratio]
 
 
@@ -534,55 +532,60 @@ class ZermeloKCEnv(gym.Env):
         return trajectories, results
 
 
-    def visualize_analytic_comparison( self, q_func, no_show=False, 
-                                       vmin=-50, vmax=50, nx=61, ny=181,
-                                       labels=['', ''],
-                                       boolPlot=False, plotZero=False,
-                                       cmap='coolwarm'):
+    def visualize(  self, q_func, no_show=False,
+                    vmin=-1, vmax=1, nx=81, ny=241, cmap='seismic',
+                    labels=['', ''], boolPlot=False, addBias=False):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
             v: State value function.
         """
-        plt.clf()
-        axes = self.get_axes()
-        v, xs, ys = self.get_value(q_func, nx, ny)
-        #im = visualize_matrix(v.T, self.get_axes(labels), no_show, vmin=vmin, vmax=vmax)
+        fig, ax = plt.subplots(1, 1, figsize=(4, 4))
+        axStyle = self.get_axes()
+        cbarPlot = True
 
-        if boolPlot:
-            im = plt.imshow(v.T>vmin, interpolation='none', extent=axes[0], origin="lower",
-                       cmap=cmap)
-        else:
-            im = plt.imshow(v.T, interpolation='none', extent=axes[0], origin="lower",
-                       cmap=cmap)#, vmin=vmin, vmax=vmax)
-            cbar = plt.colorbar(im, pad=0.01, shrink=0.95, ticks=[vmin, 0, vmax])
-            cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
+        #== Plot failure / target set ==
+        self.plot_target_failure_set(ax)
 
-        self.plot_target_failure_set()
-        self.plot_reach_avoid_set()
+        #== Plot reach-avoid set ==
+        self.plot_reach_avoid_set(ax)
+
+        #== Plot V ==
+        self.plot_v_values(q_func, ax=ax, fig=fig,
+                            vmin=vmin, vmax=vmax, nx=nx, ny=ny, cmap=cmap,
+                            boolPlot=boolPlot, cbarPlot=cbarPlot, addBias=addBias)
         
         #== Plot Trajectories ==
-        self.plot_trajectories(q_func, states=self.visual_initial_states, toEnd=False)
+        self.plot_trajectories(q_func, states=self.visual_initial_states, toEnd=False, ax=ax)
 
-        ax.axis(axes[0])
-        ax.grid(False)
-        ax.set_aspect(axes[1])  # makes equal aspect ratio
-        if labels is not None:
-            ax.set_xlabel(labels[0], fontsize=52)
-            ax.set_ylabel(labels[1], fontsize=52)
-
-        ax.tick_params( axis='both', which='both',  # both x and y axes, both major and minor ticks are affected
-                        bottom=False, top=False,    # ticks along the top and bottom edges are off
-                        left=False, right=False)    # ticks along the left and right edges are off
-        ax.set_xticklabels([])
-        ax.set_yticklabels([])
+        #== Formatting ==
+        self.plot_formatting(ax=ax, labels=labels)
 
         if not no_show:
             plt.show()
 
 
-    def plot_trajectories(self, q_func, T=200, num_rnd_traj=None, states=None, 
-                          keepOutOf=False, toEnd=False, c='y', lw=2):
+    def plot_v_values(self, q_func, ax=None, fig=None,
+                        vmin=-1, vmax=1, nx=201, ny=201, cmap='seismic',
+                        boolPlot=False, cbarPlot=True, addBias=False):
+        axStyle = self.get_axes()
+
+        #== Plot V ==
+        v = self.get_value(q_func, nx, ny, addBias=addBias)
+
+        if boolPlot:
+            im = ax.imshow(v.T>0., interpolation='none', extent=axStyle[0], origin="lower",
+                       cmap=cmap)
+        else:
+            im = ax.imshow(v.T, interpolation='none', extent=axStyle[0], origin="lower",
+                       cmap=cmap, vmin=vmin, vmax=vmax)
+            if cbarPlot:
+                cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95, ticks=[vmin, 0, vmax])
+                cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
+
+
+    def plot_trajectories(self, q_func, T=200, num_rnd_traj=None, states=None,
+                          keepOutOf=False, toEnd=False, ax=None, c='y', lw=2):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -592,23 +595,23 @@ class ZermeloKCEnv(gym.Env):
                                                            keepOutOf=keepOutOf, toEnd=toEnd)
         for traj in trajectories:
             traj_x, traj_y = traj
-            plt.scatter(traj_x[0], traj_y[0], s=48, c=c)
-            plt.plot(traj_x, traj_y, color=c, linewidth=lw)
+            ax.scatter(traj_x[0], traj_y[0], s=48, c=c)
+            ax.plot(traj_x, traj_y, color=c, linewidth=lw)
 
         return results
 
 
-    def plot_target_failure_set(self):
+    def plot_target_failure_set(self, ax=None, c='m'):
         # Plot bounadries of constraint set.
-        plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
-        plt.plot(self.x_box2_pos, self.y_box2_pos, color="black")
-        plt.plot(self.x_box3_pos, self.y_box3_pos, color="black")
+        ax.plot(self.x_box1_pos, self.y_box1_pos, color="black")
+        ax.plot(self.x_box2_pos, self.y_box2_pos, color="black")
+        ax.plot(self.x_box3_pos, self.y_box3_pos, color="black")
 
         # Plot boundaries of target set.
-        plt.plot(self.x_box4_pos, self.y_box4_pos, color="m")
+        ax.plot(self.x_box4_pos, self.y_box4_pos, color=c)
 
 
-    def plot_reach_avoid_set(self):
+    def plot_reach_avoid_set(self, ax=None, c='g'):
         slope = self.upward_speed / self.horizontal_rate
 
         def get_line(slope, end_point, x_limit, ns=100):
@@ -623,13 +626,13 @@ class ZermeloKCEnv(gym.Env):
         x = self.box2_x_y_length[0] + self.box2_x_y_length[2]/2.0
         y = self.box2_x_y_length[1] - self.box2_x_y_length[2]/2.0
         xs, ys = get_line(slope, end_point=[x,y], x_limit=-2.)
-        plt.plot(xs, ys, color='g', linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=3)
 
         # right unsafe set
         x = self.box1_x_y_length[0] - self.box1_x_y_length[2]/2.0
         y = self.box1_x_y_length[1] - self.box1_x_y_length[2]/2.0
         xs, ys = get_line(-slope, end_point=[x,y], x_limit=2.)
-        plt.plot(xs, ys, color='g', linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=3)
 
         # middle unsafe set
         x1 = self.box3_x_y_length[0] - self.box3_x_y_length[2]/2.0
@@ -637,15 +640,33 @@ class ZermeloKCEnv(gym.Env):
         x3 = self.box3_x_y_length[0]
         y = self.box3_x_y_length[1] - self.box3_x_y_length[2]/2.0
         xs, ys = get_line(-slope, end_point=[x1,y], x_limit=x3)
-        plt.plot(xs, ys, color='g', linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=3)
         xs, ys = get_line(slope, end_point=[x2,y], x_limit=x3)
-        plt.plot(xs, ys, color='g', linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=3)
 
         # border unsafe set
         x1 = self.box4_x_y_length[0] - self.box4_x_y_length[2]/2.0
         x2 = self.box4_x_y_length[0] + self.box4_x_y_length[2]/2.0
         y = self.box4_x_y_length[1] + self.box4_x_y_length[2]/2.0
         xs, ys = get_line(slope, end_point=[x1,y], x_limit=-2.)
-        plt.plot(xs, ys, color='g', linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=3)
         xs, ys = get_line(-slope, end_point=[x2,y], x_limit=2.)
-        plt.plot(xs, ys, color='g', linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=3)
+
+
+    def plot_formatting(self, ax=None, labels=None):
+        axStyle = self.get_axes()
+        #== Formatting ==
+        ax.axis(axStyle[0])
+        ax.set_aspect(axStyle[1])  # makes equal aspect ratio
+        ax.grid(False)
+        if labels is not None:
+            ax.set_xlabel(labels[0], fontsize=52)
+            ax.set_ylabel(labels[1], fontsize=52)
+
+        ax.tick_params( axis='both', which='both',  # both x and y axes, both major and minor ticks are affected
+                        bottom=False, top=False,    # ticks along the top and bottom edges are off
+                        left=False, right=False)    # ticks along the left and right edges are off
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        #ax.set_title(r"$\theta$={:.1f}".format(theta * 180 / np.pi), fontsize=24)

@@ -244,7 +244,7 @@ class DDQN():
                 self.optimizer.step()
 
             print(" --- Warmup Q Ends")
-            env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
+            env.visualize(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
             plt.pause(0.001)
             self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
             self.build_optimizer()
@@ -301,10 +301,9 @@ class DDQN():
                             self.cntUpdate, self.EPSILON, self.GAMMA, lr))
                     if plotFigure or storeFigure:
                         if showBool:
-                            env.visualize_analytic_comparison(self.Q_network, True, vmin=0, vmax=1, boolPlot=True, cmap='coolwarm', addBias=addBias)
+                            env.visualize(self.Q_network, True, vmin=0, vmax=1, boolPlot=True, cmap='coolwarm', addBias=addBias)
                         else:
-                            env.visualize_analytic_comparison(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
-                        # todo{vrubies} tight layout causes issues on
+                            env.visualize(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
                         # plt.tight_layout()
                         if storeFigure:
                             figureFolder = 'figure/{:s}/'.format(outFolder)

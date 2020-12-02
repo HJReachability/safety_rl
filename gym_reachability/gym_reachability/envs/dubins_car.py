@@ -69,14 +69,14 @@ class DubinsCarEnv(gym.Env):
         self.seed_val = 0
         np.random.seed(self.seed_val)
 
-        # Visualization params
+        # Visualization params 
         self.fig = None
         self.axes = None
-        self.visual_initial_states = [  np.array([ .6*self.outer_radius,  -.5, np.pi/2]),
+        self.visual_initial_states =[   np.array([ .6*self.outer_radius,  -.5, np.pi/2]),
                                         np.array([ -.4*self.outer_radius, -.5, np.pi/2]),
                                         np.array([ -0.95*self.outer_radius, 0., np.pi/2]),
                                         np.array([ self.R_turn, 0.95*(self.outer_radius-self.R_turn), np.pi/2]),
-                                     ]
+                                    ]
         # Cost Params
         self.targetScaling = 1.
         self.safetyScaling = 1.
@@ -120,7 +120,7 @@ class DubinsCarEnv(gym.Env):
         else:
             x_rnd, y_rnd, theta_rnd = np.random.uniform(low=self.low,
                                                         high=self.high)
-        
+
         return x_rnd, y_rnd, theta_rnd
 
 
@@ -396,9 +396,9 @@ class DubinsCarEnv(gym.Env):
         return traj_x, traj_y, result
 
 
-    def simulate_trajectories(self, q_func, T=10,
-                              num_rnd_traj=None, states=None, theta=None,
-                              keepOutOf=False, toEnd=False):
+    def simulate_trajectories(  self, q_func, T=10,
+                                num_rnd_traj=None, states=None, theta=None,
+                                keepOutOf=False, toEnd=False):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -408,8 +408,8 @@ class DubinsCarEnv(gym.Env):
         if states is None:
             results = np.empty(shape=(num_rnd_traj,), dtype=int)
             for idx in range(num_rnd_traj):
-                traj_x, traj_y, result = self.simulate_one_trajectory(q_func, T=T, theta=theta, 
-                                                                      keepOutOf=keepOutOf, toEnd=toEnd)
+                traj_x, traj_y, result = self.simulate_one_trajectory(  q_func, T=T, theta=theta, 
+                                                                        keepOutOf=keepOutOf, toEnd=toEnd)
                 trajectories.append((traj_x, traj_y))
                 results[idx] = result
         else:
@@ -422,9 +422,9 @@ class DubinsCarEnv(gym.Env):
         return trajectories, results
 
 
-    def visualize_analytic_comparison(self, q_func, no_show=False,
-                                      vmin=-1, vmax=1, nx=101, ny=101, cmap='coolwarm',
-                                      labels=None, boolPlot=False, addBias=False, theta=np.pi/2):
+    def visualize_analytic_comparison(  self, q_func, no_show=False,
+                                        vmin=-1, vmax=1, nx=101, ny=101, cmap='coolwarm',
+                                        labels=None, boolPlot=False, addBias=False, theta=np.pi/2):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
@@ -458,15 +458,15 @@ class DubinsCarEnv(gym.Env):
             self.plot_reach_avoid_set(ax, orientation=theta)
 
             #== Plot V ==
-            self.plot_v_values(q_func, ax=ax, fig=fig, theta=theta,
+            self.plot_v_values( q_func, ax=ax, fig=fig, theta=theta,
                                 vmin=vmin, vmax=vmax, nx=nx, ny=ny, cmap=cmap,
                                 boolPlot=boolPlot, cbarPlot=cbarPlot, addBias=addBias)
             #== Formatting ==
             self.plot_formatting(ax=ax, labels=labels)
 
             #== Plot Trajectories ==
-            self.plot_trajectories(q_func, T=200, states=self.visual_initial_states, toEnd=False, 
-                                   ax=ax, c='y', lw=2, orientation=theta-np.pi/2)
+            self.plot_trajectories( q_func, T=200, states=self.visual_initial_states, toEnd=False, 
+                                    ax=ax, c='y', lw=2, orientation=theta-np.pi/2)
 
             ax.set_xlabel(r'$\theta={:.0f}^\circ$'.format(theta*180/np.pi), fontsize=28)
 
@@ -492,7 +492,7 @@ class DubinsCarEnv(gym.Env):
         #ax.set_title(r"$\theta$={:.1f}".format(theta * 180 / np.pi), fontsize=24)
 
 
-    def plot_v_values(self, q_func, theta=np.pi/2, ax=None, fig=None,
+    def plot_v_values(  self, q_func, theta=np.pi/2, ax=None, fig=None,
                         vmin=-1, vmax=1, nx=201, ny=201, cmap='seismic',
                         boolPlot=False, cbarPlot=True, addBias=False):
         axStyle = self.get_axes()
@@ -505,18 +505,17 @@ class DubinsCarEnv(gym.Env):
         v = self.get_value(q_func, theta, nx, ny, addBias=addBias)
 
         if boolPlot:
-            im = ax.imshow(v.T>0., interpolation='none', extent=axStyle[0], origin="lower",
-                       cmap=cmap)
+            im = ax.imshow(v.T>0., interpolation='none', extent=axStyle[0], origin="lower", cmap=cmap)
         else:
-            im = ax.imshow(v.T, interpolation='none', extent=axStyle[0], origin="lower",
-                       cmap=cmap, vmin=vmin, vmax=vmax)
+            im = ax.imshow( v.T, interpolation='none', extent=axStyle[0], origin="lower",
+                            cmap=cmap, vmin=vmin, vmax=vmax)
             if cbarPlot:
                 cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95, ticks=[vmin, 0, vmax])
                 cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
 
 
-    def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None, theta=None,
-                          keepOutOf=False, toEnd=False, ax=None, c='y', lw=1.5, orientation=0):
+    def plot_trajectories(  self, q_func, T=10, num_rnd_traj=None, states=None, theta=None,
+                            keepOutOf=False, toEnd=False, ax=None, c='y', lw=1.5, orientation=0):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -531,10 +530,10 @@ class DubinsCarEnv(gym.Env):
                 thetatilde = theta+orientation
                 tmpStates.append(np.array([xtilde, ytilde, thetatilde]))
             states = tmpStates
-                
-        trajectories, results = self.simulate_trajectories(q_func, T=T, num_rnd_traj=num_rnd_traj, 
-                                                           states=states, theta=theta, 
-                                                           keepOutOf=keepOutOf, toEnd=toEnd)
+
+        trajectories, results = self.simulate_trajectories( q_func, T=T, num_rnd_traj=num_rnd_traj, 
+                                                            states=states, theta=theta, 
+                                                            keepOutOf=keepOutOf, toEnd=toEnd)
         if ax == None:
             ax = plt.gca()
         for traj in trajectories:
@@ -579,26 +578,26 @@ class DubinsCarEnv(gym.Env):
         self.plot_circle(self.constraint_center, self.outer_radius, ax, c='k', lw=3)
         self.plot_circle(self.target_center,     self.inner_radius, ax, c='m', lw=3)
 
-    
+
     def plot_arc(self, p, r, thetaParam, ax, c='b', lw=1.5, orientation=0):
         x, y = p
         thetaInit, thetaFinal = thetaParam
-        
+
         xtilde = x*np.cos(orientation) - y*np.sin(orientation)
         ytilde = y*np.cos(orientation) + x*np.sin(orientation)
-        
+
         theta = np.linspace(thetaInit+orientation, thetaFinal+orientation, 100)
         xs = xtilde + r * np.cos(theta)
         ys = ytilde + r * np.sin(theta)
-        
+
         ax.plot(xs, ys, c=c, lw=lw)
 
-    
+
     def plot_circle(self, center, r, ax, c='b', lw=1.5, orientation=0, scatter=False):
         x, y = center
         xtilde = x*np.cos(orientation) - y*np.sin(orientation)
         ytilde = y*np.cos(orientation) + x*np.sin(orientation)
-        
+
         theta = np.linspace(0, 2*np.pi, 200)
         xs = xtilde + r * np.cos(theta)
         ys = ytilde + r * np.sin(theta)
@@ -607,4 +606,3 @@ class DubinsCarEnv(gym.Env):
             ax.scatter(xtilde+r, ytilde, c=c, s=80)
             ax.scatter(xtilde-r, ytilde, c=c, s=80)
             print(xtilde+r, ytilde, xtilde-r, ytilde)
- 

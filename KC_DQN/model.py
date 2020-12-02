@@ -19,7 +19,7 @@ class modelTanhTwo(nn.Module):
         out1 = self.fc1(x)
         a = self.final(out1)
         return a
-    
+
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
@@ -45,7 +45,7 @@ class modelTanhThree(nn.Module):
         out2 = self.fc2(out1)
         a = self.final(out2)
         return a
-    
+
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
@@ -66,7 +66,7 @@ class modelSinTwo(nn.Module):
         out1 = torch.sin(out1)
         a = self.final(out1)
         return a
-    
+
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
@@ -90,7 +90,7 @@ class modelSinThree(nn.Module):
         out2 = torch.sin(out2)
         a = self.final(out2)
         return a
-    
+
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):

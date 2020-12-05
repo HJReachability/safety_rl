@@ -422,9 +422,9 @@ class DubinsCarEnv(gym.Env):
         return trajectories, results
 
 
-    def visualize_analytic_comparison(  self, q_func, no_show=False,
-                                        vmin=-1, vmax=1, nx=101, ny=101, cmap='coolwarm',
-                                        labels=None, boolPlot=False, addBias=False, theta=np.pi/2):
+    def visualize(  self, q_func, no_show=False,
+                    vmin=-1, vmax=1, nx=101, ny=101, cmap='coolwarm',
+                    labels=None, boolPlot=False, addBias=False, theta=np.pi/2):
         """ Overlays analytic safe set on top of state value function.
 
         Args:

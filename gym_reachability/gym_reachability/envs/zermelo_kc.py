@@ -1,12 +1,6 @@
 # Please contact the author(s) of this library if you have any questions.
 # Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
-# Modified from `point_mass.py`
-# TODO: here the q_func is not a lookup table. Instead, it is a NN.
-#  - simulate_trajectories
-#  - simulate_one_trajectory
-#  - plot_trajectories
-
 import gym.spaces
 import numpy as np
 import gym

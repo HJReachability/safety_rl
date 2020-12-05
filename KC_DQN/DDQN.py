@@ -75,10 +75,13 @@ class DDQN():
         elif self.model == 'SinTwo':
             self.Q_network = modelSinTwo(self.state_num, self.action_num)
             self.target_network = modelSinTwo(self.state_num, self.action_num)
-        else:
-            assert self.model == 'SinThree', "Define your own model"
+        elif self.model == 'SinThree':
             self.Q_network = modelSinThree(self.state_num, self.action_num)
             self.target_network = modelSinThree(self.state_num, self.action_num)
+        else:
+            assert self.model == 'SinFour', "Define your own model"
+            self.Q_network = modelSinFour(self.state_num, self.action_num)
+            self.target_network = modelSinFour(self.state_num, self.action_num)
 
         if self.device == torch.device('cuda'):
             self.Q_network.cuda()

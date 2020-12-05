@@ -96,3 +96,30 @@ class modelSinThree(nn.Module):
             if isinstance(m, nn.Linear):
                 m.weight.data.normal_(0, 1)
                 m.bias.data.zero_()
+
+
+class modelSinFour(nn.Module):
+    def __init__(self, state_num, action_num):
+        super(modelSinFour, self).__init__()
+        self.fc1 = nn.Linear(in_features=state_num, out_features=512)
+        self.fc2 = nn.Linear(in_features=512, out_features=512)
+        self.fc3 = nn.Linear(in_features=512, out_features=512)
+        self.final = nn.Linear(512, action_num)
+        self._initialize_weights()
+        print("Using four-layer NN architecture with Sin act.")
+
+    def forward(self, x):
+        out1 = self.fc1(x)
+        out1 = torch.sin(out1)
+        out2 = self.fc2(out1)
+        out2 = torch.sin(out2)
+        out3 = self.fc2(out2)
+        out3 = torch.sin(out3)
+        a = self.final(out3)
+        return a
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                m.weight.data.normal_(0, 1)
+                m.bias.data.zero_()

@@ -2,7 +2,7 @@
 # Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
 import torch
-import torch.nn as nn             
+import torch.nn as nn
 
 class modelTanhTwo(nn.Module):
     def __init__(self, state_num, action_num):
@@ -19,7 +19,7 @@ class modelTanhTwo(nn.Module):
         out1 = self.fc1(x)
         a = self.final(out1)
         return a
-    
+
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
@@ -31,12 +31,12 @@ class modelTanhThree(nn.Module):
     def __init__(self, state_num, action_num):
         super(modelTanhThree, self).__init__()
         self.fc1 = nn.Sequential(
-            nn.Linear(in_features=state_num, out_features=100),
+            nn.Linear(in_features=state_num, out_features=200),
             nn.Tanh())
         self.fc2 = nn.Sequential(
-            nn.Linear(in_features=100, out_features=100),
+            nn.Linear(in_features=200, out_features=200),
             nn.Tanh())
-        self.final = nn.Linear(100, action_num)
+        self.final = nn.Linear(200, action_num)
         self._initialize_weights()
         print("Using three-layer NN architecture with Tanh act.")
 
@@ -45,7 +45,37 @@ class modelTanhThree(nn.Module):
         out2 = self.fc2(out1)
         a = self.final(out2)
         return a
-    
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                m.weight.data.normal_(0, 0.1)
+                m.bias.data.zero_()
+
+
+class modelReluFour(nn.Module):
+    def __init__(self, state_num, action_num):
+        super(modelReluFour, self).__init__()
+        self.fc1 = nn.Sequential(
+            nn.Linear(in_features=state_num, out_features=100),
+            nn.ReLU())
+        self.fc2 = nn.Sequential(
+            nn.Linear(in_features=100, out_features=100),
+            nn.ReLU())
+        self.fc3 = nn.Sequential(
+            nn.Linear(in_features=100, out_features=100),
+            nn.ReLU())
+        self.final = nn.Linear(100, action_num)
+        self._initialize_weights()
+        print("Using hour-layer NN architecture with ReLU act.")
+
+    def forward(self, x):
+        out1 = self.fc1(x)
+        out2 = self.fc2(out1)
+        out3 = self.fc3(out2)
+        a = self.final(out3)
+        return a
+
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
@@ -66,7 +96,7 @@ class modelSinTwo(nn.Module):
         out1 = torch.sin(out1)
         a = self.final(out1)
         return a
-    
+
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
@@ -90,7 +120,7 @@ class modelSinThree(nn.Module):
         out2 = torch.sin(out2)
         a = self.final(out2)
         return a
-    
+
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):

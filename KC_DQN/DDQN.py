@@ -25,7 +25,7 @@ Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
 
 class DDQN():
 
-    def __init__(self, state_num, action_num, CONFIG, action_list, mode='normal', model='TanhTwo'):
+    def __init__(self, state_num, action_num, CONFIG, action_list, mode='normal', model='TanhThree'):
         self.action_list = action_list
         self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)
         self.mode = mode # 'normal' or 'RA'
@@ -75,6 +75,9 @@ class DDQN():
         elif self.model == 'SinTwo':
             self.Q_network = modelSinTwo(self.state_num, self.action_num)
             self.target_network = modelSinTwo(self.state_num, self.action_num)
+        elif self.model == 'ReluFour':
+            self.Q_network = modelReluFour(self.state_num, self.action_num)
+            self.target_network = modelReluFour(self.state_num, self.action_num)
         else:
             assert self.model == 'SinThree', "Define your own model"
             self.Q_network = modelSinThree(self.state_num, self.action_num)
@@ -86,8 +89,11 @@ class DDQN():
 
 
     def build_optimizer(self):
+        # self.optimizer = optim.RMSprop(self.Q_network.parameters(),
+        #                                lr=self.LR_C)
         self.optimizer = optim.Adam(self.Q_network.parameters(), lr=self.LR_C)
-        self.scheduler =  optim.lr_scheduler.StepLR(self.optimizer, step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
+        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer,
+            step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
         self.max_grad_norm = 1
         self.cntUpdate = 0
 

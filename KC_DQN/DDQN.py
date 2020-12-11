@@ -37,10 +37,9 @@ class DDQN():
 
         #== PARAM ==
         # Exploration
-        self.EPSILON = CONFIG.EPSILON
-        self.EPS_END = CONFIG.EPS_END
-        self.EPS_PERIOD = CONFIG.EPS_PERIOD
-        self.EPS_DECAY = CONFIG.EPS_DECAY
+        self.EpsilonScheduler = StepLR( initValue=CONFIG.EPSILON, period=CONFIG.EPS_PERIOD, 
+                                        decay=CONFIG.EPS_DECAY, endValue=CONFIG.EPS_END)
+        self.EPSILON = self.EpsilonScheduler.get_variable()
         # Learning Rate
         self.LR_C = CONFIG.LR_C
         self.LR_C_PERIOD = CONFIG.LR_C_PERIOD
@@ -51,10 +50,10 @@ class DDQN():
         self.MAX_MODEL = CONFIG.MAX_MODEL
         self.device = CONFIG.DEVICE
         # Discount Factor
-        self.GAMMA = CONFIG.GAMMA
-        self.GAMMA_END = CONFIG.GAMMA_END
-        self.GAMMA_PERIOD = CONFIG.GAMMA_PERIOD
-        self.GAMMA_DECAY = CONFIG.GAMMA_DECAY
+        self.GammaScheduler = StepLRMargin( initValue=CONFIG.GAMMA, period=CONFIG.GAMMA_PERIOD, 
+                                            decay=CONFIG.GAMMA_DECAY, endValue=CONFIG.GAMMA_END,
+                                            goalValue=1.)
+        self.GAMMA = self.GammaScheduler.get_variable()
         # Target Network Update
         self.double = CONFIG.DOUBLE
         self.TAU = CONFIG.TAU
@@ -378,24 +377,17 @@ class DDQN():
             self.target_network.load_state_dict(self.Q_network.state_dict())
 
 
-    def updateEpsilon(self):
-        if self.cntUpdate % self.EPS_PERIOD == 0 and self.cntUpdate != 0:
-            self.EPSILON = max(self.EPSILON*self.EPS_DECAY, self.EPS_END)
-
-
-    def updateGamma(self):
-        if self.cntUpdate % self.GAMMA_PERIOD == 0 and self.cntUpdate != 0:
-            self.GAMMA = min(1 - (1-self.GAMMA) * self.GAMMA_DECAY, self.GAMMA_END)
-
-
     def updateHyperParam(self):
         if self.optimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_C_END:
             for param_group in self.optimizer.param_groups:
                 param_group['lr'] = self.LR_C_END
         else:
             self.scheduler.step()
-        self.updateEpsilon()
-        self.updateGamma()
+        
+        self.EpsilonScheduler.step()
+        self.EPSILON = self.EpsilonScheduler.get_variable()
+        self.GammaScheduler.step()
+        self.GAMMA = self.GammaScheduler.get_variable()
 
 
     def select_action(self, state, explore=False):
@@ -428,3 +420,15 @@ class DDQN():
         self.Q_network.load_state_dict(torch.load(logs_path))
         self.target_network.load_state_dict(torch.load(logs_path))
         print('=> Restore {}' .format(logs_path))
+
+
+    # ! Deprecated method, do not use
+    def updateEpsilon(self):
+        if self.cntUpdate % self.EPS_PERIOD == 0 and self.cntUpdate != 0:
+            self.EPSILON = max(self.EPSILON*self.EPS_DECAY, self.EPS_END)
+
+
+    # ! Deprecated method, do not use
+    def updateGamma(self):
+        if self.cntUpdate % self.GAMMA_PERIOD == 0 and self.cntUpdate != 0:
+            self.GAMMA = min(1 - (1-self.GAMMA) * self.GAMMA_DECAY, self.GAMMA_END)

@@ -28,13 +28,17 @@ class model(nn.Module):
     """
     model: Constructs a fully-connected neural network with flexible depth, width
             and activation function choices.
-
-    Args:
-        dimList (int List): the dimension of each layer.
-        actType (string): the type of activation function. Defaults to 'Tanh'.
-                            currently supports 'Sin', 'Tanh' and 'ReLU'.
     """    
-    def __init__(self, dimList, actType='Tanh'):
+    def __init__(self, dimList, actType='Tanh', verbose=False):
+        """
+        __init__: Initalizes.
+
+        Args:
+            dimList (int List): the dimension of each layer.
+            actType (str, optional): the type of activation function. Defaults to 'Tanh'.
+                                        Currently supports 'Sin', 'Tanh' and 'ReLU'.
+            verbose (bool, optional): print info or not. Defaults to False.
+        """        
         super(model, self).__init__()
 
         # Construct module list: if use `Python List`, the modules are not added to
@@ -55,12 +59,11 @@ class model(nn.Module):
                     self.moduleList.append(nn.Tanh())
                 elif actType == 'ReLU':
                     self.moduleList.append(nn.ReLU())
-        print(self.moduleList)
+        if verbose:
+            print(self.moduleList)
 
         # Initalizes the weight
         self._initialize_weights()
-        print("Using {:d}-layer NN architecture with {:s} act.".format(
-            numLayer, actType))
 
 
     def forward(self, x):

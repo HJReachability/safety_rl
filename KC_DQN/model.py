@@ -2,8 +2,81 @@
 # Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
 import torch
-import torch.nn as nn             
+import torch.nn as nn
 
+class Sin(nn.Module):
+    """
+    Sin: Wraps element-wise `sin` activation as a nn.Module. 
+
+    Shape:
+        - Input: `(N, *)` where `*` means, any number of additional dimensions
+        - Output: `(N, *)`, same shape as the input
+
+    Examples:
+        >>> m = Sin()
+        >>> input = torch.randn(2)
+        >>> output = m(input)
+    """
+    def __init__(self): 
+        super().__init__() # init the base class
+
+    def forward(self, input):
+        return torch.sin(input) # simply apply already implemented sin
+
+
+class model(nn.Module):
+    """
+    model: Constructs a fully-connected neural network with flexible depth, width
+            and activation function choices.
+
+    Args:
+        dimList (int List): the dimension of each layer.
+        actType (string): the type of activation function. Defaults to 'Tanh'.
+                            currently supports 'Sin', 'Tanh' and 'ReLU'.
+    """    
+    def __init__(self, dimList, actType='Tanh'):
+        super(model, self).__init__()
+
+        # Construct module list: if use `Python List`, the modules are not added to
+        # computation graph. Instead, we should use `nn.ModuleList()`.
+        self.moduleList = nn.ModuleList()
+        numLayer = len(dimList)-1
+        for idx in range(numLayer):
+            i_dim = dimList[idx]
+            o_dim = dimList[idx+1]
+
+            self.moduleList.append(nn.Linear(in_features=i_dim, out_features=o_dim))
+            if idx == numLayer-1: # final linear layer, no act.
+                pass
+            else:
+                if actType == 'Sin':
+                    self.moduleList.append(Sin())
+                elif actType == 'Tanh':
+                    self.moduleList.append(nn.Tanh())
+                elif actType == 'ReLU':
+                    self.moduleList.append(nn.ReLU())
+        print(self.moduleList)
+
+        # Initalizes the weight
+        self._initialize_weights()
+        print("Using {:d}-layer NN architecture with {:s} act.".format(
+            numLayer, actType))
+
+
+    def forward(self, x):
+        for m in self.moduleList:
+            x = m(x)
+        return x
+
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                m.weight.data.normal_(0, 1)
+                m.bias.data.zero_()
+
+
+# ! Deprecated method, do not use
 class modelTanhTwo(nn.Module):
     def __init__(self, state_num, action_num):
         super(modelTanhTwo, self).__init__()
@@ -27,6 +100,7 @@ class modelTanhTwo(nn.Module):
                 m.bias.data.zero_()
 
 
+# ! Deprecated method, do not use
 class modelTanhThree(nn.Module):
     def __init__(self, state_num, action_num):
         super(modelTanhThree, self).__init__()
@@ -53,6 +127,7 @@ class modelTanhThree(nn.Module):
                 m.bias.data.zero_()
 
 
+# ! Deprecated method, do not use
 class modelSinTwo(nn.Module):
     def __init__(self, state_num, action_num):
         super(modelSinTwo, self).__init__()
@@ -74,6 +149,7 @@ class modelSinTwo(nn.Module):
                 m.bias.data.zero_()
 
 
+# ! Deprecated method, do not use
 class modelSinThree(nn.Module):
     def __init__(self, state_num, action_num):
         super(modelSinThree, self).__init__()
@@ -98,6 +174,7 @@ class modelSinThree(nn.Module):
                 m.bias.data.zero_()
 
 
+# ! Deprecated method, do not use
 class modelSinFour(nn.Module):
     def __init__(self, state_num, action_num):
         super(modelSinFour, self).__init__()

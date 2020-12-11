@@ -25,15 +25,15 @@ Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
 
 class DDQN():
 
-    def __init__(self, state_num, action_num, CONFIG, actionList, 
+    def __init__(self, numState, numAction, CONFIG, actionList, 
                     mode='normal', dimList=None, actType='Tanh'):
         self.actionList = actionList
         self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)
         self.mode = mode # 'normal' or 'RA'
 
         #== ENV PARAM ==
-        self.state_num = state_num
-        self.action_num = action_num
+        self.numState = numState
+        self.numAction = numAction
 
         #== PARAM ==
         # Exploration
@@ -179,16 +179,62 @@ class DDQN():
 
     def learn(  self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100,
                 warmupBuffer=True, warmupQ=False, warmupIter=10000,
-                addBias=False, doneTerminate=True, running_cost_th=None,
+                addBias=False, doneTerminate=True, runningCostThr=None,
                 curUpdates=None, checkPeriod=50000, 
                 plotFigure=True, storeFigure=False,
-                showBool=False, vmin=-1, vmax=1, num_rnd_traj=200,
+                showBool=False, vmin=-1, vmax=1, numRndTraj=200,
                 storeModel=True, storeBest=False, 
                 outFolder='RA', verbose=True):
-        #== TRAINING RECORD ==
-        TrainingRecord = namedtuple('TrainingRecord', ['ep', 'avg_cost', 'cost', 'loss_c'])
-        trainingRecords = []
-        running_cost = 0.
+        """
+        learn: Learns the vlaue function 
+
+        Args:
+            env (gym.Env Obj.): environment.
+            MAX_UPDATES (int, optional): the maximal number of gradient 
+                updates. Defaults to 2000000.
+            MAX_EP_STEPS (int, optional): the number of steps in an episode. 
+                Defaults to 100.
+            warmupBuffer (bool, optional): fill the replay buffer if True.
+                Defaults to True.
+            warmupQ (bool, optional): train the Q-network by (l_x, g_x) if 
+                True. Defaults to False.
+            warmupIter (int, optional): the number of iterations in the 
+                Q-network warmup. Defaults to 10000.
+            addBias (bool, optional): use biased version of value function if 
+                True. Defaults to False.
+            doneTerminate (bool, optional): ends the episode when the agent 
+                crosses the boundary if True. Defaults to True.
+            runningCostThr (float, optional): ends the training if the running 
+                cost is smaller than the threshold. Defaults to None.
+            curUpdates (int, optional): set the current number of updates 
+                (usually used when restoring trained models). Defaults to None.
+            checkPeriod (int, optional): the period we check the performance 
+                Defaults to 50000.
+            plotFigure (bool, optional): plot figures if True. Defaults to True.
+            storeFigure (bool, optional): store figures if True. Defaults to 
+                False.
+            showBool (bool, optional): use bool value function if True. 
+                Defaults to False.
+            vmin (float, optional): the minimal value in the colorbar. Defaults 
+                to -1.
+            vmax (float, optional): the maximal value in the colorbar. Defaults 
+                to 1.
+            numRndTraj (int, optional): the number of random trajectories used 
+                to obtain the success ratio. Defaults to 200.
+            storeModel (bool, optional): store models if True. Defaults to True.
+            storeBest (bool, optional): only store the best model if True. 
+                Defaults to False.
+            outFolder (str, optional): the relative folder path with respect to 
+                models/ and figure/. Defaults to 'RA'.
+            verbose (bool, optional): output message if True. Defaults to True.
+
+        Returns:
+            trainingRecords (List): each entry consists of  ['ep', 
+                'runningCost', 'cost', 'lossC'] after every episode.
+            trainProgress (List): each entry consists of the success / failure 
+                / unfinished ratio of random trajectories and is checked 
+                periodically.
+        """
 
         # == Warmup Buffer ==
         if warmupBuffer:
@@ -229,6 +275,9 @@ class DDQN():
             self.build_optimizer()
 
         # == Main Training ==
+        TrainingRecord = namedtuple('TrainingRecord', ['ep', 'runningCost', 'cost', 'lossC'])
+        trainingRecords = []
+        runningCost = 0.
         trainProgress = []
         checkPointSucc = 0.
         ep = 0
@@ -237,7 +286,7 @@ class DDQN():
             print("starting from {:d} updates".format(self.cntUpdate))
         while self.cntUpdate <= MAX_UPDATES:
             s = env.reset()
-            ep_cost = 0.
+            epCost = 0.
             ep += 1
             # Rollout
             for step_num in range(MAX_EP_STEPS):
@@ -246,7 +295,7 @@ class DDQN():
 
                 # Interact with env
                 s_, r, done, info = env.step(a_idx)
-                ep_cost += r
+                epCost += r
 
                 # Store the transition in memory
                 self.store_transition(s, a_idx, r, s_, info)
@@ -255,11 +304,11 @@ class DDQN():
                 # Check after fixed number of gradient updates
                 if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
                     _, results = env.simulate_trajectories( self.Q_network, T=MAX_EP_STEPS, 
-                                                            num_rnd_traj=num_rnd_traj,
+                                                            num_rnd_traj=numRndTraj,
                                                             keepOutOf=False, toEnd=False)
-                    success  = np.sum(results==1) / num_rnd_traj
-                    failure  = np.sum(results==-1)/ num_rnd_traj
-                    unfinish = np.sum(results==0) / num_rnd_traj
+                    success  = np.sum(results==1) / numRndTraj
+                    failure  = np.sum(results==-1)/ numRndTraj
+                    unfinish = np.sum(results==0) / numRndTraj
                     trainProgress.append([success, failure, unfinish])
                     if verbose:
                         lr = self.optimizer.state_dict()['param_groups'][0]['lr']
@@ -290,7 +339,7 @@ class DDQN():
                             plt.pause(0.001)
 
                 # Perform one step of the optimization (on the target network)
-                loss_c = self.update(addBias=addBias)
+                lossC = self.update(addBias=addBias)
                 self.cntUpdate += 1
                 self.updateHyperParam()
 
@@ -299,17 +348,17 @@ class DDQN():
                     break
 
             # Rollout report
-            running_cost = running_cost * 0.9 + ep_cost * 0.1
-            trainingRecords.append(TrainingRecord(ep, running_cost, ep_cost, loss_c))
+            runningCost = runningCost * 0.9 + epCost * 0.1
+            trainingRecords.append(TrainingRecord(ep, runningCost, epCost, lossC))
             if verbose:
                 print('\r{:3.0f}: This episode gets running/episode cost = ({:3.2f}/{:.2f}) after {:d} steps.'.format(\
-                    ep, running_cost, ep_cost, step_num+1), end=' ')
+                    ep, runningCost, epCost, step_num+1), end=' ')
                 print('The agent currently updates {:d} times'.format(self.cntUpdate), end='\t\t')
 
             # Check stopping criteria
-            if running_cost_th != None:
-                if running_cost <= running_cost_th:
-                    print("\n At Updates[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(self.cntUpdate, running_cost))
+            if runningCostThr != None:
+                if runningCost <= runningCostThr:
+                    print("\n At Updates[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(self.cntUpdate, runningCost))
                     env.close()
                     break
         print()
@@ -353,7 +402,7 @@ class DDQN():
         # tensor.min() returns (value, indices), which are in tensor form
         state = torch.from_numpy(state).float().unsqueeze(0)
         if (random.random() < self.EPSILON) and explore:
-            action_index = random.randint(0, self.action_num-1)
+            action_index = random.randint(0, self.numAction-1)
         else:
             action_index = self.Q_network(state).min(dim=1)[1].item()
         return self.actionList[action_index], action_index

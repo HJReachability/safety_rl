@@ -25,11 +25,11 @@ Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
 
 class DDQN():
 
-    def __init__(self, state_num, action_num, CONFIG, action_list, mode='normal', model='TanhTwo'):
-        self.action_list = action_list
+    def __init__(self, state_num, action_num, CONFIG, actionList, 
+                    mode='normal', dimList=None, actType='Tanh'):
+        self.actionList = actionList
         self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)
         self.mode = mode # 'normal' or 'RA'
-        self.model = model
 
         #== ENV PARAM ==
         self.state_num = state_num
@@ -61,27 +61,16 @@ class DDQN():
         self.HARD_UPDATE = CONFIG.HARD_UPDATE # int, update period
         self.SOFT_UPDATE = CONFIG.SOFT_UPDATE # bool
         # Build NN for (D)DQN
-        self.build_network()
+        self.dimList = dimList
+        self.actType = actType
+        self.build_network(dimList, actType)
         self.build_optimizer()
 
 
-    def build_network(self):
-        if self.model == 'TanhTwo':
-            self.Q_network = modelTanhTwo(self.state_num, self.action_num)
-            self.target_network = modelTanhTwo(self.state_num, self.action_num)
-        elif self.model == 'TanhThree':
-            self.Q_network = modelTanhThree(self.state_num, self.action_num)
-            self.target_network = modelTanhThree(self.state_num, self.action_num)
-        elif self.model == 'SinTwo':
-            self.Q_network = modelSinTwo(self.state_num, self.action_num)
-            self.target_network = modelSinTwo(self.state_num, self.action_num)
-        elif self.model == 'SinThree':
-            self.Q_network = modelSinThree(self.state_num, self.action_num)
-            self.target_network = modelSinThree(self.state_num, self.action_num)
-        else:
-            assert self.model == 'SinFour', "Define your own model"
-            self.Q_network = modelSinFour(self.state_num, self.action_num)
-            self.target_network = modelSinFour(self.state_num, self.action_num)
+    def build_network(self, dimList=None, actType='Tanh'):
+        assert self.dimList is not None, "Define the architecture"
+        self.Q_network = model(dimList, actType, verbose=True)
+        self.target_network = model(dimList, actType)
 
         if self.device == torch.device('cuda'):
             self.Q_network.cuda()
@@ -95,7 +84,7 @@ class DDQN():
         self.cntUpdate = 0
 
 
-    def update(self, verbose=False, addBias=False):
+    def update(self, addBias=False):
         if len(self.memory) < self.BATCH_SIZE*20:
             return
 
@@ -106,12 +95,12 @@ class DDQN():
         batch = Transition(*zip(*transitions))
 
         # `non_final_mask` is used for environments that have next state to be None
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)),
-                                      device=self.device, dtype=torch.bool)
+        non_final_mask = torch.tensor(  tuple(map(lambda s: s is not None, batch.s_)),
+                                        device=self.device, dtype=torch.bool)
         non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None],
-                                                 device=self.device)
-        state = torch.FloatTensor(batch.s, device=self.device)
-        action = torch.LongTensor(batch.a, device=self.device).view(-1,1)
+                                                device=self.device)
+        state  = torch.FloatTensor(batch.s, device=self.device)
+        action = torch.LongTensor(batch.a,  device=self.device).view(-1,1)
         reward = torch.FloatTensor(batch.r, device=self.device)
         if self.mode == 'RA':
             g_x = torch.FloatTensor([info['g_x'] for info in batch.info],
@@ -155,9 +144,9 @@ class DDQN():
                 non_terminal = torch.max(min_term, g_x) - terminal
                 expected_state_action_values[non_final_mask] = self.GAMMA * non_terminal[non_final_mask]
                 expected_state_action_values[torch.logical_not(non_final_mask)] = terminal[torch.logical_not(non_final_mask)]
-            else: # Better version instead of DRABE on the paper (discussed on Nov. 18, 2020)
-                  # V(s) = gamma ( max{ g(s), min{ l(s), V_better(s') } } + (1-gamma) max{ g(s), l(s) },
-                  # where V_better(s') = max{ g(s'), min{ l(s'), V(s') } }
+            else:   # Better version instead of DRABE on the paper (discussed on Nov. 18, 2020)
+                    # V(s) = gamma ( max{ g(s), min{ l(s), V_better(s') } } + (1-gamma) max{ g(s), l(s) },
+                    # where V_better(s') = max{ g(s'), min{ l(s'), V(s') } }
                 #success_mask = torch.logical_and(torch.logical_not(non_final_mask), l_x<=0)
                 #failure_mask = torch.logical_and(torch.logical_not(non_final_mask), g_x>0)
                 V_better = torch.max( g_x_nxt, torch.min(l_x_nxt, state_value_nxt))
@@ -170,16 +159,6 @@ class DDQN():
                                                                terminal[non_final_mask] * (1-self.GAMMA)
                 # if next state is None, we will use g(x) as the expected V(s)
                 expected_state_action_values[torch.logical_not(non_final_mask)] = g_x[torch.logical_not(non_final_mask)]
-            '''
-            if verbose:
-                np.set_printoptions(precision=3)
-                print(non_final_mask[:10])
-                print('V_target:', state_value_nxt[:10].numpy())
-                print('ell     :', l_x[:10].numpy())
-                print('g       :', g_x[:10].numpy())
-                print('V_expect:', expected_state_action_values[:10].numpy())
-                print('V_policy:', state_action_values[:10].detach().numpy(), end='\n\n')
-            '''
         else: # V(s) = c(s, a) + gamma * V(s')
             expected_state_action_values = state_value_nxt * self.GAMMA + reward
 
@@ -198,21 +177,18 @@ class DDQN():
         return loss.item()
 
 
-    def learn(self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100, running_cost_th=None,
+    def learn(  self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100,
                 warmupBuffer=True, warmupQ=False, warmupIter=10000,
-                toEnd=False, addBias=False, doneTerminate=True, curUpdates=None,
-                reportPeriod=5000, plotFigure=True, showBool=False, storeFigure=False,
-                vmin=-100, vmax=100, randomPlot=False, num_rnd_traj=10,
-                checkPeriod=50000, storeModel=True, storeBest=False, outFolder='RA', verbose=True):
-
+                addBias=False, doneTerminate=True, running_cost_th=None,
+                curUpdates=None, checkPeriod=50000, 
+                plotFigure=True, storeFigure=False,
+                showBool=False, vmin=-1, vmax=1, num_rnd_traj=200,
+                storeModel=True, storeBest=False, 
+                outFolder='RA', verbose=True):
         #== TRAINING RECORD ==
         TrainingRecord = namedtuple('TrainingRecord', ['ep', 'avg_cost', 'cost', 'loss_c'])
         trainingRecords = []
         running_cost = 0.
-        running_cost_th = running_cost_th
-        reportPeriod = reportPeriod
-        vmin = vmin
-        vmax = vmax
 
         # == Warmup Buffer ==
         if warmupBuffer:
@@ -276,18 +252,23 @@ class DDQN():
                 self.store_transition(s, a_idx, r, s_, info)
                 s = s_
 
-                # Check after fixed number of gradient updates / accesses
+                # Check after fixed number of gradient updates
                 if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
-                    num_rnd_traj_test=200
-                    _, results = env.simulate_trajectories(self.Q_network, T=MAX_EP_STEPS, num_rnd_traj=num_rnd_traj_test,
-                                                           keepOutOf=False, toEnd=False)
-                    success  = np.sum(results==1) / num_rnd_traj_test
-                    failure  = np.sum(results==-1)/ num_rnd_traj_test
-                    unfinish = np.sum(results==0) / num_rnd_traj_test
+                    _, results = env.simulate_trajectories( self.Q_network, T=MAX_EP_STEPS, 
+                                                            num_rnd_traj=num_rnd_traj,
+                                                            keepOutOf=False, toEnd=False)
+                    success  = np.sum(results==1) / num_rnd_traj
+                    failure  = np.sum(results==-1)/ num_rnd_traj
+                    unfinish = np.sum(results==0) / num_rnd_traj
                     trainProgress.append([success, failure, unfinish])
                     if verbose:
-                        print('\nAfter [{:d}] updates, success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(\
-                            self.cntUpdate, success, failure, unfinish))
+                        lr = self.optimizer.state_dict()['param_groups'][0]['lr']
+                        print('\nAfter [{:d}] updates:'.format(self.cntUpdate))
+                        print('  - eps={:.2f}, gamma={:.6f}, lr={:.1e}.'.format(
+                            self.EPSILON, self.GAMMA, lr))
+                        print('  - success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(
+                            success, failure, unfinish))
+
                     if storeModel:
                         if storeBest:
                             if success > checkPointSucc:
@@ -296,22 +277,14 @@ class DDQN():
                         else:
                             self.save(self.cntUpdate, 'models/{:s}/'.format(outFolder))
 
-                # Report after fixed number of gradient updates / accesses
-                if self.cntUpdate != 0 and self.cntUpdate % reportPeriod == 0:
-                    lr = self.optimizer.state_dict()['param_groups'][0]['lr']
-                    if verbose:
-                        print('\nAfter [{:d}] updates, eps={:.2f}, gamma={:.6f}, lr={:.1e}.'.format(
-                            self.cntUpdate, self.EPSILON, self.GAMMA, lr))
                     if plotFigure or storeFigure:
                         if showBool:
-                            env.visualize(self.Q_network, True, vmin=0, vmax=1, boolPlot=True, cmap='coolwarm', addBias=addBias)
+                            env.visualize(self.Q_network, True, vmin=0, boolPlot=True, addBias=addBias)
                         else:
                             env.visualize(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
-                        # plt.tight_layout()
                         if storeFigure:
                             figureFolder = 'figure/{:s}/'.format(outFolder)
                             os.makedirs(figureFolder, exist_ok=True)
-                            # print("Saving figure in: ", figureFolder)
                             plt.savefig('{:s}/{:d}.png'.format(figureFolder, self.cntUpdate))
                         if plotFigure:
                             plt.pause(0.001)
@@ -383,7 +356,7 @@ class DDQN():
             action_index = random.randint(0, self.action_num-1)
         else:
             action_index = self.Q_network(state).min(dim=1)[1].item()
-        return self.action_list[action_index], action_index
+        return self.actionList[action_index], action_index
 
 
     def store_transition(self, *args):

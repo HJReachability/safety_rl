@@ -186,7 +186,7 @@ class DDQN():
                 storeModel=True, storeBest=False, 
                 outFolder='RA', verbose=True):
         """
-        learn: Learns the vlaue function 
+        learn: Learns the vlaue function.
 
         Args:
             env (gym.Env Obj.): environment.
@@ -208,7 +208,7 @@ class DDQN():
                 cost is smaller than the threshold. Defaults to None.
             curUpdates (int, optional): set the current number of updates 
                 (usually used when restoring trained models). Defaults to None.
-            checkPeriod (int, optional): the period we check the performance 
+            checkPeriod (int, optional): the period we check the performance.
                 Defaults to 50000.
             plotFigure (bool, optional): plot figures if True. Defaults to True.
             storeFigure (bool, optional): store figures if True. Defaults to 
@@ -231,9 +231,9 @@ class DDQN():
         Returns:
             trainingRecords (List): each entry consists of  ['ep', 
                 'runningCost', 'cost', 'lossC'] after every episode.
-            trainProgress (List): each entry consists of the success / failure 
-                / unfinished ratio of random trajectories and is checked 
-                periodically.
+            trainProgress (List): each entry consists of the 
+                success/failure/unfinished ratio of random trajectories and is
+                checked periodically.
         """
 
         # == Warmup Buffer ==
@@ -243,7 +243,7 @@ class DDQN():
                 cnt += 1
                 print('\rWarmup Buffer [{:d}]'.format(cnt), end='')
                 s = env.reset()
-                a, a_idx = self.select_action(s)
+                a, a_idx = self.select_action(s, explore=True)
                 s_, r, done, info = env.step(a_idx)
                 if done:
                     s_ = None
@@ -291,7 +291,7 @@ class DDQN():
             # Rollout
             for step_num in range(MAX_EP_STEPS):
                 # Select action
-                a, a_idx = self.select_action(s)
+                a, a_idx = self.select_action(s, explore=True)
 
                 # Interact with env
                 s_, r, done, info = env.step(a_idx)
@@ -398,7 +398,7 @@ class DDQN():
         self.updateGamma()
 
 
-    def select_action(self, state, explore=True):
+    def select_action(self, state, explore=False):
         # tensor.min() returns (value, indices), which are in tensor form
         state = torch.from_numpy(state).float().unsqueeze(0)
         if (random.random() < self.EPSILON) and explore:

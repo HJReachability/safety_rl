@@ -5,8 +5,7 @@
 # included in this repository.
 #
 # Please contact the author(s) of this library if you have any questions.
-# Authors: Vicenc Rubies-Royo   ( vrubies@berkeley.edu )
-#          Kai-Chieh Hsu        ( kaichieh@princeton.edu )
+# Authors: Kai-Chieh Hsu        ( kaichieh@princeton.edu )
 
 import gym.spaces
 import numpy as np
@@ -46,10 +45,6 @@ class DubinsCarEnv(gym.Env):
         self.outer_radius = 1.0
 
         # Target set parameters.
-        # self.target_center_x = (self.inner_radius + self.outer_radius) / 2.0
-        # self.target_center_y = 0
-        # self.target_center = np.array([self.target_center_x,
-        #                                self.target_center_y])
         self.target_center = np.array([0, 0])
 
         # Gym variables.
@@ -58,7 +53,6 @@ class DubinsCarEnv(gym.Env):
         interval = self.high - self.low
         self.observation_space = gym.spaces.Box(np.float32(midpoint - interval/2),
                                                 np.float32(midpoint + interval/2))
-        self.viewer = None
 
         # Internal state.
         self.mode = mode
@@ -70,8 +64,8 @@ class DubinsCarEnv(gym.Env):
         np.random.seed(self.seed_val)
 
         # Visualization params 
-        self.fig = None
-        self.axes = None
+        # self.fig = None
+        # self.axes = None
         self.visual_initial_states =[   np.array([ .6*self.outer_radius,  -.5, np.pi/2]),
                                         np.array([ -.4*self.outer_radius, -.5, np.pi/2]),
                                         np.array([ -0.95*self.outer_radius, 0., np.pi/2]),
@@ -110,7 +104,7 @@ class DubinsCarEnv(gym.Env):
 
         if keepOutOf:
             angle = 2.0 * np.random.uniform() * np.pi     # the position angle
-            dist = np.random.uniform(low=self.outer_radius, high=self.inner_radius)
+            dist = np.random.uniform(low=self.inner_radius, high=self.outer_radius)
             x_rnd = dist * np.cos(angle)
             y_rnd = dist * np.sin(angle)
             if theta is None:
@@ -118,8 +112,12 @@ class DubinsCarEnv(gym.Env):
             else:
                 theta_rnd = theta
         else:
-            x_rnd, y_rnd, theta_rnd = np.random.uniform(low=self.low,
-                                                        high=self.high)
+            x_rnd, y_rnd = np.random.uniform(   low=self.low[:2],
+                                                high=self.high[:2])
+            if theta is None:
+                theta_rnd = 2.0 * np.random.uniform() * np.pi
+            else:
+                theta_rnd = theta
 
         return x_rnd, y_rnd, theta_rnd
 
@@ -297,7 +295,7 @@ class DubinsCarEnv(gym.Env):
         return self.targetScaling * target_margin
 
 
-    def render(self, mode='human'):
+    def render(self):
         pass
 
 
@@ -424,7 +422,8 @@ class DubinsCarEnv(gym.Env):
 
     def visualize(  self, q_func, no_show=False,
                     vmin=-1, vmax=1, nx=101, ny=101, cmap='coolwarm',
-                    labels=None, boolPlot=False, addBias=False, theta=np.pi/2):
+                    labels=None, boolPlot=False, addBias=False, theta=np.pi/2,
+                    rndTraj=False, num_rnd_traj=10, keepOutOf=False):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
@@ -465,8 +464,15 @@ class DubinsCarEnv(gym.Env):
             self.plot_formatting(ax=ax, labels=labels)
 
             #== Plot Trajectories ==
-            self.plot_trajectories( q_func, T=200, states=self.visual_initial_states, toEnd=False, 
-                                    ax=ax, c='y', lw=2, orientation=theta-np.pi/2)
+            if rndTraj:
+                self.plot_trajectories( q_func, T=200, num_rnd_traj=num_rnd_traj, theta=theta,
+                                        toEnd=False, keepOutOf=keepOutOf,
+                                        ax=ax, c='y', lw=2, orientation=0)
+            else:
+                # `visual_initial_states` are specified for theta = pi/2. Thus,
+                # we need to use "orientation = theta-pi/2"
+                self.plot_trajectories( q_func, T=200, states=self.visual_initial_states, toEnd=False, 
+                                        ax=ax, c='y', lw=2, orientation=theta-np.pi/2)
 
             ax.set_xlabel(r'$\theta={:.0f}^\circ$'.format(theta*180/np.pi), fontsize=28)
 

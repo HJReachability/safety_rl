@@ -30,6 +30,9 @@ from shapely.geometry import Polygon, Point
 from shapely.affinity import affine_transform
 from shapely.ops import triangulate
 
+# TODO(vrubies): Maybe re-write env to a multi-env like in
+# https://github.com/openai/multiagent-particle-envs/blob/master/multiagent/environment.py
+
 class MultiPlayerContactDetector(contactListener):
     def __init__(self, env):
         contactListener.__init__(self)
@@ -79,6 +82,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         # in LunarLander init() calls reset() which calls step() so some variables need
         # to be set up before calling init() to prevent problems from variables not being defined
         self.num_players = num_players
+        self.observation_type = observation_type
 
         self.chunk_x = [self.W/(self.CHUNKS-1)*i for i in range(self.CHUNKS)]
         self.helipad_x1 = self.chunk_x[self.CHUNKS//2-1]
@@ -152,6 +156,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.moon = None
         self.lander = {}  #{ii: None for ii in range(self.num_players)}
         self.legs = {}  #{ii: None for ii in range(self.num_players)}
+        self.lidar = {}
         self.particles = []
         self.prev_reward = None
 
@@ -250,6 +255,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.LANDER_RADIUS = ((self.LANDER_H / 2 + self.LEG_Y_DIST + self.LEG_H / self.SCALE) ** 2 +
                          (self.LANDER_W / 2 + self.LEG_X_DIST + self.LEG_W / self.SCALE) ** 2) ** 0.5
 
+        self.LIDAR_RANGE = 160/self.SCALE
     # found online at:
     # https://codereview.stackexchange.com/questions/69833/..
     # generate-sample-coordinates-inside-a-polygon
@@ -411,6 +417,17 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             self.generate_lander(initial_state, ii)
             self.drawlist += [self.lander[ii]] + self.legs[ii]
 
+        class LidarCallback(Box2D.b2.rayCastCallback):
+            def ReportFixture(self, fixture, point, normal, fraction):
+                if (fixture.filterData.categoryBits & 1) == 0:
+                    return -1
+                self.p2 = point
+                self.fraction = fraction
+                return fraction
+
+        for ii in range(self.num_players):
+            self.lidar[ii] = [LidarCallback() for _ in range(10)]
+
         s, _, _, _ = self.step(0)
         return s
 
@@ -487,6 +504,17 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         # Engines
         tip  = (math.sin(self.lander[key].angle), math.cos(self.lander[key].angle))
         side = (-tip[1], tip[0])
+
+        pos = self.lander[key].position
+        num_beams = 10
+        for ii in range(num_beams):
+            self.lidar[key][ii].fraction = 1.0
+            self.lidar[key][ii].p1 = pos
+            self.lidar[key][ii].p2 = (
+                pos[0] + math.sin(2.0*np.pi*ii/num_beams)*self.LIDAR_RANGE,
+                pos[1] + math.cos(2.0*np.pi*ii/num_beams)*self.LIDAR_RANGE)
+            self.world.RayCast(self.lidar[key][ii],
+                self.lidar[key][ii].p1, self.lidar[key][ii].p2)
 
         m_power = 0.0
         if action == 2:
@@ -673,56 +701,11 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
 
     # TODO(vrubies) use not implemented error/needs to be implemented in child.
     def target_margin(self, state):
-        # raise NotImplementedError
-        # # First 6 states are for attacker. Last 6 for defender.
-        # assert len(state) == 12
-
-        # # Attacker target margin.
-        # x_a = state[0]
-        # y_a = state[1]
-        # p_a = Point(x_a, y_a)
-        # L2_distance_a = self.target_xy_polygon.exterior.distance(p_a)
-        # inside_a = 2*self.target_xy_polygon.contains(p_a) - 1
-        # attacker_target_margin = -inside_a*L2_distance_a
-
-        # # Defender safety margin to obstacle.
-        # x_d = state[0+6]
-        # y_d = state[1+6]
-        # p_d = Point(x_d, y_d)
-        # L2_distance_d = self.obstacle_polyline.exterior.distance(p_d)
-        # inside_d = 2*self.obstacle_polyline.contains(p_d) - 1
-        # defender_safety_margin = -inside_d*L2_distance_d
-
-        # return min(attacker_target_margin,
-        #            -defender_safety_margin)  # Flip sign.
-        return 0
+        raise NotImplementedError
 
     # TODO(vrubies) use not implemented error/needs to be implemented in child.
     def safety_margin(self, state):
-        # raise NotImplementedError
-        # # First 6 states are for attacker. Last 6 for defender.
-        # assert len(state) == 12
-        # capture_rad = 1.0
-
-        # # Attacker safety margin to obstacle.
-        # x_a = state[0]
-        # y_a = state[1]
-        # p_a = Point(x_a, y_a)
-        # L2_distance_a = self.obstacle_polyline.exterior.distance(p_a)
-        # inside_a = 2*self.obstacle_polyline.contains(p_a) - 1
-        # attacker_safety_margin_to_obstacle = -inside_a*L2_distance_a
-
-        # # Attacker safety margin to defender.
-        # x_d = state[0+6]
-        # y_d = state[1+6]
-        # x_r = x_a - x_d
-        # y_r = y_a - y_d
-        # distance_a_d = np.sqrt(x_r ** 2 + x_r ** 2)
-        # attacker_safety_margin_to_defender = capture_rad - distance_a_d
-
-        # return max(attacker_safety_margin_to_obstacle,
-        #            attacker_safety_margin_to_defender)
-        return 0
+        raise NotImplementedError
 
     # =========== Methods for conversions (BEGIN).
     def simulator_scale_to_obs_scale_single(self, state):
@@ -794,6 +777,13 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
 
         for p in self.sky_polys:
             self.viewer.draw_polygon(p, color=(0, 0, 0))
+
+        # self.lidar_render = (self.lidar_render+1) % 100
+        # i = self.lidar_render
+        for ii in range(self.num_players):
+            for l in self.lidar[ii]:
+                self.viewer.draw_polyline(
+                    [l.p1, l.p2], color=(1, 0, 0), linewidth=1)
 
         for obj in self.particles + self.drawlist:
             for f in obj.fixtures:

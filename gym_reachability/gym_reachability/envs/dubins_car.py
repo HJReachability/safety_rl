@@ -170,11 +170,6 @@ class DubinsCarEnv(gym.Env):
                     cost = 0.
         # done
         if self.doneType == 'toEnd':
-            # outsideTop    = (self.state[1] > self.bounds[1,1])
-            # outsideBottom = (self.state[1] < self.bounds[1,0])
-            # outsideLeft   = (self.state[0] < self.bounds[0,0])
-            # outsideRight  = (self.state[0] > self.bounds[0,1])
-            # done = outsideTop or outsideLeft or outsideRight or outsideBottom
             done = not self.check_within_bounds()
         else:
             done = fail or success

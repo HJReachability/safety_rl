@@ -16,7 +16,6 @@ import torch
 
 
 class DubinsCarEnv(gym.Env):
-
     def __init__(self, device, mode='normal', doneType='toEnd'):
 
         # State bounds.
@@ -41,11 +40,11 @@ class DubinsCarEnv(gym.Env):
 
         # Constraint set parameters.
         self.constraint_center = np.array([0, 0])
-        self.inner_radius = .3
-        self.outer_radius = 1.0
+        self.constraint_radius = 1.0
 
         # Target set parameters.
         self.target_center = np.array([0, 0])
+        self.target_radius = .3
 
         # Gym variables.
         self.action_space = gym.spaces.Discrete(self.discrete_controls.shape[0])
@@ -66,10 +65,10 @@ class DubinsCarEnv(gym.Env):
         # Visualization params 
         # self.fig = None
         # self.axes = None
-        self.visual_initial_states =[   np.array([ .6*self.outer_radius,  -.5, np.pi/2]),
-                                        np.array([ -.4*self.outer_radius, -.5, np.pi/2]),
-                                        np.array([ -0.95*self.outer_radius, 0., np.pi/2]),
-                                        np.array([ self.R_turn, 0.95*(self.outer_radius-self.R_turn), np.pi/2]),
+        self.visual_initial_states =[   np.array([ .6*self.constraint_radius,  -.5, np.pi/2]),
+                                        np.array([ -.4*self.constraint_radius, -.5, np.pi/2]),
+                                        np.array([ -0.95*self.constraint_radius, 0., np.pi/2]),
+                                        np.array([ self.R_turn, 0.95*(self.constraint_radius-self.R_turn), np.pi/2]),
                                     ]
         # Cost Params
         self.targetScaling = 1.
@@ -82,6 +81,7 @@ class DubinsCarEnv(gym.Env):
         print("Env: mode---{:s}; doneType---{:s}".format(mode, doneType))
 
 
+#== Reset Functions ==
     def reset(self, start=None):
         """ Reset the state of the environment.
 
@@ -104,7 +104,7 @@ class DubinsCarEnv(gym.Env):
 
         if keepOutOf:
             angle = 2.0 * np.random.uniform() * np.pi     # the position angle
-            dist = np.random.uniform(low=self.inner_radius, high=self.outer_radius)
+            dist = np.random.uniform(low=self.target_radius, high=self.constraint_radius)
             x_rnd = dist * np.cos(angle)
             y_rnd = dist * np.sin(angle)
             if theta is None:
@@ -122,6 +122,7 @@ class DubinsCarEnv(gym.Env):
         return x_rnd, y_rnd, theta_rnd
 
 
+#== Dynamics Functions ==
     def step(self, action):
         """ Evolve the environment one step forward under given input action.
 
@@ -170,11 +171,12 @@ class DubinsCarEnv(gym.Env):
                     cost = 0.
         # done
         if self.doneType == 'toEnd':
-            outsideTop    = (self.state[1] > self.bounds[1,1])
-            outsideBottom = (self.state[1] < self.bounds[1,0])
-            outsideLeft   = (self.state[0] < self.bounds[0,0])
-            outsideRight  = (self.state[0] > self.bounds[0,1])
-            done = outsideTop or outsideLeft or outsideRight or outsideBottom
+            # outsideTop    = (self.state[1] > self.bounds[1,1])
+            # outsideBottom = (self.state[1] < self.bounds[1,0])
+            # outsideLeft   = (self.state[0] < self.bounds[0,0])
+            # outsideRight  = (self.state[0] > self.bounds[0,1])
+            # done = outsideTop or outsideLeft or outsideRight or outsideBottom
+            done = not self.check_within_bounds()
         else:
             done = fail or success
             assert self.doneType == 'TF', 'invalid doneType'
@@ -210,6 +212,7 @@ class DubinsCarEnv(gym.Env):
         return state, info
 
 
+#== Setting Hyper-Parameter Functions ==
     def set_costParam(self, penalty=1, reward=-1, costType='normal', targetScaling=1., safetyScaling=1.):
         self.penalty = penalty
         self.reward = reward
@@ -218,9 +221,27 @@ class DubinsCarEnv(gym.Env):
         self.targetScaling = targetScaling
 
 
-    def set_radius(self, inner_radius=.3, outer_radius=1., R_turn=.6):
-        self.inner_radius = inner_radius
-        self.outer_radius = outer_radius
+    def set_radius(self, target_radius=.3, constraint_radius=1., R_turn=.6):
+        self.target_radius = target_radius
+        self.constraint_radius = constraint_radius
+        self.R_turn = R_turn
+        self.max_turning_rate = self.speed / self.R_turn # w
+        self.discrete_controls = np.array([ -self.max_turning_rate,
+                                            0.,
+                                            self.max_turning_rate])
+
+
+    def set_constraint(self, center=np.array([0.,0.]), radius=1.):
+        self.constraint_center = center
+        self.constraint_radius = radius
+
+
+    def set_target(self, center=np.array([0.,0.]), radius=.4):
+        self.target_center = center
+        self.target_radius = radius
+
+
+    def set_radius_rotation(self, R_turn=.6):
         self.R_turn = R_turn
         self.max_turning_rate = self.speed / self.R_turn # w
         self.discrete_controls = np.array([ -self.max_turning_rate,
@@ -258,6 +279,30 @@ class DubinsCarEnv(gym.Env):
                                                 np.float32(midpoint + interval/2))
 
 
+#== Margin Functions ==
+    def _calculate_margin_rect(self, s, x_y_w_h, negativeInside=True):
+        x, y, w, h = x_y_w_h
+        delta_x = np.abs(s[0] - x)
+        delta_y = np.abs(s[1] - y)
+        margin = max(delta_y - h/2, delta_x - w/2)
+
+        if negativeInside:
+            return margin
+        else:
+            return - margin
+
+
+    def _calculate_margin_circle(self, s, c_r, negativeInside=True):
+        center, radius = c_r
+        dist_to_center = np.linalg.norm(s[:2] - center)
+        margin = dist_to_center - radius
+
+        if negativeInside:
+            return margin
+        else:
+            return - margin
+
+
     def safety_margin(self, s):
         """ Computes the margin (e.g. distance) between state and failue set.
 
@@ -267,15 +312,17 @@ class DubinsCarEnv(gym.Env):
         Returns:
             Margin for the state s.
         """
-        dist_to_constraint_center = np.linalg.norm(s[:2] - self.constraint_center)
-        # dist. to the boundary = | dist_to_constraint_center - radius |
-        outer_dist = dist_to_constraint_center - self.outer_radius # This ensures x \in K \iff g(x) <= 0.
-        # safety_margin = maxmin?(outer_dist, inner_dist)
-        safety_margin = outer_dist
-        # if safety_margin > 0:
-        #     safety_margin = 10
-        # if x_in:
-        #     return -1 * x_dist
+        x, y = (self.low + self.high)[:2] / 2.0
+        w, h = (self.high - self.low)[:2]
+        boundary_margin = self._calculate_margin_rect(s, [x, y, w, h], negativeInside=True)
+        g_xList = [boundary_margin]
+
+        if self.constraint_center is not None and self.constraint_radius is not None:
+            g_x = self._calculate_margin_circle(s, [self.constraint_center, self.constraint_radius],
+                negativeInside=True)
+            g_xList.append(g_x)
+
+        safety_margin = np.max(np.array(g_xList))
         return self.safetyScaling * safety_margin
 
 
@@ -288,15 +335,22 @@ class DubinsCarEnv(gym.Env):
         Returns:
             Margin for the state s.
         """
-        dist_to_target = np.linalg.norm(s[:2] - self.target_center)
-        target_margin = dist_to_target - self.inner_radius
-        # if x_in:
-        #     return -1 * x_dist
-        return self.targetScaling * target_margin
+        if self.target_center is not None and self.target_radius is not None:
+            target_margin = self._calculate_margin_circle(s, [self.target_center, self.target_radius],
+                    negativeInside=True)
+            return self.targetScaling * target_margin
+        else:
+            return None
 
 
-    def render(self):
-        pass
+#== Getting Functions ==
+    def check_within_bounds(self):
+        for dim, bound in enumerate(self.bounds):
+            flagLow = self.state[dim] < bound[0]
+            flagHigh = self.state[dim] > bound[1]
+            if flagLow or flagHigh:
+                return False
+        return True
 
 
     def get_warmup_examples(self, num_warmup_samples=100):
@@ -355,6 +409,7 @@ class DubinsCarEnv(gym.Env):
         return v
 
 
+#== Trajectory Functions ==
     def simulate_one_trajectory(self, q_func, T=10, state=None, theta=None,
                                 keepOutOf=False, toEnd=False):
 
@@ -367,11 +422,12 @@ class DubinsCarEnv(gym.Env):
 
         for t in range(T):
             if toEnd:
-                outsideTop    = (self.state[1] > self.bounds[1,1])
-                outsideBottom = (self.state[1] < self.bounds[1,0])
-                outsideLeft   = (self.state[0] < self.bounds[0,0])
-                outsideRight  = (self.state[0] > self.bounds[0,1])
-                done = outsideTop or outsideLeft or outsideRight or outsideBottom
+                # outsideTop    = (self.state[1] > self.bounds[1,1])
+                # outsideBottom = (self.state[1] < self.bounds[1,0])
+                # outsideLeft   = (self.state[0] < self.bounds[0,0])
+                # outsideRight  = (self.state[0] > self.bounds[0,1])
+                # done = outsideTop or outsideLeft or outsideRight or outsideBottom
+                done = not self.check_within_bounds()
                 if done:
                     result = 1
                     break
@@ -418,6 +474,11 @@ class DubinsCarEnv(gym.Env):
                 results[idx] = result
 
         return trajectories, results
+
+
+#== Plotting Functions ==
+    def render(self):
+        pass
 
 
     def visualize(  self, q_func, no_show=False,
@@ -551,8 +612,8 @@ class DubinsCarEnv(gym.Env):
 
 
     def plot_reach_avoid_set(self, ax, c='g', lw=3, orientation=0):
-        r = self.inner_radius
-        R = self.outer_radius
+        r = self.target_radius
+        R = self.constraint_radius
         R_turn = self.R_turn
         if r >=  2*R_turn - R:
             # plot arc
@@ -581,8 +642,8 @@ class DubinsCarEnv(gym.Env):
 
 
     def plot_target_failure_set(self, ax):
-        self.plot_circle(self.constraint_center, self.outer_radius, ax, c='k', lw=3)
-        self.plot_circle(self.target_center,     self.inner_radius, ax, c='m', lw=3)
+        self.plot_circle(self.constraint_center, self.constraint_radius, ax, c='k', lw=3)
+        self.plot_circle(self.target_center,     self.target_radius, ax, c='m', lw=3)
 
 
     def plot_arc(self, p, r, thetaParam, ax, c='b', lw=1.5, orientation=0):

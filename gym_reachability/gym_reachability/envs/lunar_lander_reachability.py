@@ -199,10 +199,10 @@ class LunarLanderReachability(LunarLander):
             self.tested_margins_flag = True
         else:
             return True
-        for _ in range(200):
+        for _ in range(1000):
             sampled_state = np.random.uniform(
-                low=self.bounds_simulation[:, 0],
-                high=self.bounds_simulation[:, 1])
+                low=self.bounds_simulation[:, 0]-1,
+                high=self.bounds_simulation[:, 1]+1)
             s_contains_bool = self.obstacle_polyline.contains(
                 Point(sampled_state[0], sampled_state[1]))
             t_contains_bool = self.target_xy_polygon.contains(
@@ -337,7 +337,7 @@ class LunarLanderReachability(LunarLander):
         return xy_sample
 
     def reset(self, state_in=None, terrain_polyline=None,
-              rejection_sampling=True):
+              rejection_sampling=False):
         """
         resets the environment accoring to a uniform distribution.
         state_in assumed to be in simulation scale.
@@ -354,8 +354,12 @@ class LunarLanderReachability(LunarLander):
             if rejection_sampling:
                 state_in[:2] = self.rejection_sample()
             else:
-                point = self.random_points_in_polygon(self.obstacle_polyline, 1)[0]
-                state_in[:2] = np.array([point.x, point.y])
+                state_in[:2] = np.random.uniform(low=[self.fly_min_x,
+                                                      self.fly_min_y],
+                                                 high=[self.fly_max_x,
+                                                       self.fly_max_y])
+                # point = self.random_points_in_polygon(self.obstacle_polyline, 1)[0]
+                # state_in[:2] = np.array([point.x, point.y])
             state_in[4] = np.random.uniform(low=-self.theta_bound,
                                             high=self.theta_bound)
         else:
@@ -579,10 +583,12 @@ class LunarLanderReachability(LunarLander):
                 result = -1
                 break
 
+
         return traj_x, traj_y, result
 
     def simulate_trajectories(self, q_func, T=10, num_rnd_traj=None,
-                              states=None, keepOutOf=False, toEnd=False):
+                              states=None, *args, **kwargs):
+
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
@@ -662,6 +668,7 @@ class LunarLanderReachability(LunarLander):
                 v[idx] = q_func(state).min(dim=1)[0].item() + max(l_x, g_x)
             else:
                 v[idx] = q_func(state).min(dim=1)[0].item()
+            v[idx] = max(g_x, min(l_x, v[idx]))
             it.iternext()
         # print("End value collection on grid.")
         return v, xs, ys
@@ -694,10 +701,10 @@ class LunarLanderReachability(LunarLander):
                    origin='upper', alpha=alpha)
 
     def visualize(self, q_func, no_show=False,
-                  vmin=-50, vmax=50, nx=21, ny=21,
+                  vmin=-50, vmax=50, nx=91, ny=91,
                   labels=['', ''],
                   boolPlot=False, plotZero=False,
-                  cmap='seismic', addBias=False):
+                  cmap='seismic', addBias=False, trueRAZero=False, lvlset=0):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
@@ -719,33 +726,56 @@ class LunarLanderReachability(LunarLander):
             for x_ii, x_dot in enumerate(self.slices_x):
                 ax = self.axes[y_jj][x_ii]
                 ax.cla()
-                #plt.subplot(len(self.slices_y), len(self.slices_x),
-                #            y_jj*len(self.slices_y)+x_ii+1)
                 # print("Subplot -> ", y_jj*len(self.slices_y)+x_ii+1)
                 v, xs, ys = self.get_value(q_func, nx, ny,
                                            x_dot=x_dot, y_dot=y_dot, theta=0,
                                            theta_dot=0, addBias=addBias)
 
-                #im = visualize_matrix(v.T, self.get_axes(labels), no_show, vmin=vmin, vmax=vmax)
-
                 #== Plot Value Function ==
                 if boolPlot:
-                    im = ax.imshow(v.T > vmin,
-                                    interpolation='none', extent=axStyle[0],
-                                    origin="lower", cmap=cmap)
+                    if trueRAZero:
+                        nx1 = nx
+                        ny1 = ny
+                        resultMtx = np.empty((nx1, ny1), dtype=int)
+                        xs = np.linspace(self.bounds_simulation[0, 0],
+                                         self.bounds_simulation[0, 1], nx1)
+                        ys = np.linspace(self.bounds_simulation[1, 0],
+                                         self.bounds_simulation[1, 1], ny1)
+
+                        it = np.nditer(resultMtx, flags=['multi_index'])
+                        while not it.finished:
+                            idx = it.multi_index
+                            x = xs[idx[0]]
+                            y = ys[idx[1]]
+
+                            state = np.array([x, y, x_dot, y_dot, 0, 0])
+                            (traj_x, traj_y,
+                                result) = self.simulate_one_trajectory(
+                                q_func, T=400, state=state)
+
+                            resultMtx[idx] = result
+                            it.iternext()
+                        im = ax.imshow(resultMtx.T != 1,
+                                        interpolation='none', extent=axStyle[0],
+                                        origin="lower", cmap=cmap)
+                    else:
+                        im = ax.imshow(v.T > lvlset,
+                                        interpolation='none', extent=axStyle[0],
+                                        origin="lower", cmap=cmap)
                 else:
+                    vmin = np.min(v)
+                    vmax = np.max(v)
+                    vstar = max(abs(vmin), vmax)
                     im = ax.imshow(v.T,
                                     interpolation='none', extent=axStyle[0],
-                                    origin="lower", cmap=cmap)  #,vmin=vmin, vmax=vmax)
-                    # cbar = plt.colorbar(im, pad=0.01, shrink=0.95,
-                    #                     ticks=[vmin, 0, vmax])
-                    # cbar.ax.set_yticklabels(labels=[vmin, 0, vmax],
-                    #                         fontsize=24)
-                #== Plot Environment ==
+                                    origin="lower", cmap=cmap, vmin=-vstar,
+                                    vmax=vstar)
+
+                #  == Plot Environment ==
                 self.imshow_lander(extent=axStyle[0], alpha=0.4, ax=ax)
 
 
-                _ = self.plot_trajectories( q_func, T=100, states=self.visual_initial_states, ax=ax)
+                # _ = self.plot_trajectories( q_func, T=100, states=self.visual_initial_states, ax=ax)
 
                 ax.axis(axStyle[0])
                 ax.grid(False)
@@ -759,6 +789,8 @@ class LunarLanderReachability(LunarLander):
                                left=False, right=False)    # ticks along the left and right edges are off
                 ax.set_xticklabels([])
                 ax.set_yticklabels([])
+                if trueRAZero:
+                    return
         plt.tight_layout()
 
         if not no_show:

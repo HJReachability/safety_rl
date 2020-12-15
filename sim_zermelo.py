@@ -110,16 +110,16 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period):
     agent=DDQN(s_dim, action_num, CONFIG, action_list, mode=agentMode, RA_scaling=args.scaling)
 
     #== TRAINING ==
-    _, trainProgress = agent.learn(env,
-                                   # MAX_EPISODES=CONFIG.MAX_EPISODES,
-                                   MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
-                                   addBias=args.addBias,
-                                   toEnd=args.toEnd,
-                                   # report_period=report_period,
-                                   plotFigure=True,
-                                   # check_period=args.check_period,
-                                   storeModel=False,
-                                   verbose=True)
+    _, trainProgress = agent.learn( env,
+                                    # MAX_EPISODES=CONFIG.MAX_EPISODES,
+                                    MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
+                                    addBias=args.addBias,
+                                    toEnd=args.toEnd,
+                                    # report_period=report_period,
+                                    plotFigure=True,
+                                    # check_period=args.check_period,
+                                    storeModel=False,
+                                    verbose=True)
     return trainProgress
 
 

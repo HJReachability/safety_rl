@@ -18,6 +18,8 @@ from gym_reachability.gym_reachability.envs.two_player_lunar_lander_reachability
 
 from gym_reachability.gym_reachability.envs.dubins_car import DubinsCarEnv
 
+from gym_reachability.gym_reachability.envs.dubins_car_one import DubinsCarOneEnv
+
 from gym_reachability.gym_reachability.envs.point_mass import PointMassEnv
 
 from gym_reachability.gym_reachability.envs.zermelo_kc import ZermeloKCEnv

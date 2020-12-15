@@ -36,6 +36,10 @@ register(
     entry_point="gym_reachability.gym_reachability.envs:DubinsCarEnv"
 )
 
+register(
+    id="dubins_car-v1",
+    entry_point="gym_reachability.gym_reachability.envs:DubinsCarOneEnv"
+)
 
 register(
     id="point_mass-v0",

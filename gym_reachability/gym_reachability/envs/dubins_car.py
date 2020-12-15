@@ -235,13 +235,14 @@ class DubinsCarEnv(gym.Env):
         self.target_radius = radius
 
 
-    def set_radius_rotation(self, R_turn=.6):
+    def set_radius_rotation(self, R_turn=.6, verbose=False):
         self.R_turn = R_turn
         self.max_turning_rate = self.speed / self.R_turn # w
         self.discrete_controls = np.array([ -self.max_turning_rate,
                                             0.,
                                             self.max_turning_rate])
-        print(self.discrete_controls)
+        if verbose:
+            print(self.discrete_controls)
 
 
     def set_seed(self, seed):

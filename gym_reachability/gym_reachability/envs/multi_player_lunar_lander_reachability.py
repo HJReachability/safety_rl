@@ -76,78 +76,25 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     def __init__(self,
                  device=torch.device("cpu"),
                  num_players=1,
-                 observation_type='default'):
+                 observation_type='default',
+                 param_dict={},
+                 rnd_seed=0):
 
-        self.initialize_simulator_variables()
+        self.param_dict = self._generate_param_dict(param_dict)
+        self.initialize_simulator_variables(self.param_dict)
         # in LunarLander init() calls reset() which calls step() so some variables need
         # to be set up before calling init() to prevent problems from variables not being defined
         self.num_players = num_players
         self.observation_type = observation_type
 
         self.chunk_x = [self.W/(self.CHUNKS-1)*i for i in range(self.CHUNKS)]
-        self.helipad_x1 = self.chunk_x[self.CHUNKS//2-1]
-        self.helipad_x2 = self.chunk_x[self.CHUNKS//2+1]
-
-        # safety problem limits in --> simulator self.SCALE <--
-
-        self.hover_min_y_dot = -0.1
-        self.hover_max_y_dot = 0.1
-        self.hover_min_x_dot = -0.1
-        self.hover_max_x_dot = 0.1
-
-        self.land_min_v = -1.6  # fastest that lander can be falling when it hits the ground
-
-        self.theta_hover_max = np.radians(15.0)  # most the lander can be tilted when landing
-        self.theta_hover_min = np.radians(-15.0)
-
-        self.fly_min_x = 0  # first chunk
-        self.fly_max_x = self.W / (self.CHUNKS - 1) * (self.CHUNKS - 1)  # last chunk
-        self.midpoint_x = (self.fly_max_x + self.fly_min_x) / 2
-        self.width_x = (self.fly_max_x - self.fly_min_x)
-
-        self.fly_max_y = self.VIEWPORT_H / self.SCALE
-        self.fly_min_y = 0
-        self.midpoint_y = (self.fly_max_y + self.fly_min_y) / 2
-        self.width_y = (self.fly_max_y - self.fly_min_y)
-
-        self.hover_min_x = self.W / (self.CHUNKS - 1) * (self.CHUNKS // 2 - 1)
-        self.hover_max_x = self.W / (self.CHUNKS - 1) * (self.CHUNKS // 2 + 1)
-        self.hover_min_y = self.HELIPAD_Y  # calc of edges of landing pad based
-        self.hover_max_y = self.HELIPAD_Y + 2  # on calc in parent reset()
-
-        # set up state space bounds used in evaluating the q value function
-        self.vx_bound = 10  # bounds centered at 0 so take negative for lower bound
-        self.vy_bound = 10  # this is in simulator self.SCALE
-        self.theta_bound = np.radians(90)
-        self.theta_dot_bound = np.radians(50)
-
-        self.viewer = None
 
         # Set random seed.
-        self.seed_val = 1
-        np.random.seed(self.seed_val)
-
-        # Cost Params
-        self.penalty = 1
-        self.reward = -1
-        self.costType = 'dense_ell'
-        self.scaling = 1.
-
-        # Visualization params
-        self.img_data = None
-        self.scaling_factor = 3.0
-        self.slices_y = np.array([1, 0, -1]) * self.scaling_factor
-        self.slices_x = np.array([-1, 0, 1]) * self.scaling_factor
-        self.vis_init_flag = True
-        self.visual_initial_states = [
-            np.array([self.midpoint_x + self.width_x/4,
-                      self.midpoint_y + self.width_y/4,
-                      0, 0, 0, 0])]
+        self.set_seed(rnd_seed)
 
         # for torch
         self.device = device
 
-        print("SEG TEST 2")
         # From parent constuctor.
         EzPickle.__init__(self)
         self.seed()
@@ -159,16 +106,6 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.lidar = {}
         self.particles = []
         self.prev_reward = None
-
-        self.polygon_target = [
-            (self.helipad_x1, self.HELIPAD_Y),
-            (self.helipad_x2, self.HELIPAD_Y),
-            (self.helipad_x2, self.HELIPAD_Y + 2),
-            (self.helipad_x1, self.HELIPAD_Y + 2),
-            (self.helipad_x1, self.HELIPAD_Y)]
-        self.target_xy_polygon = Polygon(self.polygon_target)
-
-        print("SEG TEST 3")
 
         # we don't use the states regarding whether the legs are touching
         # so 6 dimensions total.
@@ -207,55 +144,91 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.bounds_observation[:, 1] = self.simulator_scale_to_obs_scale(
             self.bounds_simulation[:, 1].T)
 
-        print("SEG TEST 4")
         self.reset()
 
-    def initialize_simulator_variables(self):
-        self.FPS = 50
-        self.SCALE = 30.0   # affects how fast-paced the game is, forces should be adjusted as well
+    def _generate_param_dict(self, input_dict):
+        param_dict = {}
 
-        self.MAIN_ENGINE_POWER = 13.0
-        self.SIDE_ENGINE_POWER = 0.6
-
-        self.LANDER_POLY =[
-            (-14, +17), (-17, 0), (-17 ,-10),
+        param_dict["FPS"] = 50
+        param_dict["SCALE"] = 30.0
+        param_dict["MAIN_ENGINE_POWER"] = 13.0
+        param_dict["SIDE_ENGINE_POWER"] = 0.6
+        param_dict["LANDER_POLY"] = [
+            (-14, +17), (-17, 0), (-17, -10),
             (+17, -10), (+17, 0), (+14, +17)
             ]
-        self.LEG_AWAY = 20
-        self.LEG_DOWN = 18
-        self.LEG_W, self.LEG_H = 2, 8
-        self.LEG_SPRING_TORQUE = 40
+        param_dict["LEG_AWAY"] = 20
+        param_dict["LEG_DOWN"] = 18
+        param_dict["LEG_W"] = 2
+        param_dict["LEG_H"] = 8
+        param_dict["LEG_SPRING_TORQUE"] = 40
+        param_dict["SIDE_ENGINE_HEIGHT"] = 14.0
+        param_dict["SIDE_ENGINE_AWAY"] = 12.0
+        param_dict["VIEWPORT_W"] = 600
+        param_dict["VIEWPORT_H"] = 400
+        param_dict["CHUNKS"] = 17
+        param_dict["INITIAL_RANDOM"] = 1000.0
+        param_dict["LIDAR_RANGE"] = 260
 
-        self.SIDE_ENGINE_HEIGHT = 14.0
-        self.SIDE_ENGINE_AWAY = 12.0
+        param_dict["vx_bound"] = 10
+        param_dict["vy_bound"] = 10
+        param_dict["theta_bound"] = np.radians(90)
+        param_dict["theta_dot_bound"] = np.radians(90)
 
-        self.VIEWPORT_W = 600
-        self.VIEWPORT_H = 400
+        for key, value in input_dict:
+            param_dict[key] = value
+        return param_dict
+
+    def initialize_simulator_variables(self, param_dict):
+        self.FPS = param_dict["FPS"]
+        self.SCALE = param_dict["SCALE"]   # affects how fast-paced the game is, forces should be adjusted as well
+        self.MAIN_ENGINE_POWER = param_dict["MAIN_ENGINE_POWER"]
+        self.SIDE_ENGINE_POWER = param_dict["SIDE_ENGINE_POWER"]
+        self.LANDER_POLY = param_dict["LANDER_POLY"]
+        self.LEG_AWAY = param_dict["LEG_AWAY"]
+        self.LEG_DOWN = param_dict["LEG_DOWN"]
+        self.LEG_W = param_dict["LEG_W"]
+        self.LEG_H = param_dict["LEG_H"]
+        self.LEG_SPRING_TORQUE = param_dict["LEG_SPRING_TORQUE"]
+        self.SIDE_ENGINE_HEIGHT = param_dict["SIDE_ENGINE_HEIGHT"]
+        self.SIDE_ENGINE_AWAY = param_dict["SIDE_ENGINE_AWAY"]
+        self.VIEWPORT_W = param_dict["VIEWPORT_W"]
+        self.VIEWPORT_H = param_dict["VIEWPORT_H"]
+        self.CHUNKS = param_dict["CHUNKS"]
+        self.INITIAL_RANDOM = param_dict["INITIAL_RANDOM"]
+        self.LIDAR_RANGE = param_dict["LIDAR_RANGE"] / self.SCALE
 
         self.W = self.VIEWPORT_W / self.SCALE
         self.H = self.VIEWPORT_H / self.SCALE
-        self.CHUNKS = 17 #11  # number of polygons used to make the lunar surface
         self.HELIPAD_Y = (self.VIEWPORT_H / self.SCALE) / 2  # height of helipad in simulator self.SCALE
-
-        self.INITIAL_RANDOM = 1000.0   # Set 1500 to make game harder
-
         # height of lander body in simulator self.SCALE. self.LANDER_POLY has the (x,y) points that define the
         # shape of the lander in pixel self.SCALE
         self.LANDER_POLY_X = np.array(self.LANDER_POLY)[:, 0]
         self.LANDER_POLY_Y = np.array(self.LANDER_POLY)[:, 1]
-
-        self.LANDER_W = (np.max(self.LANDER_POLY_X) - np.min(self.LANDER_POLY_X)) / self.SCALE
-        self.LANDER_H = (np.max(self.LANDER_POLY_Y) - np.min(self.LANDER_POLY_Y)) / self.SCALE
-
+        self.LANDER_W = (np.max(
+            self.LANDER_POLY_X) - np.min(self.LANDER_POLY_X)) / self.SCALE
+        self.LANDER_H = (np.max(
+            self.LANDER_POLY_Y) - np.min(self.LANDER_POLY_Y)) / self.SCALE
         # distance of edge of legs from center of lander body in simulator self.SCALE
         self.LEG_X_DIST = self.LEG_AWAY / self.SCALE
         self.LEG_Y_DIST = self.LEG_DOWN / self.SCALE
-
         # radius around lander to check for collisions
-        self.LANDER_RADIUS = ((self.LANDER_H / 2 + self.LEG_Y_DIST + self.LEG_H / self.SCALE) ** 2 +
-                         (self.LANDER_W / 2 + self.LEG_X_DIST + self.LEG_W / self.SCALE) ** 2) ** 0.5
+        self.LANDER_RADIUS = (
+            (self.LANDER_H / 2 + self.LEG_Y_DIST +
+                self.LEG_H / self.SCALE) ** 2 +
+            (self.LANDER_W / 2 + self.LEG_X_DIST +
+                self.LEG_W / self.SCALE) ** 2) ** 0.5
 
-        self.LIDAR_RANGE = 160/self.SCALE
+        self.fly_min_x = 0
+        self.fly_max_x = self.W / (self.CHUNKS - 1) * (self.CHUNKS - 1)
+        self.fly_min_y = 0
+        self.fly_max_y = self.VIEWPORT_H / self.SCALE
+        # set up state space bounds used in evaluating the q value function
+        self.vx_bound = param_dict["vx_bound"]
+        self.vy_bound = param_dict["vy_bound"]
+        self.theta_bound = param_dict["theta_bound"]
+        self.theta_dot_bound = param_dict["theta_dot_bound"]
+
     # found online at:
     # https://codereview.stackexchange.com/questions/69833/..
     # generate-sample-coordinates-inside-a-polygon
@@ -778,12 +751,10 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         for p in self.sky_polys:
             self.viewer.draw_polygon(p, color=(0, 0, 0))
 
-        # self.lidar_render = (self.lidar_render+1) % 100
-        # i = self.lidar_render
         for ii in range(self.num_players):
             for l in self.lidar[ii]:
                 self.viewer.draw_polyline(
-                    [l.p1, l.p2], color=(1, 0, 0), linewidth=1)
+                    [l.p1, l.p2], color=(1, 0, 0), linewidth=2)
 
         for obj in self.particles + self.drawlist:
             for f in obj.fixtures:

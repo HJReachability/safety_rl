@@ -38,6 +38,7 @@ class TwoPlayerPursuitEvasionLunarLander(MultiPlayerLunarLanderReachability):
                  device=torch.device("cpu"),
                  mode='normal',
                  observation_type='default',
+                 rnd_seed=0,
                  reach_set=None,  # Used for state and world related reach set.
                  avoid_set=None,  # Used for state (inter-player) avoid set.
                  terrain=None,  # Used for world-related avoid set.
@@ -46,7 +47,59 @@ class TwoPlayerPursuitEvasionLunarLander(MultiPlayerLunarLanderReachability):
         super(TwoPlayerPursuitEvasionLunarLander, self).__init__(
             device=device,
             num_players=2,
-            observation_type=observation_type)
+            observation_type=observation_type,
+            rnd_seed=rnd_seed)
+
+        # safety problem limits in --> simulator self.SCALE <--
+
+        self.helipad_x1 = self.chunk_x[self.CHUNKS//2-1]
+        self.helipad_x2 = self.chunk_x[self.CHUNKS//2+1]
+
+        self.hover_min_y_dot = -0.1
+        self.hover_max_y_dot = 0.1
+        self.hover_min_x_dot = -0.1
+        self.hover_max_x_dot = 0.1
+
+        self.land_min_v = -1.6  # fastest that lander can be falling when it hits the ground
+
+        self.theta_hover_max = np.radians(15.0)  # most the lander can be tilted when landing
+        self.theta_hover_min = np.radians(-15.0)
+
+        self.midpoint_x = (self.fly_max_x + self.fly_min_x) / 2
+        self.width_x = (self.fly_max_x - self.fly_min_x)
+
+        self.midpoint_y = (self.fly_max_y + self.fly_min_y) / 2
+        self.width_y = (self.fly_max_y - self.fly_min_y)
+
+        self.hover_min_x = self.W / (self.CHUNKS - 1) * (self.CHUNKS // 2 - 1)
+        self.hover_max_x = self.W / (self.CHUNKS - 1) * (self.CHUNKS // 2 + 1)
+        self.hover_min_y = self.HELIPAD_Y  # calc of edges of landing pad based
+        self.hover_max_y = self.HELIPAD_Y + 2  # on calc in parent reset()
+
+        # Visualization params
+        self.img_data = None
+        self.scaling_factor = 3.0
+        self.slices_y = np.array([1, 0, -1]) * self.scaling_factor
+        self.slices_x = np.array([-1, 0, 1]) * self.scaling_factor
+        self.vis_init_flag = True
+        self.visual_initial_states = [
+            np.array([self.midpoint_x + self.width_x/4,
+                      self.midpoint_y + self.width_y/4,
+                      0, 0, 0, 0])]
+
+        # Cost Params
+        self.penalty = 1
+        self.reward = -1
+        self.costType = 'dense_ell'
+        self.scaling = 1.
+
+        self.polygon_target = [
+            (self.helipad_x1, self.HELIPAD_Y),
+            (self.helipad_x2, self.HELIPAD_Y),
+            (self.helipad_x2, self.HELIPAD_Y + 2),
+            (self.helipad_x1, self.HELIPAD_Y + 2),
+            (self.helipad_x1, self.HELIPAD_Y)]
+        self.target_xy_polygon = Polygon(self.polygon_target)
 
         # mode: normal or extend (keep track of ell & g)
         self.mode = mode
@@ -270,7 +323,7 @@ class TwoPlayerPursuitEvasionLunarLander(MultiPlayerLunarLanderReachability):
         if self.img_data is None:
             # todo{vrubies} can we find way to supress gym window?
             img_data = self.render(mode="rgb_array")
-            self.close()
+            # self.close()
             self.img_data = img_data[::2, ::3, :]  # Reduce image size.
         plt.imshow(self.img_data,
                    interpolation='none', extent=extent,

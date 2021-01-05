@@ -38,17 +38,19 @@ class TwoPlayerPursuitEvasionLunarLander(MultiPlayerLunarLanderReachability):
                  device=torch.device("cpu"),
                  mode='normal',
                  observation_type='default',
+                 param_dict={},
                  rnd_seed=0,
-                 reach_set=None,  # Used for state and world related reach set.
-                 avoid_set=None,  # Used for state (inter-player) avoid set.
                  terrain=None,  # Used for world-related avoid set.
                  doneType='toEnd'):
 
+        self.parent_init = False
         super(TwoPlayerPursuitEvasionLunarLander, self).__init__(
             device=device,
             num_players=2,
             observation_type=observation_type,
+            param_dict=param_dict,
             rnd_seed=rnd_seed)
+        self.parent_init = True
 
         # safety problem limits in --> simulator self.SCALE <--
 
@@ -119,9 +121,52 @@ class TwoPlayerPursuitEvasionLunarLander(MultiPlayerLunarLanderReachability):
             state_in=state_in, terrain_polyline=terrain_polyline)
 
     def step(self, action):
+        # cost
+        # if self.mode == 'extend' or self.mode == 'RA':
+        #     fail = g_x_cur > 0
+        #     success = l_x_cur <= 0
+        #     if fail:
+        #         cost = self.penalty
+        #     elif success:
+        #         cost = self.reward
+        #     else:
+        #         cost = 0.
+        # else:
+        #     fail = g_x_nxt > 0
+        #     success = l_x_nxt <= 0
+        #     if g_x_nxt > 0 or g_x_cur > 0:
+        #         cost = self.penalty
+        #     elif l_x_nxt <= 0 or l_x_cur <= 0:
+        #         cost = self.reward
+        #     else:
+        #         if self.costType == 'dense_ell':
+        #             cost = l_x_nxt
+        #         elif self.costType == 'dense_ell_g':
+        #             cost = l_x_nxt + g_x_nxt
+        #         elif self.costType == 'imp_ell_g':
+        #             cost = (l_x_nxt-l_x_cur) + (g_x_nxt-g_x_cur)
+        #         elif self.costType == 'imp_ell':
+        #             cost = (l_x_nxt-l_x_cur)
+        #         elif self.costType == 'sparse':
+        #             cost = 0. * self.scaling
+        #         elif self.costType == 'max_ell_g':
+        #             cost = max(l_x_nxt, g_x_nxt)
+        #         else:
+        #             cost = 0.
+        # done
+        # if not done and self.doneType == 'toEnd':
+        #     outsideTop = (self.sim_state[1] >= self.bounds_simulation[1, 1])
+        #     outsideLeft = (self.sim_state[0] <= self.bounds_simulation[0, 0])
+        #     outsideRight = (self.sim_state[0] >= self.bounds_simulation[0, 1])
+        #     done = outsideTop or outsideLeft or outsideRight
+        # elif not done:
+        #     done = fail or success
+        #     assert self.doneType == 'TF', 'invalid doneType'
         return super().step(action)
 
     def target_margin(self, state):
+        if not self.parent_init:
+            return 0
         # First 6 states are for attacker. Last 6 for defender.
         assert len(state) == 12
 
@@ -145,6 +190,8 @@ class TwoPlayerPursuitEvasionLunarLander(MultiPlayerLunarLanderReachability):
                    -defender_safety_margin)  # Flip sign.
 
     def safety_margin(self, state):
+        if not self.parent_init:
+            return 0
         # First 6 states are for attacker. Last 6 for defender.
         assert len(state) == 12
         capture_rad = 1.0

@@ -28,8 +28,10 @@ def save_frames_as_gif(frames, path='./', filename='gym_animation.gif'):
     anim.save(path + filename, writer='imagemagick', fps=20)
 
 # == ENVIRONMENT ==
-env_name = "two_player_pursuit_evasion_lunar_lander-v0"
-env = gym.make(env_name, rnd_seed=5)
+#env_name = "two_player_pursuit_evasion_lunar_lander-v0"
+env_name = "one_player_reach_avoid_lunar_lander-v0"
+observation_type = 'default'
+env = gym.make(env_name, observation_type=observation_type, rnd_seed=5)
 
 my_images = []
 fig, ax = plt.subplots(figsize=(12, 7))
@@ -62,13 +64,6 @@ while True:
       break
     else:
       tmp_int += 1
-# env.render()
 print("Done.")
 env.close()
-save_frames_as_gif(my_images)
-
-# my_images = []
-# fig, ax = plt.subplots(figsize=(12, 7))
-
-# env.imshow_lander()
-# plt.pause(10)
+# save_frames_as_gif(my_images)

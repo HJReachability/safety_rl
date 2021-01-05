@@ -31,6 +31,11 @@ register(
 )
 
 register(
+    id="one_player_reach_avoid_lunar_lander-v0",
+    entry_point="gym_reachability.gym_reachability.envs:OnePlayerReachAvoidLunarLander"
+)
+
+register(
     id="double_integrator-v0",
     entry_point="gym_reachability.gym_reachability.envs:DoubleIntegratorEnv"
 )

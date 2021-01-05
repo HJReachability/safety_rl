@@ -20,13 +20,7 @@ from .ReplayMemory import ReplayMemory
 Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
 class DDQN():
     def __init__(self, CONFIG):
-        # self.actionList = actionList
-
         self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)
-
-        #== ENV PARAM ==
-        # self.numState = numState
-        # self.numAction = numAction
 
         #== PARAM ==
         # Exploration
@@ -53,20 +47,12 @@ class DDQN():
         self.HARD_UPDATE = CONFIG.HARD_UPDATE # int, update period
         self.SOFT_UPDATE = CONFIG.SOFT_UPDATE # bool
 
-        #== Build NN for (D)DQN ==
-        # self.dimList = dimList
-        # self.actType = actType
-        # self.build_network(dimList, actType)
-        # self.build_optimizer()
-
 
     def build_network(self):
         raise NotImplementedError
 
 
     def build_optimizer(self):
-        # self.optimizer = optim.RMSprop(self.Q_network.parameters(),
-        #                                lr=self.LR_C)
         self.optimizer = optim.Adam(self.Q_network.parameters(), lr=self.LR_C)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer,
             step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)

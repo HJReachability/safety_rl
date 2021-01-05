@@ -19,14 +19,9 @@ from .ReplayMemory import ReplayMemory
 
 Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
 class DDQN():
-<<<<<<< HEAD
     def __init__(self, CONFIG):
         # self.actionList = actionList
-=======
 
-    def __init__(self, state_num, action_num, CONFIG, action_list, mode='normal', model='TanhThree'):
-        self.action_list = action_list
->>>>>>> lunar_lander_experiments
         self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)
 
         #== ENV PARAM ==
@@ -64,26 +59,6 @@ class DDQN():
         # self.build_network(dimList, actType)
         # self.build_optimizer()
 
-<<<<<<< HEAD
-=======
-    def build_network(self):
-        if self.model == 'TanhTwo':
-            self.Q_network = modelTanhTwo(self.state_num, self.action_num)
-            self.target_network = modelTanhTwo(self.state_num, self.action_num)
-        elif self.model == 'TanhThree':
-            self.Q_network = modelTanhThree(self.state_num, self.action_num)
-            self.target_network = modelTanhThree(self.state_num, self.action_num)
-        elif self.model == 'SinTwo':
-            self.Q_network = modelSinTwo(self.state_num, self.action_num)
-            self.target_network = modelSinTwo(self.state_num, self.action_num)
-        elif self.model == 'ReluFour':
-            self.Q_network = modelReluFour(self.state_num, self.action_num)
-            self.target_network = modelReluFour(self.state_num, self.action_num)
-        else:
-            assert self.model == 'SinThree', "Define your own model"
-            self.Q_network = modelSinThree(self.state_num, self.action_num)
-            self.target_network = modelSinThree(self.state_num, self.action_num)
->>>>>>> lunar_lander_experiments
 
     def build_network(self):
         raise NotImplementedError

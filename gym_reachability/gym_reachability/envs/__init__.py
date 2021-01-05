@@ -12,7 +12,11 @@
 
 from gym_reachability.gym_reachability.envs.lunar_lander_reachability import LunarLanderReachability
 
-from gym_reachability.gym_reachability.envs.two_player_lunar_lander_reachability import TwoPlayerLunarLanderReachability
+from gym_reachability.gym_reachability.envs.multi_player_lunar_lander_reachability import MultiPlayerLunarLanderReachability
+
+from gym_reachability.gym_reachability.envs.two_player_pursuit_evasion_lunar_lander import TwoPlayerPursuitEvasionLunarLander
+
+from gym_reachability.gym_reachability.envs.one_player_reach_avoid_lunar_lander import OnePlayerReachAvoidLunarLander
 
 #from gym_reachability.gym_reachability.envs.double_integrator import DoubleIntegratorEnv
 

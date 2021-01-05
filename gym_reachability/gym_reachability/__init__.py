@@ -21,8 +21,18 @@ register(
 )
 
 register(
-    id="two_player_lunar_lander_reachability-v0",
-    entry_point="gym_reachability.gym_reachability.envs:TwoPlayerLunarLanderReachability"
+    id="multi_player_lunar_lander_reachability-v0",
+    entry_point="gym_reachability.gym_reachability.envs:MultiPlayerLunarLanderReachability"
+)
+
+register(
+    id="two_player_pursuit_evasion_lunar_lander-v0",
+    entry_point="gym_reachability.gym_reachability.envs:TwoPlayerPursuitEvasionLunarLander"
+)
+
+register(
+    id="one_player_reach_avoid_lunar_lander-v0",
+    entry_point="gym_reachability.gym_reachability.envs:OnePlayerReachAvoidLunarLander"
 )
 
 register(

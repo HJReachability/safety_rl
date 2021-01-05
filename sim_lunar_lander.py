@@ -125,13 +125,28 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period):
         showBool=False,  # Show boolean reach avoid set 0/1.
         checkPeriod=args.check_period,  # How often to compute Safe vs. Unsafe.
         storeFigure=True,  # Store the figure in an eps file.
-        storeModel=False,
+        storeModel=True,
         randomPlot=True,  # Plot from random starting points.
         outFolder=args.outFolder,
         verbose=True)
     return trainProgress
 
 
+def plot_experiment(args, CONFIG, env, path):
+    # == AGENT ==
+    s_dim = env.observation_space.shape[0]
+    action_num = env.action_space.n
+    action_list = np.arange(action_num)
+    agent = DDQN(s_dim, action_num, CONFIG, action_list, mode=agentMode)
+    agent.restore(path)
+
+    env.visualize(agent.Q_network, True, nx=91, ny=91, boolPlot=False, trueRAZero=False,
+        addBias=True, lvlset=0)
+    plt.show()
+
+path1 = "models/RA2020-11-20-06_44_00/model-1500000.pth"
+path2 = "models/RA2020-11-20-06_58_53/model-1500000.pth"
+# plot_experiment(args, CONFIG, env, path2)
 multi_experiment(0, args, CONFIG, env, update_period)
 
 # == TESTING ==

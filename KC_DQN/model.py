@@ -6,7 +6,7 @@ import torch.nn as nn
 
 class Sin(nn.Module):
     """
-    Sin: Wraps element-wise `sin` activation as a nn.Module. 
+    Sin: Wraps element-wise `sin` activation as a nn.Module.
 
     Shape:
         - Input: `(N, *)` where `*` means, any number of additional dimensions
@@ -17,7 +17,7 @@ class Sin(nn.Module):
         >>> input = torch.randn(2)
         >>> output = m(input)
     """
-    def __init__(self): 
+    def __init__(self):
         super().__init__() # init the base class
 
     def forward(self, input):
@@ -28,17 +28,17 @@ class model(nn.Module):
     """
     model: Constructs a fully-connected neural network with flexible depth, width
         and activation function choices.
-    """    
+    """
     def __init__(self, dimList, actType='Tanh', verbose=False):
         """
         __init__: Initalizes.
 
         Args:
             dimList (int List): the dimension of each layer.
-            actType (str, optional): the type of activation function. Defaults to 'Tanh'. 
+            actType (str, optional): the type of activation function. Defaults to 'Tanh'.
                 Currently supports 'Sin', 'Tanh' and 'ReLU'.
             verbose (bool, optional): print info or not. Defaults to False.
-        """        
+        """
         super(model, self).__init__()
 
         # Construct module list: if use `Python List`, the modules are not added to
@@ -167,12 +167,12 @@ class modelTanhThree(nn.Module):
     def __init__(self, state_num, action_num):
         super(modelTanhThree, self).__init__()
         self.fc1 = nn.Sequential(
-            nn.Linear(in_features=state_num, out_features=100),
+            nn.Linear(in_features=state_num, out_features=200),
             nn.Tanh())
         self.fc2 = nn.Sequential(
-            nn.Linear(in_features=100, out_features=100),
+            nn.Linear(in_features=200, out_features=200),
             nn.Tanh())
-        self.final = nn.Linear(100, action_num)
+        self.final = nn.Linear(200, action_num)
         self._initialize_weights()
         print("Using three-layer NN architecture with Tanh act.")
 

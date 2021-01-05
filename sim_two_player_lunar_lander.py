@@ -33,7 +33,7 @@ parser.add_argument("-te",  "--toEnd",          help="stop until reaching bounda
 parser.add_argument("-ab",  "--addBias",        help="add bias term for RA",            action="store_true")
 parser.add_argument("-ma",  "--maxAccess",      help="maximal number of access",        default=1.5e6,  type=int)
 parser.add_argument("-cp",  "--check_period",   help="check the success ratio",         default=50000,  type=int)
-parser.add_argument("-vp",  "--vis_period",   help="visualize period",                  default=5000,  type=int)
+parser.add_argument("-vp",  "--vis_period",     help="visualize period",                  default=5000,  type=int)
 
 # hyper-parameters
 parser.add_argument("-r",   "--reward",         help="when entering target set",    default=-1,     type=float)
@@ -54,11 +54,8 @@ print(args)
 # == CONFIGURATION ==
 env_name = "two_player_lunar_lander_reachability-v0"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-maxSteps = 120
-if args.toEnd:
-    maxEpisodes = int(args.maxAccess / maxSteps * 2)
-else:
-    maxEpisodes = 60000
+maxSteps = 20
+maxUpdates = args.maxAccess
 update_period = args.vis_period  # int(maxEpisodes / 10)
 update_period_half = int(update_period/2)
 
@@ -80,7 +77,7 @@ elif args.mode == 'RA':
 
 CONFIG = dqnConfig(DEVICE=device,
                    ENV_NAME=env_name,
-                   MAX_EPISODES=maxEpisodes,
+                   MAX_UPDATES=maxUpdates,
                    MAX_EP_STEPS=maxSteps,
                    BATCH_SIZE=100,
                    MEMORY_CAPACITY=10000,
@@ -110,21 +107,24 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period):
 
     env.set_seed(seedNum)
     np.random.seed(seedNum)
-    agent = DDQN(s_dim, action_num, CONFIG, action_list, mode=agentMode,
-                 RA_scaling=args.scaling)
+    agent = DDQN(s_dim, action_num, CONFIG, action_list, mode=agentMode)
 
+    # If *true* episode ends when gym environment gives done flag.
+    # If *false* end
     # == TRAINING ==
     _, trainProgress = agent.learn(
         env,
-        # MAX_EPISODES=CONFIG.MAX_EPISODES,
+        MAX_UPDATES=maxUpdates,  # 6000000 for Dubins
         MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
-        addBias=False,  # args.addBias,
+        warmupBuffer=True,
+        warmupQ=False,  # Need to implement inside env.
+        addBias=True,  # args.addBias,
         toEnd=args.toEnd,
         reportPeriod=report_period,  # How often to report Value function figs.
-        plotFigure=False,  # Display value function while learning.
+        plotFigure=True,  # Display value function while learning.
         showBool=False,  # Show boolean reach avoid set 0/1.
         checkPeriod=args.check_period,  # How often to compute Safe vs. Unsafe.
-        storeFigure=False,  # Store the figure in an eps file.
+        storeFigure=True,  # Store the figure in an eps file.
         storeModel=False,
         randomPlot=True,  # Plot from random starting points.
         outFolder=args.outFolder,
@@ -153,7 +153,7 @@ multi_experiment(0, args, CONFIG, env, update_period)
 
 
 # == RECORD ==
-import pickle
-with open("figure/{:s}/{:s}.txt".format(args.outFolder,
-                                        args.outFolder), "wb") as fp:
-    pickle.dump(trainProgressList, fp)
+# import pickle
+# with open("figure/{:s}/{:s}.txt".format(args.outFolder,
+#                                         args.outFolder), "wb") as fp:
+#     pickle.dump(trainProgressList, fp)

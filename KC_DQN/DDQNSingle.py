@@ -20,7 +20,6 @@ import os
 from .model import model
 from .DDQN import DDQN, Transition
 
-# Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
 class DDQNSingle(DDQN):
     def __init__(self, numState, numAction, CONFIG, actionList, 
                     mode='normal', dimList=None, actType='Tanh'):

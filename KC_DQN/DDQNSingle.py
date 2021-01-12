@@ -83,7 +83,7 @@ class DDQNSingle(DDQN):
         # out[i][j][k] = input[i][j][ index[i][j][k] ], which has the same dim as index
         # -> state_action_values = Q [ i ][ action[i] ]
         # view(-1): from mtx to vector
-        state_action_values = self.Q_network(state).gather(1, action).view(-1)
+        state_action_values = self.Q_network(state).gather(dim=1, action).view(-1)
 
         #== get a' by Q_policy: a' = argmin_a' Q_policy(s', a') ==
         with torch.no_grad():
@@ -97,7 +97,7 @@ class DDQNSingle(DDQN):
                 Q_expect = self.target_network(non_final_state_nxt)
             else:
                 Q_expect = self.Q_network(non_final_state_nxt)
-        state_value_nxt[non_final_mask] = Q_expect.gather(1, action_nxt).view(-1)
+        state_value_nxt[non_final_mask] = Q_expect.gather(dim=1, action_nxt).view(-1)
 
         #== Discounted Reach-Avoid Bellman Equation (DRABE) ==
         if self.mode == 'RA':

@@ -15,6 +15,7 @@ class DubinsCarDyn(object):
         self.high = self.bounds[:, 1]
 
         # Dubins car parameters.
+        self.alive = True
         self.time_step = 0.05
         self.speed = 0.5 # v
 
@@ -78,7 +79,10 @@ class DubinsCarDyn(object):
             l_x = self.target_margin(rnd_state)
             g_x = self.safety_margin(rnd_state)
 
-            terminal = (g_x > 0) or (l_x <= 0)
+            if l_x == None:
+                terminal = (g_x > 0)
+            else:
+                terminal = (g_x > 0) or (l_x <= 0)
             flag = terminal and keepOutOf
         x_rnd, y_rnd = rnd_state
 
@@ -114,6 +118,9 @@ class DubinsCarDyn(object):
             fail = g_x_cur > 0
             success = l_x_cur <= 0
             done = fail or success
+
+        if done:
+            self.alive = False
 
         info = {"g_x": g_x_cur, "l_x": l_x_cur, "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}    
         return np.copy(self.state), done, info

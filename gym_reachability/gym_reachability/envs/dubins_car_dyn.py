@@ -100,7 +100,6 @@ class DubinsCarDyn(object):
             Tuple of (next state, signed distance of current state, whether the
             episode is done, info dictionary).
         """
-        # The signed distance must be computed before the environment steps forward.
         x, y, theta = self.state.copy()
 
         l_x_cur = self.target_margin(self.state[:2])

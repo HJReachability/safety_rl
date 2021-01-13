@@ -102,7 +102,7 @@ class DubinsCarOneEnv(gym.Env):
 
 
     def sample_random_state(self, keepOutOf=False, theta=None):
-        state = self.car.sample_random_state(keepOutOf=False, theta=None)
+        state = self.car.sample_random_state(keepOutOf=keepOutOf, theta=theta)
         return state
 
 

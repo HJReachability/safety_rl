@@ -107,7 +107,7 @@ class DubinsCarDyn(object):
         g_x_cur = self.safety_margin(self.state[:2])
 
         u = self.discrete_controls[action]
-        state, [l_x_nxt, g_x_nxt] = self.integrate_forward(self.state, u)
+        state = self.integrate_forward(self.state, u)
         self.state = state
 
         # done
@@ -122,8 +122,7 @@ class DubinsCarDyn(object):
         if done:
             self.alive = False
 
-        info = {"g_x": g_x_cur, "l_x": l_x_cur, "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}    
-        return np.copy(self.state), done, info
+        return np.copy(self.state), done
 
 
     def integrate_forward(self, state, u):
@@ -144,13 +143,8 @@ class DubinsCarDyn(object):
         y = y + self.time_step * self.speed * np.sin(theta)
         theta = np.mod(theta + self.time_step * u, 2*np.pi)
         
-        l_x = self.target_margin(np.array([x, y]))
-        g_x = self.safety_margin(np.array([x, y]))
-
         state = np.array([x, y, theta])
-        info = np.array([l_x, g_x])
-        
-        return state, info
+        return state
 
 
 #== Setting Hyper-Parameter Functions ==

@@ -16,6 +16,49 @@ import torch
 
 from .dubins_car_dyn import DubinsCarDyn
 
+# Local Variables
+purple  = '#9370DB'
+tiffany = '#0abab5'
+silver = '#C0C0C0'
+
+# Local Functions
+def plot_arc(p, r, thetaParam, ax, c='b', lw=1.5, orientation=0):
+    x, y = p
+    thetaInit, thetaFinal = thetaParam
+
+    xtilde = x*np.cos(orientation) - y*np.sin(orientation)
+    ytilde = y*np.cos(orientation) + x*np.sin(orientation)
+
+    theta = np.linspace(thetaInit+orientation, thetaFinal+orientation, 100)
+    xs = xtilde + r * np.cos(theta)
+    ys = ytilde + r * np.sin(theta)
+
+    ax.plot(xs, ys, c=c, lw=lw)
+
+
+def plot_circle(center, r, ax, c='b', lw=1.5, ls='-', orientation=0, scatter=False):
+    x, y = center
+    xtilde = x*np.cos(orientation) - y*np.sin(orientation)
+    ytilde = y*np.cos(orientation) + x*np.sin(orientation)
+
+    theta = np.linspace(0, 2*np.pi, 200)
+    xs = xtilde + r * np.cos(theta)
+    ys = ytilde + r * np.sin(theta)
+    ax.plot(xs, ys, c=c, lw=lw, linestyle=ls)
+    if scatter:
+        ax.scatter(xtilde+r, ytilde, c=c, s=80)
+        ax.scatter(xtilde-r, ytilde, c=c, s=80)
+        print(xtilde+r, ytilde, xtilde-r, ytilde)
+
+
+def rotatePoint(state, orientation):
+    x, y, theta = state
+    xtilde = x*np.cos(orientation) - y*np.sin(orientation)
+    ytilde = y*np.cos(orientation) + x*np.sin(orientation)
+    thetatilde = theta+orientation
+
+    return np.array([xtilde, ytilde, thetatilde])
+
 
 class DubinsCarPEEnv(gym.Env):
     def __init__(self, device, mode='normal', doneType='toEnd'):
@@ -32,7 +75,7 @@ class DubinsCarPEEnv(gym.Env):
 
         # Gym variables.
         self.numActionList = [3, 3]
-        self.action_space = gym.spaces.Discrete(6)
+        self.action_space = gym.spaces.Discrete(9)
         midpoint = (self.low + self.high)/2.0
         interval = self.high - self.low
         self.observation_space = gym.spaces.Box(np.float32(midpoint - interval/2),
@@ -47,7 +90,7 @@ class DubinsCarPEEnv(gym.Env):
 
         # Target set parameters.
         self.evader_target_center = np.array([0, 0])
-        self.evader_target_radius = 0.3
+        self.evader_target_radius = 0.5
 
         # Dubins cars parameters.
         self.time_step = 0.05
@@ -62,12 +105,15 @@ class DubinsCarPEEnv(gym.Env):
         self.state = np.zeros(6)
         self.doneType = doneType
 
-        # Visualization params 
-        # self.visual_initial_states =[   np.array([ .6*self.constraint_radius,  -.5, np.pi/2]),
-        #                                 np.array([ -.4*self.constraint_radius, -.5, np.pi/2]),
-        #                                 np.array([ -0.95*self.constraint_radius, 0., np.pi/2]),
-        #                                 np.array([ self.R_turn, 0.95*(self.constraint_radius-self.R_turn), np.pi/2]),
-        #                             ]
+        # ! Not yet finished
+        # Visualization params
+        self.evader_initial_states =[   np.array([ 0.95*(self.evader_constraint_radius-self.R_turn), -self.R_turn, 0.]),
+                                        np.array([ -0.95*self.evader_constraint_radius, 0., 0.]) ]
+
+        self.pursuer_initial_states = [ np.array([ 0., .5, 0.]),
+                                        np.array([ .5,  0, 1.5*np.pi]),
+                                        np.array([ -.5, .5, 1.5*np.pi]),
+                                        np.array([ -.1, -.5, .75*np.pi]) ]
         
         # Cost Params
         self.targetScaling = 1.
@@ -257,7 +303,6 @@ class DubinsCarPEEnv(gym.Env):
         evader_g_x = self.evader.safety_margin(s[:2])
         dist_evader_pursuer = np.linalg.norm(s[:2]-s[3:5], ord=2)
         capture_g_x = self.capture_range - dist_evader_pursuer
-        print(evader_g_x, dist_evader_pursuer, capture_g_x)
         return max(evader_g_x, capture_g_x)
 
 
@@ -267,12 +312,23 @@ class DubinsCarPEEnv(gym.Env):
 
 
 #== Getting Functions ==
+    # ! This version fix evader's theta and pursuer's (x, y, theta).
+    # ! By doing so, this reduce to the one-player version.
+    # ! Thus, we can check if there are other bugs in the env.
+    # ! Currently, NN cannot even learn max{ l_x, g_x}.
+    # ! The correct version is commented.
     def get_warmup_examples(self, num_warmup_samples=100):
-        lowExt = np.repeat(self.low, 2)
-        highExt = np.repeat(self.high, 2)
-        states = np.random.uniform( low=lowExt,
-                                    high=highExt,
-                                    size=(num_warmup_samples, self.state.shape[0]))
+        # lowExt = np.tile(self.low, 2)
+        # highExt = np.tile(self.high, 2)
+        # states = np.random.uniform( low=lowExt,
+        #                             high=highExt,
+        #                             size=(num_warmup_samples, self.state.shape[0]))
+        tmp = np.random.uniform(    low=self.low[:2],
+                                    high=self.high[:2],
+                                    size=(num_warmup_samples, 2))
+        states = np.zeros((num_warmup_samples, 6))
+        states[:,:2] = tmp
+        states[:,3:5] = .5
 
         heuristic_v = np.zeros((num_warmup_samples, self.action_space.n))
         states = np.zeros((num_warmup_samples, self.state.shape[0]))
@@ -286,7 +342,7 @@ class DubinsCarPEEnv(gym.Env):
         return states, heuristic_v
 
 
-    # ? 2D-plot based on x-y locations
+    # ? 2D-plot based on evader's x and y
     def get_axes(self):
         """ Gets the bounds for the environment.
 
@@ -298,8 +354,9 @@ class DubinsCarPEEnv(gym.Env):
         return [axes, aspect_ratio]
 
 
-    # TODO: how to visualize
-    def get_value(self, q_func, theta, nx=101, ny=101, addBias=False):
+    # ? Fix evader's theta and pursuer's (x, y, theta)
+    def get_value(self, q_func, theta, xPursuer, yPursuer, thetaPursuer,
+            nx=101, ny=101, addBias=False):
         v = np.zeros((nx, ny))
         it = np.nditer(v, flags=['multi_index'])
         xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)
@@ -308,18 +365,24 @@ class DubinsCarPEEnv(gym.Env):
             idx = it.multi_index
             x = xs[idx[0]]
             y = ys[idx[1]]
-            l_x = self.target_margin(np.array([x, y]))
-            g_x = self.safety_margin(np.array([x, y]))
 
-            if self.mode == 'normal' or self.mode == 'RA':
-                state = torch.FloatTensor([x, y, theta], device=self.device).unsqueeze(0)
-            else:
-                z = max([l_x, g_x])
-                state = torch.FloatTensor([x, y, theta, z], device=self.device).unsqueeze(0)
+            state = np.array([x, y, theta, xPursuer, yPursuer, thetaPursuer])
+            l_x = self.target_margin(state)
+            g_x = self.safety_margin(state)
+
+            # Q(s, a^*)
+            state = torch.FloatTensor(state, device=self.device)
+            with torch.no_grad():
+                state_action_values = q_func(state)
+            Q_mtx = state_action_values.reshape(self.numActionList[0], self.numActionList[1])
+            pursuerValues, _ = Q_mtx.max(dim=-1)
+            minmaxValue, _ = pursuerValues.min(dim=-1)
+            minmaxValue = minmaxValue.numpy()
+
             if addBias:
-                v[idx] = q_func(state).min(dim=1)[0].item() + max(l_x, g_x)
+                v[idx] = minmaxValue + max(l_x, g_x)
             else:
-                v[idx] = q_func(state).min(dim=1)[0].item()
+                v[idx] = minmaxValue
             it.iternext()
         return v
 
@@ -356,8 +419,9 @@ class DubinsCarPEEnv(gym.Env):
                     break
                     
             stateTensor = torch.FloatTensor(state, device=self.device)
-            state_action_values = q_func(stateTensor)
-            Q_mtx = state_action_values.detach().reshape(self.numActionList[0], self.numActionList[1])
+            with torch.no_grad():
+                state_action_values = q_func(stateTensor)
+            Q_mtx = state_action_values.reshape(self.numActionList[0], self.numActionList[1])
             pursuerValues, colIndices = Q_mtx.max(dim=1)
             minmaxValue, rowIdx = pursuerValues.min(dim=0)
             colIdx = colIndices[rowIdx]
@@ -406,70 +470,59 @@ class DubinsCarPEEnv(gym.Env):
 
 
 #== Plotting Functions ==
-    # TODO: how to visualize
-    def visualize(  self, q_func, no_show=False,
+    # ? Check all plotting functions
+    def visualize(  self, q_func,
                     vmin=-1, vmax=1, nx=101, ny=101, cmap='coolwarm',
-                    labels=None, boolPlot=False, addBias=False, theta=np.pi/2,
+                    labels=None, boolPlot=False, addBias=False, theta=0.,
                     rndTraj=False, num_rnd_traj=10, keepOutOf=False):
-        """ Overlays analytic safe set on top of state value function.
 
-        Args:
-            q_func: NN or Tabular-Q
-        """
         axStyle = self.get_axes()
-        thetaList = [np.pi/6, np.pi/3, np.pi/2]
-        # numX = 1
-        # numY = 3
-        # if self.axes is None:
-        #     self.fig, self.axes = plt.subplots(
-        #         numX, numY, figsize=(4*numY, 4*numX), sharex=True, sharey=True)
-        fig = plt.figure(figsize=(12,4))
-        ax1 = fig.add_subplot(131)
-        ax2 = fig.add_subplot(132)
-        ax3 = fig.add_subplot(133)  
-        axList = [ax1, ax2, ax3]
+        fig, axes = plt.subplots(1,4, figsize=(16, 4))
+        init_states = []
+        for i, stateEvader in enumerate(self.evader_initial_states):
+            for j in range(2):
+                statePursuer = self.pursuer_initial_states[2*i+j]
+                init_states.append(np.concatenate((stateEvader, statePursuer), axis=0))
 
-        for i, (ax, theta) in enumerate(zip(axList, thetaList)):
-        # for i, (ax, theta) in enumerate(zip(self.axes, thetaList)):
+        for i, (ax, state) in enumerate(zip(axes, init_states)):
+            state=[state]
             ax.cla()
-            if i == len(thetaList)-1:
+            if i == len(init_states)-1:
                 cbarPlot=True
             else: 
                 cbarPlot=False
 
+            #== Formatting ==
+            self.plot_formatting(ax=ax, labels=labels)
+
             #== Plot failure / target set ==
             self.plot_target_failure_set(ax)
-
-            #== Plot reach-avoid set ==
-            self.plot_reach_avoid_set(ax, orientation=theta)
 
             #== Plot V ==
             self.plot_v_values( q_func, ax=ax, fig=fig, theta=theta,
                                 vmin=vmin, vmax=vmax, nx=nx, ny=ny, cmap=cmap,
                                 boolPlot=boolPlot, cbarPlot=cbarPlot, addBias=addBias)
-            #== Formatting ==
-            self.plot_formatting(ax=ax, labels=labels)
 
             #== Plot Trajectories ==
             if rndTraj:
                 self.plot_trajectories( q_func, T=200, num_rnd_traj=num_rnd_traj, theta=theta,
                                         toEnd=False, keepOutOf=keepOutOf,
-                                        ax=ax, c='y', lw=2, orientation=0)
+                                        ax=ax, orientation=0)
             else:
-                # `visual_initial_states` are specified for theta = pi/2. Thus,
-                # we need to use "orientation = theta-pi/2"
-                self.plot_trajectories( q_func, T=200, states=self.visual_initial_states, toEnd=False, 
-                                        ax=ax, c='y', lw=2, orientation=theta-np.pi/2)
+                self.plot_trajectories( q_func, T=200, states=state, toEnd=False, 
+                                        ax=ax, orientation=0)
 
-            ax.set_xlabel(r'$\theta={:.0f}^\circ$'.format(theta*180/np.pi), fontsize=28)
+            # ax.set_xlabel(r'$\theta={:.0f}^\circ$'.format(theta*180/np.pi), fontsize=28)
 
         plt.tight_layout()
         plt.show()
 
 
-    # TODO: how to visualize
+    # ? 2D-plot based on evader's x and y
     def plot_formatting(self, ax=None, labels=None):
         axStyle = self.get_axes()
+        ax.plot([0., 0.], [axStyle[0][2], axStyle[0][3]], c='k')
+        ax.plot([axStyle[0][0], axStyle[0][1]], [0., 0.], c='k')
         #== Formatting ==
         ax.axis(axStyle[0])
         ax.set_aspect(axStyle[1])  # makes equal aspect ratio
@@ -486,18 +539,17 @@ class DubinsCarPEEnv(gym.Env):
         #ax.set_title(r"$\theta$={:.1f}".format(theta * 180 / np.pi), fontsize=24)
 
 
-    # TODO: how to visualize
-    def plot_v_values(  self, q_func, theta=np.pi/2, ax=None, fig=None,
-                        vmin=-1, vmax=1, nx=201, ny=201, cmap='seismic',
+    # ? Check get_values, 2D-plot based on evader's x and y
+    def plot_v_values(  self, q_func, theta=0, xPursuer=.5, yPursuer=.5, thetaPursuer=0,
+                        ax=None, fig=None,
+                        vmin=-1, vmax=1, nx=201, ny=201, cmap='coolwarm',
                         boolPlot=False, cbarPlot=True, addBias=False):
         axStyle = self.get_axes()
-        ax.plot([0., 0.], [axStyle[0][2], axStyle[0][3]], c='k')
-        ax.plot([axStyle[0][0], axStyle[0][1]], [0., 0.], c='k')
 
         #== Plot V ==
         if theta == None:
             theta = 2.0 * np.random.uniform() * np.pi
-        v = self.get_value(q_func, theta, nx, ny, addBias=addBias)
+        v = self.get_value(q_func, theta, xPursuer, yPursuer, thetaPursuer, nx, ny, addBias=addBias)
 
         if boolPlot:
             im = ax.imshow(v.T>0., interpolation='none', extent=axStyle[0], origin="lower", cmap=cmap)
@@ -511,7 +563,7 @@ class DubinsCarPEEnv(gym.Env):
 
     # ? Plot trajectories based on x-y location of the evader and the pursuer
     def plot_trajectories(  self, q_func, T=10, num_rnd_traj=None, states=None, theta=None,
-                            keepOutOf=False, toEnd=False, ax=None, c=['y', 'w'], lw=1.5, orientation=0):
+                            keepOutOf=False, toEnd=False, ax=None, c=[tiffany, silver], lw=2, orientation=0):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -545,76 +597,13 @@ class DubinsCarPEEnv(gym.Env):
         return results
 
 
-    # TODO: how to visualize
+    # ! Analytic solutions available?
     def plot_reach_avoid_set(self, ax, c='g', lw=3, orientation=0):
-        r = self.target_radius
-        R = self.constraint_radius
-        R_turn = self.R_turn
-        if r >=  2*R_turn - R:
-            # plot arc
-            tmpY = (r**2 - R**2 + 2*R_turn*R) / (2*R_turn)
-            tmpX = np.sqrt(r**2 - tmpY**2)
-            tmpTheta = np.arcsin(tmpX / (R-R_turn))
-            # two sides
-            self.plot_arc((0.,  R_turn), R-R_turn, (tmpTheta-np.pi/2, np.pi/2),  ax, c=c, lw=lw, orientation=orientation)
-            self.plot_arc((0., -R_turn), R-R_turn, (-np.pi/2, np.pi/2-tmpTheta), ax, c=c, lw=lw, orientation=orientation)
-            # middle
-            tmpPhi = np.arcsin(tmpX/r)
-            self.plot_arc((0., 0), r, (tmpPhi - np.pi/2, np.pi/2-tmpPhi), ax, c=c, lw=lw, orientation=orientation)
-            # outer boundary
-            self.plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c=c, lw=lw, orientation=orientation)
-        else:
-            # two sides
-            tmpY = (R**2 + 2*R_turn*r - r**2) / (2*R_turn)
-            tmpX = np.sqrt(R**2 - tmpY**2)
-            tmpTheta = np.arcsin( tmpX / (R_turn-r))
-            self.plot_arc((0.,  R_turn), R_turn-r, (np.pi/2+tmpTheta, 3*np.pi/2), ax, c=c, lw=lw, orientation=orientation)
-            self.plot_arc((0., -R_turn), R_turn-r, (np.pi/2, 3*np.pi/2-tmpTheta), ax, c=c, lw=lw, orientation=orientation)
-            # middle
-            self.plot_arc((0., 0), r, (np.pi/2, -np.pi/2), ax, c=c, lw=lw, orientation=orientation)
-            # outer boundary
-            self.plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c=c, lw=lw, orientation=orientation)
+        pass
 
 
-    # TODO: how to visualize
-    def plot_target_failure_set(self, ax):
-        self.plot_circle(self.constraint_center, self.constraint_radius, ax, c='k', lw=3)
-        self.plot_circle(self.target_center,     self.target_radius, ax, c='m', lw=3)
-
-
-    def plot_arc(self, p, r, thetaParam, ax, c='b', lw=1.5, orientation=0):
-        x, y = p
-        thetaInit, thetaFinal = thetaParam
-
-        xtilde = x*np.cos(orientation) - y*np.sin(orientation)
-        ytilde = y*np.cos(orientation) + x*np.sin(orientation)
-
-        theta = np.linspace(thetaInit+orientation, thetaFinal+orientation, 100)
-        xs = xtilde + r * np.cos(theta)
-        ys = ytilde + r * np.sin(theta)
-
-        ax.plot(xs, ys, c=c, lw=lw)
-
-
-    def plot_circle(self, center, r, ax, c='b', lw=1.5, orientation=0, scatter=False):
-        x, y = center
-        xtilde = x*np.cos(orientation) - y*np.sin(orientation)
-        ytilde = y*np.cos(orientation) + x*np.sin(orientation)
-
-        theta = np.linspace(0, 2*np.pi, 200)
-        xs = xtilde + r * np.cos(theta)
-        ys = ytilde + r * np.sin(theta)
-        ax.plot(xs, ys, c=c, lw=lw)
-        if scatter:
-            ax.scatter(xtilde+r, ytilde, c=c, s=80)
-            ax.scatter(xtilde-r, ytilde, c=c, s=80)
-            print(xtilde+r, ytilde, xtilde-r, ytilde)
-
-
-    def rotatePoint(state, orientation):
-        x, y, theta = state
-        xtilde = x*np.cos(orientation) - y*np.sin(orientation)
-        ytilde = y*np.cos(orientation) + x*np.sin(orientation)
-        thetatilde = theta+orientation
-
-        return np.array([xtilde, ytilde, thetatilde])
+    # ? Plot evader's target, constraint and pursuer's capture range
+    def plot_target_failure_set(self, ax, xPursuer=.5, yPursuer=.5):
+        plot_circle(self.evader.constraint_center, self.evader.constraint_radius, ax, c='k', lw=3)
+        plot_circle(self.evader.target_center,     self.evader.target_radius, ax, c='m', lw=3)
+        plot_circle(np.array([xPursuer, yPursuer]), self.capture_range, ax, c='k', lw=3, ls='--')

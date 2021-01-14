@@ -50,7 +50,7 @@ class dqnConfig(config):
                         DEVICE='cpu',
                         MAX_UPDATES=2000000, MAX_EP_STEPS=200,
                         EPSILON=0.95, EPS_END=0.05, EPS_PERIOD=1, EPS_DECAY=0.5,
-                        LR_C=1e-2, LR_C_END=1e-4, LR_C_PERIOD=1, LR_C_DECAY=0.5,
+                        LR_C=1e-3, LR_C_END=1e-4, LR_C_PERIOD=1, LR_C_DECAY=0.5,
                         GAMMA=0.9, GAMMA_END=0.99999999, GAMMA_PERIOD=200, GAMMA_DECAY=0.5,
                         TAU=0.01, HARD_UPDATE=1, SOFT_UPDATE=True,
                         MEMORY_CAPACITY=10000,

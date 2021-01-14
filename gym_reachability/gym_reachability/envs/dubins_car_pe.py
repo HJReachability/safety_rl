@@ -312,26 +312,13 @@ class DubinsCarPEEnv(gym.Env):
 
 
 #== Getting Functions ==
-    # ! This version fix evader's theta and pursuer's (x, y, theta).
-    # ! By doing so, this reduce to the one-player version.
-    # ! Thus, we can check if there are other bugs in the env.
-    # ! Currently, NN cannot even learn max{ l_x, g_x}.
-    # ! The correct version is commented.
     def get_warmup_examples(self, num_warmup_samples=100):
-        # lowExt = np.tile(self.low, 2)
-        # highExt = np.tile(self.high, 2)
-        # states = np.random.uniform( low=lowExt,
-        #                             high=highExt,
-        #                             size=(num_warmup_samples, self.state.shape[0]))
-        tmp = np.random.uniform(    low=self.low[:2],
-                                    high=self.high[:2],
-                                    size=(num_warmup_samples, 2))
-        states = np.zeros((num_warmup_samples, 6))
-        states[:,:2] = tmp
-        states[:,3:5] = .5
-
+        lowExt = np.tile(self.low, 2)
+        highExt = np.tile(self.high, 2)
+        states = np.random.uniform( low=lowExt,
+                                    high=highExt,
+                                    size=(num_warmup_samples, self.state.shape[0]))
         heuristic_v = np.zeros((num_warmup_samples, self.action_space.n))
-        states = np.zeros((num_warmup_samples, self.state.shape[0]))
 
         for i in range(num_warmup_samples):
             state = states[i]
@@ -472,7 +459,7 @@ class DubinsCarPEEnv(gym.Env):
 #== Plotting Functions ==
     # ? Check all plotting functions
     def visualize(  self, q_func,
-                    vmin=-1, vmax=1, nx=101, ny=101, cmap='coolwarm',
+                    vmin=-1, vmax=1, nx=101, ny=101, cmap='seismic',
                     labels=None, boolPlot=False, addBias=False, theta=0.,
                     rndTraj=False, num_rnd_traj=10, keepOutOf=False):
 

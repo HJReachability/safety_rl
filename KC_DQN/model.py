@@ -3,6 +3,7 @@
 
 import torch
 import torch.nn as nn
+import sys
 
 class Sin(nn.Module):
     """
@@ -59,6 +60,8 @@ class model(nn.Module):
                     self.moduleList.append(nn.Tanh())
                 elif actType == 'ReLU':
                     self.moduleList.append(nn.ReLU())
+                else:
+                    raise ValueError('Activation type ({:s}) is not included!'.format(actType))
         if verbose:
             print(self.moduleList)
 

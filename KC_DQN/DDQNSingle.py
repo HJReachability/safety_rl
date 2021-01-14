@@ -21,18 +21,18 @@ from .model import model
 from .DDQN import DDQN, Transition
 
 class DDQNSingle(DDQN):
-    def __init__(self, numState, numAction, CONFIG, actionList, 
-                    mode='normal', dimList=None, actType='Tanh'):
+    def __init__(self, CONFIG, numAction, actionList, dimList,
+                    mode='normal', actType='Tanh'):
         super(DDQNSingle, self).__init__(CONFIG)
         
-        self.actionList = actionList
         self.mode = mode # 'normal' or 'RA'
 
         #== ENV PARAM ==
-        self.numState = numState
         self.numAction = numAction
+        self.actionList = actionList
 
         #== Build NN for (D)DQN ==
+        assert dimList is not None, "Define the architecture"
         self.dimList = dimList
         self.actType = actType
         self.build_network(dimList, actType)
@@ -40,7 +40,6 @@ class DDQNSingle(DDQN):
 
 
     def build_network(self, dimList=None, actType='Tanh'):
-        assert self.dimList is not None, "Define the architecture"
         self.Q_network = model(dimList, actType, verbose=True)
         self.target_network = model(dimList, actType)
 
@@ -83,7 +82,7 @@ class DDQNSingle(DDQN):
         # out[i][j][k] = input[i][j][ index[i][j][k] ], which has the same dim as index
         # -> state_action_values = Q [ i ][ action[i] ]
         # view(-1): from mtx to vector
-        state_action_values = self.Q_network(state).gather(dim=1, action).view(-1)
+        state_action_values = self.Q_network(state).gather(dim=1, index=action).view(-1)
 
         #== get a' by Q_policy: a' = argmin_a' Q_policy(s', a') ==
         with torch.no_grad():
@@ -97,7 +96,7 @@ class DDQNSingle(DDQN):
                 Q_expect = self.target_network(non_final_state_nxt)
             else:
                 Q_expect = self.Q_network(non_final_state_nxt)
-        state_value_nxt[non_final_mask] = Q_expect.gather(dim=1, action_nxt).view(-1)
+        state_value_nxt[non_final_mask] = Q_expect.gather(dim=1, index=action_nxt).view(-1)
 
         #== Discounted Reach-Avoid Bellman Equation (DRABE) ==
         if self.mode == 'RA':
@@ -160,7 +159,7 @@ class DDQNSingle(DDQN):
             self.optimizer.step()
 
         print(" --- Warmup Q Ends")
-        env.visualize(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic')
+        env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic')
         plt.pause(0.001)
         self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
         self.build_optimizer()
@@ -287,9 +286,9 @@ class DDQNSingle(DDQN):
 
                     if plotFigure or storeFigure:
                         if showBool:
-                            env.visualize(self.Q_network, True, vmin=0, boolPlot=True, addBias=addBias)
+                            env.visualize(self.Q_network, vmin=0, boolPlot=True, addBias=addBias)
                         else:
-                            env.visualize(self.Q_network, True, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
+                            env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
                         if storeFigure:
                             figureFolder = 'figure/{:s}/'.format(outFolder)
                             os.makedirs(figureFolder, exist_ok=True)

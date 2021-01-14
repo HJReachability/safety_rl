@@ -369,7 +369,7 @@ class DubinsCarOneEnv(gym.Env):
 
 
 #== Plotting Functions ==
-    def visualize(  self, q_func, no_show=False,
+    def visualize(  self, q_func,
                     vmin=-1, vmax=1, nx=101, ny=101, cmap='coolwarm',
                     labels=None, boolPlot=False, addBias=False, theta=np.pi/2,
                     rndTraj=False, num_rnd_traj=10, keepOutOf=False):

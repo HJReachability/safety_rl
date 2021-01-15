@@ -88,6 +88,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.observation_type = observation_type
 
         self.chunk_x = [self.W/(self.CHUNKS-1)*i for i in range(self.CHUNKS)]
+        self.chunk_y = [self.H/(self.CHUNKS-1)*i for i in range(self.CHUNKS)]
 
         # Set random seed.
         self.set_seed(rnd_seed)
@@ -122,8 +123,8 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.total_act_dim = self.one_player_act_dim ** self.num_players
         self.action_space = spaces.Discrete(self.total_act_dim)
         self.bounds_simulation_one_player = np.array([
-            [self.fly_min_x, self.fly_max_x],
-            [self.fly_min_y, self.fly_max_y],
+            [0, self.W],
+            [0, self.H],
             [-self.vx_bound, self.vx_bound],
             [-self.vy_bound, self.vy_bound],
             [-self.theta_bound, self.theta_bound],
@@ -200,7 +201,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
 
         self.W = self.VIEWPORT_W / self.SCALE
         self.H = self.VIEWPORT_H / self.SCALE
-        self.HELIPAD_Y = (self.VIEWPORT_H / self.SCALE) / 2  # height of helipad in simulator self.SCALE
+        self.HELIPAD_Y = self.H / 2
         # height of lander body in simulator self.SCALE. self.LANDER_POLY has the (x,y) points that define the
         # shape of the lander in pixel self.SCALE
         self.LANDER_POLY_X = np.array(self.LANDER_POLY)[:, 0]
@@ -219,10 +220,6 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             (self.LANDER_W / 2 + self.LEG_X_DIST +
                 self.LEG_W / self.SCALE) ** 2) ** 0.5
 
-        self.fly_min_x = 0
-        self.fly_max_x = self.W / (self.CHUNKS - 1) * (self.CHUNKS - 1)
-        self.fly_min_y = 0
-        self.fly_max_y = self.VIEWPORT_H / self.SCALE
         # set up state space bounds used in evaluating the q value function
         self.vx_bound = param_dict["vx_bound"]
         self.vy_bound = param_dict["vy_bound"]
@@ -360,8 +357,8 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         # assert len(smooth_y) == len(height)
         # smooth_y = list(height)
 
-        self.moon = self.world.CreateStaticBody(shapes=edgeShape(
-            vertices=[(0, 0), (self.W, 0)]))
+        self.moon = self.world.CreateStaticBody(
+            shapes=edgeShape(vertices=[(0, 0), (self.W, 0)]))
         self.sky_polys = []
         obstacle_polyline = [(self.chunk_x[0], smooth_y[0])]
         for i in range(self.CHUNKS-1):
@@ -408,10 +405,10 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     def rejection_sample(self):
         flag_sample = False
         while not flag_sample:
-            xy_sample = np.random.uniform(low=[self.fly_min_x,
-                                               self.fly_min_y],
-                                          high=[self.fly_max_x,
-                                                self.fly_max_y])
+            xy_sample = np.random.uniform(low=[0,
+                                               0],
+                                          high=[self.W,
+                                                self.H])
             flag_sample = self.obstacle_polyline.contains(
                 Point(xy_sample[0], xy_sample[1]))
         return xy_sample

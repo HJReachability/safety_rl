@@ -15,7 +15,7 @@ from collections import namedtuple
 import argparse
 from multiprocessing import Pool
 
-from KC_DQN.DDQN import DDQN
+from KC_DQN.DDQNSingle import DDQNSingle
 from KC_DQN.config import dqnConfig
 
 import time
@@ -59,21 +59,21 @@ maxUpdates = args.maxAccess
 update_period = args.vis_period  # int(maxEpisodes / 10)
 update_period_half = int(update_period/2)
 
-if args.mode == 'lagrange':
-    envMode = 'normal'
-    agentMode = 'normal'
-    gammaInit = .9
-    gamma_period = 1000000
-elif args.mode == 'mayer':
-    envMode = 'extend'
-    agentMode = 'normal'
-    gammaInit = .9
-    gamma_period = 1000000
-elif args.mode == 'RA':
-    envMode = 'RA'
-    agentMode = 'RA'
-    gammaInit = args.gamma
-    gamma_period = update_period
+# if args.mode == 'lagrange':
+#     envMode = 'normal'
+#     agentMode = 'normal'
+#     gammaInit = .9
+#     gamma_period = 1000000
+# elif args.mode == 'mayer':
+#     envMode = 'extend'
+#     agentMode = 'normal'
+#     gammaInit = .9
+#     gamma_period = 1000000
+# elif args.mode == 'RA':
+envMode = 'RA'
+agentMode = 'RA'
+gammaInit = args.gamma
+gamma_period = update_period
 
 CONFIG = dqnConfig(DEVICE=device,
                    ENV_NAME=env_name,
@@ -83,11 +83,13 @@ CONFIG = dqnConfig(DEVICE=device,
                    MEMORY_CAPACITY=10000,
                    GAMMA=gammaInit,
                    GAMMA_PERIOD=gamma_period,
+                   GAMMA_END=0.999999,
                    EPS_PERIOD=1000,
                    EPS_DECAY=0.6,
                    LR_C=args.learningRate,
                    LR_C_PERIOD=update_period,
                    LR_C_DECAY=0.8)
+                   # MAX_MODEL=50)
 # == REPORT ==
 for key, value in CONFIG.__dict__.items():
     if key[:1] != '_': print(key, value)
@@ -97,17 +99,18 @@ for key, value in CONFIG.__dict__.items():
 env = gym.make(env_name, device=device, mode=envMode, doneType='toEnd')
 env.set_costParam(args.penalty, args.reward, args.costType, args.scaling)
 
-
 # == EXPERIMENT ==
 def multi_experiment(seedNum, args, CONFIG, env, report_period):
     # == AGENT ==
     s_dim = env.observation_space.shape[0]
     action_num = env.action_space.n
     action_list = np.arange(action_num)
+    dimList = [s_dim, 100, 100, action_num]
 
     env.set_seed(seedNum)
     np.random.seed(seedNum)
-    agent = DDQN(s_dim, action_num, CONFIG, action_list, mode=agentMode)
+    agent = DDQNSingle(s_dim, action_num, CONFIG, action_list, mode=agentMode,
+        dimList=dimList, actType='Tanh')
 
     # If *true* episode ends when gym environment gives done flag.
     # If *false* end
@@ -118,15 +121,22 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period):
         MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
         warmupBuffer=True,
         warmupQ=False,  # Need to implement inside env.
-        addBias=True,  # args.addBias,
-        toEnd=args.toEnd,
-        reportPeriod=report_period,  # How often to report Value function figs.
+        warmupIter=1000,
+        addBias=False,  # args.addBias,
+        doneTerminate=True,
+        runningCostThr=None,
+        curUpdates=None,
+        # toEnd=args.toEnd,
+        # reportPeriod=report_period,  # How often to report Value function figs.
         plotFigure=True,  # Display value function while learning.
         showBool=False,  # Show boolean reach avoid set 0/1.
+        vmin=-1,
+        vmax=1,
         checkPeriod=args.check_period,  # How often to compute Safe vs. Unsafe.
         storeFigure=True,  # Store the figure in an eps file.
         storeModel=True,
-        randomPlot=True,  # Plot from random starting points.
+        storeBest=False,
+        # randomPlot=True,  # Plot from random starting points.
         outFolder=args.outFolder,
         verbose=True)
     return trainProgress
@@ -137,7 +147,7 @@ def plot_experiment(args, CONFIG, env, path):
     s_dim = env.observation_space.shape[0]
     action_num = env.action_space.n
     action_list = np.arange(action_num)
-    agent = DDQN(s_dim, action_num, CONFIG, action_list, mode=agentMode)
+    agent = DDQNSingle(s_dim, action_num, CONFIG, action_list, mode=agentMode)
     agent.restore(path)
 
     env.visualize(agent.Q_network, True, nx=91, ny=91, boolPlot=False, trueRAZero=False,

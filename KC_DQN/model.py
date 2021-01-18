@@ -62,6 +62,7 @@ class model(nn.Module):
                     self.moduleList.append(nn.ReLU())
                 else:
                     raise ValueError('Activation type ({:s}) is not included!'.format(actType))
+                # self.moduleList.append(nn.Dropout(p=.5))
         if verbose:
             print(self.moduleList)
 

@@ -65,17 +65,7 @@ class DDQN():
 
 
     def initBuffer(self, env):
-        cnt = 0
-        while len(self.memory) < self.memory.capacity:
-            cnt += 1
-            print('\rWarmup Buffer [{:d}]'.format(cnt), end='')
-            s = env.reset()
-            a, a_idx = self.select_action(s, explore=True)
-            s_, r, done, info = env.step(a_idx)
-            if done:
-                s_ = None
-            self.store_transition(s, a_idx, r, s_, info)
-        print(" --- Warmup Buffer Ends")
+        raise NotImplementedError
 
 
     def initQ(self):

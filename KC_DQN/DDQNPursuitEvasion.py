@@ -48,8 +48,7 @@ def actionIndexTuple2Int(actionIdxTuple, numActionList):
 
 
 class DDQNPursuitEvasion(DDQN):
-    def __init__(self, CONFIG, numActionList, dimList,
-                    mode='RA', actType='Tanh'):
+    def __init__(self, CONFIG, numActionList, dimList, mode='RA', actType='Tanh'):
         """
         __init__
 
@@ -83,6 +82,7 @@ class DDQNPursuitEvasion(DDQN):
     def build_network(self, dimList, actType='Tanh'):
         self.Q_network = model(dimList, actType, verbose=True)
         self.target_network = model(dimList, actType)
+        self.build_optimizer()
 
         if self.device == torch.device('cuda'):
             self.Q_network.cuda()
@@ -123,7 +123,7 @@ class DDQNPursuitEvasion(DDQN):
         # out[i][j][k] = input[i][j][ index[i][j][k] ], which has the same dim as index
         # -> state_action_values = Q [ i ][ action[i] ]
         # view(-1): from mtx to vector
-        state_action_values = self.Q_network(state).gather(1, action).view(-1)
+        state_action_values = self.Q_network(state).gather(dim=1, index=action).view(-1)
 
         # ? >>> CHECK IF THIS IS CORRECT
         #== get a' ==
@@ -131,8 +131,8 @@ class DDQNPursuitEvasion(DDQN):
         # a' = tuple2Int(u', d')
         with torch.no_grad():
             num_non_final = non_final_state_nxt.shape[0]
-            state_action_values = self.Q_network(non_final_state_nxt)
-            Q_mtx = state_action_values.detach().reshape(num_non_final, self.numActionList[0], self.numActionList[1])
+            state_nxt_action_values = self.Q_network(non_final_state_nxt)
+            Q_mtx = state_nxt_action_values.detach().reshape(num_non_final, self.numActionList[0], self.numActionList[1])
             # minmax values and indices
             pursuerValues, colIndices = Q_mtx.max(dim=-1)
             minmaxValue, rowIdx = pursuerValues.min(dim=-1)
@@ -149,7 +149,7 @@ class DDQNPursuitEvasion(DDQN):
                 Q_expect = self.target_network(non_final_state_nxt)
             else:
                 Q_expect = self.Q_network(non_final_state_nxt)
-        state_value_nxt[non_final_mask] = Q_expect.gather(1, action_nxt).view(-1)
+        state_value_nxt[non_final_mask] = Q_expect.gather(dim=1, index=action_nxt).view(-1)
 
         #== Discounted Reach-Avoid Bellman Equation (DRABE) ==
         if self.mode == 'RA':
@@ -191,10 +191,21 @@ class DDQNPursuitEvasion(DDQN):
         return loss.item()
 
 
-    def initQ(  self, env, warmupIter, num_warmup_samples=200,
-                vmin=-1, vmax=1):
-        for ep_tmp in range(warmupIter):
-            print('\rWarmup Q [{:d}]'.format(ep_tmp+1), end='')
+    def initBuffer(self, env):
+        cnt = 0
+        while len(self.memory) < self.memory.capacity:
+            cnt += 1
+            print('\rWarmup Buffer [{:d}]'.format(cnt), end='')
+            s = env.reset()
+            actionIdx, actionIdxTuple = self.select_action(s, explore=True)
+            s_, r, done, info = env.step(actionIdxTuple)
+            self.store_transition(s, actionIdx, r, s_, info)
+        print(" --- Warmup Buffer Ends")
+
+
+    def initQ(  self, env, warmupIter, num_warmup_samples=200, vmin=-1, vmax=1):
+        for iterIdx in range(warmupIter):
+            print('\rWarmup Q [{:d}]'.format(iterIdx+1), end='')
             states, heuristic_v = env.get_warmup_examples(num_warmup_samples=num_warmup_samples)
 
             self.Q_network.train()
@@ -209,8 +220,8 @@ class DDQNPursuitEvasion(DDQN):
             self.optimizer.step()
 
         print(" --- Warmup Q Ends")
-        # env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic')
-        # plt.pause(0.001)
+        env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic')
+        plt.pause(0.001)
         self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
         self.build_optimizer()
 
@@ -280,7 +291,7 @@ class DDQNPursuitEvasion(DDQN):
 
         # == Warmup Q ==
         if warmupQ:
-            self.initQ(env, warmupIter=warmupIter, num_warmup_samples=200)
+            self.initQ(env, warmupIter=warmupIter, num_warmup_samples=200, vmin=vmin, vmax=vmax)
 
         # == Main Training ==
         TrainingRecord = namedtuple('TrainingRecord', ['ep', 'runningCost', 'cost', 'lossC'])
@@ -381,6 +392,7 @@ class DDQNPursuitEvasion(DDQN):
             actionIdx = np.random.randint(0, self.numJoinAction)
             actionIdxTuple = actionIndexInt2Tuple(actionIdx, self.numActionList)
         else:
+            state = torch.from_numpy(state).float()
             state_action_values = self.Q_network(state)
             Q_mtx = state_action_values.detach().reshape(self.numActionList[0], self.numActionList[1])
             pursuerValues, colIndices = Q_mtx.max(dim=1)

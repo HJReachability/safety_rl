@@ -36,7 +36,7 @@ def plot_arc(p, r, thetaParam, ax, c='b', lw=1.5, orientation=0):
     ax.plot(xs, ys, c=c, lw=lw)
 
 
-def plot_circle(center, r, ax, c='b', lw=1.5, ls='-', orientation=0, scatter=False):
+def plot_circle(center, r, ax, c='b', lw=1.5, ls='-', orientation=0, scatter=False, zorder=0):
     x, y = center
     xtilde = x*np.cos(orientation) - y*np.sin(orientation)
     ytilde = y*np.cos(orientation) + x*np.sin(orientation)
@@ -44,7 +44,7 @@ def plot_circle(center, r, ax, c='b', lw=1.5, ls='-', orientation=0, scatter=Fal
     theta = np.linspace(0, 2*np.pi, 200)
     xs = xtilde + r * np.cos(theta)
     ys = ytilde + r * np.sin(theta)
-    ax.plot(xs, ys, c=c, lw=lw, linestyle=ls)
+    ax.plot(xs, ys, c=c, lw=lw, linestyle=ls, zorder=zorder)
     if scatter:
         ax.scatter(xtilde+r, ytilde, c=c, s=80)
         ax.scatter(xtilde-r, ytilde, c=c, s=80)
@@ -86,7 +86,7 @@ class DubinsCarPEEnv(gym.Env):
         self.evader_constraint_radius = 1.0
         self.pursuer_constraint_center = np.array([0, 0])
         self.pursuer_constraint_radius = 1.0
-        self.capture_range = 0.1
+        self.capture_range = 0.25
 
         # Target set parameters.
         self.evader_target_center = np.array([0, 0])
@@ -94,8 +94,8 @@ class DubinsCarPEEnv(gym.Env):
 
         # Dubins cars parameters.
         self.time_step = 0.05
-        self.speed = 0.5 # v
-        self.R_turn = 0.6
+        self.speed = 0.75 # v
+        self.R_turn = self.speed / 3
         self.pursuer = DubinsCarDyn(doneType=doneType)
         self.evader = DubinsCarDyn(doneType=doneType)
         self.init_car()
@@ -105,9 +105,8 @@ class DubinsCarPEEnv(gym.Env):
         self.state = np.zeros(6)
         self.doneType = doneType
 
-        # ! Not yet finished
         # Visualization params
-        self.evader_initial_states =[   np.array([ 0.95*(self.evader_constraint_radius-self.R_turn), -self.R_turn, 0.]),
+        self.evader_initial_states =[   np.array([ -.1, -self.R_turn, 0.]),
                                         np.array([ -0.95*self.evader_constraint_radius, 0., 0.]) ]
 
         self.pursuer_initial_states = [ np.array([ 0., .5, 0.]),
@@ -154,8 +153,12 @@ class DubinsCarPEEnv(gym.Env):
         Returns:
             The state the environment has been reset to.
         """
-        stateEvader = self.evader.reset(start=start[:3])
-        statePursuer = self.pursuer.reset(start=start[3:])
+        if start is not None:
+            stateEvader = self.evader.reset(start=start[:3])
+            statePursuer = self.pursuer.reset(start=start[3:])
+        else:
+            stateEvader = self.evader.reset()
+            statePursuer = self.pursuer.reset()
         self.state = np.concatenate((stateEvader, statePursuer), axis=0)
         return np.copy(self.state)
 
@@ -315,9 +318,12 @@ class DubinsCarPEEnv(gym.Env):
     def get_warmup_examples(self, num_warmup_samples=100):
         lowExt = np.tile(self.low, 2)
         highExt = np.tile(self.high, 2)
-        states = np.random.uniform( low=lowExt,
-                                    high=highExt,
-                                    size=(num_warmup_samples, self.state.shape[0]))
+        states = np.random.default_rng().uniform(   low=lowExt,
+                                                    high=highExt,
+                                                    size=(num_warmup_samples, self.state.shape[0]))
+        # states[:, 2] = 0
+        # states[:, 5] = 0
+        # states[:, 3:5] = .3
         heuristic_v = np.zeros((num_warmup_samples, self.action_space.n))
 
         for i in range(num_warmup_samples):
@@ -344,6 +350,8 @@ class DubinsCarPEEnv(gym.Env):
     # ? Fix evader's theta and pursuer's (x, y, theta)
     def get_value(self, q_func, theta, xPursuer, yPursuer, thetaPursuer,
             nx=101, ny=101, addBias=False):
+        print("Getting values with evader's theta and pursuer's (x, y, theta) equal to", end=' ')
+        print("{:.1f} and ({:.1f}, {:.1f}, {:.1f})".format(theta, xPursuer, yPursuer, thetaPursuer))
         v = np.zeros((nx, ny))
         it = np.nditer(v, flags=['multi_index'])
         xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)
@@ -358,13 +366,13 @@ class DubinsCarPEEnv(gym.Env):
             g_x = self.safety_margin(state)
 
             # Q(s, a^*)
-            state = torch.FloatTensor(state, device=self.device)
+            state = torch.FloatTensor(state).to(self.device)
             with torch.no_grad():
                 state_action_values = q_func(state)
             Q_mtx = state_action_values.reshape(self.numActionList[0], self.numActionList[1])
             pursuerValues, _ = Q_mtx.max(dim=-1)
             minmaxValue, _ = pursuerValues.min(dim=-1)
-            minmaxValue = minmaxValue.numpy()
+            minmaxValue = minmaxValue.cpu().numpy()
 
             if addBias:
                 v[idx] = minmaxValue + max(l_x, g_x)
@@ -405,7 +413,7 @@ class DubinsCarPEEnv(gym.Env):
                     result = 1 # succeeded
                     break
                     
-            stateTensor = torch.FloatTensor(state, device=self.device)
+            stateTensor = torch.FloatTensor(state).to(self.device)
             with torch.no_grad():
                 state_action_values = q_func(stateTensor)
             Q_mtx = state_action_values.reshape(self.numActionList[0], self.numActionList[1])
@@ -508,8 +516,8 @@ class DubinsCarPEEnv(gym.Env):
     # ? 2D-plot based on evader's x and y
     def plot_formatting(self, ax=None, labels=None):
         axStyle = self.get_axes()
-        ax.plot([0., 0.], [axStyle[0][2], axStyle[0][3]], c='k')
-        ax.plot([axStyle[0][0], axStyle[0][1]], [0., 0.], c='k')
+        ax.plot([0., 0.], [axStyle[0][2], axStyle[0][3]], c='k', zorder=0)
+        ax.plot([axStyle[0][0], axStyle[0][1]], [0., 0.], c='k', zorder=0)
         #== Formatting ==
         ax.axis(axStyle[0])
         ax.set_aspect(axStyle[1])  # makes equal aspect ratio
@@ -529,7 +537,7 @@ class DubinsCarPEEnv(gym.Env):
     # ? Check get_values, 2D-plot based on evader's x and y
     def plot_v_values(  self, q_func, theta=0, xPursuer=.5, yPursuer=.5, thetaPursuer=0,
                         ax=None, fig=None,
-                        vmin=-1, vmax=1, nx=201, ny=201, cmap='coolwarm',
+                        vmin=-1, vmax=1, nx=101, ny=101, cmap='coolwarm',
                         boolPlot=False, cbarPlot=True, addBias=False):
         axStyle = self.get_axes()
 
@@ -550,7 +558,7 @@ class DubinsCarPEEnv(gym.Env):
 
     # ? Plot trajectories based on x-y location of the evader and the pursuer
     def plot_trajectories(  self, q_func, T=10, num_rnd_traj=None, states=None, theta=None,
-                            keepOutOf=False, toEnd=False, ax=None, c=[tiffany, silver], lw=2, orientation=0):
+                            keepOutOf=False, toEnd=False, ax=None, c=[tiffany, 'y'], lw=2, orientation=0):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -569,17 +577,21 @@ class DubinsCarPEEnv(gym.Env):
                                                             keepOutOf=keepOutOf, toEnd=toEnd)
         if ax == None:
             ax = plt.gca()
-        for traj in trajectories:
+        for traj, result in zip(trajectories, results):
             trajEvader, trajPursuer = traj
             trajEvaderX = trajEvader[:,0]
             trajEvaderY = trajEvader[:,1]
             trajPursuerX = trajPursuer[:,0]
             trajPursuerY = trajPursuer[:,1]
 
-            ax.scatter(trajEvaderX[0], trajEvaderY[0], s=48, c=c[0])
-            ax.plot(trajEvaderX, trajEvaderY, color=c[0],  linewidth=lw)
-            ax.scatter(trajPursuerX[0], trajPursuerY[0], s=48, c=c[1])
-            ax.plot(trajPursuerX, trajPursuerY, color=c[1],  linewidth=lw)
+            ax.scatter(trajEvaderX[0], trajEvaderY[0], s=48, c=c[0], zorder=3)
+            ax.plot(trajEvaderX, trajEvaderY, color=c[0],  linewidth=lw, zorder=2)
+            ax.scatter(trajPursuerX[0], trajPursuerY[0], s=48, c=c[1], zorder=3)
+            ax.plot(trajPursuerX, trajPursuerY, color=c[1],  linewidth=lw, zorder=2)
+            if result == 1:
+                ax.scatter(trajEvaderX[-1], trajEvaderY[-1], s=60, c=c[0], marker='*', zorder=3)
+            if result == -1:
+                ax.scatter(trajEvaderX[-1], trajEvaderY[-1], s=60, c=c[0], marker='x', zorder=3)
 
         return results
 
@@ -591,6 +603,9 @@ class DubinsCarPEEnv(gym.Env):
 
     # ? Plot evader's target, constraint and pursuer's capture range
     def plot_target_failure_set(self, ax, xPursuer=.5, yPursuer=.5):
-        plot_circle(self.evader.constraint_center, self.evader.constraint_radius, ax, c='k', lw=3)
-        plot_circle(self.evader.target_center,     self.evader.target_radius, ax, c='m', lw=3)
-        plot_circle(np.array([xPursuer, yPursuer]), self.capture_range, ax, c='k', lw=3, ls='--')
+        plot_circle(self.evader.constraint_center, self.evader.constraint_radius,
+            ax, c='k', lw=3, zorder=1)
+        plot_circle(self.evader.target_center,     self.evader.target_radius,
+            ax, c='m', lw=3, zorder=1)
+        plot_circle(np.array([xPursuer, yPursuer]), self.capture_range,
+            ax, c='k', lw=3, ls='--', zorder=1)

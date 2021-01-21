@@ -1,12 +1,17 @@
 # Please contact the author(s) of this library if you have any questions.
 # Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
+# TODO
 # Here we aim to minimize the cost. We make the following two modifications:
-#  - a' = argmin_a' Q_policy(s', a')
-#  - V(s') = Q_tar(s', a')
-#  - V(s) = gamma ( max{ g(s), min{ l(s), V_better(s') } } + (1-gamma) max{ g(s), l(s) },
-#    where V_better(s') = max{ g(s'), min{ l(s'), V(s') } }
-#  - loss = E[ ( V(s) - Q_policy(s,a) )^2 ]
+#  - u', d' = argmin_u' argmax_d' Q_policy(s', u', d'), 
+#  
+#  - loss = E[ ( y - Q_policy(s,a) )^2 ]
+
+# // - a' = argmin_a' Q_policy(s', a')
+# // - V(s') = Q_tar(s', a')
+# // - V(s) = gamma ( max{ g(s), min{ l(s), V_better(s') } } + (1-gamma) max{ g(s), l(s) },
+# //   where V_better(s') = max{ g(s'), min{ l(s'), V(s') } }
+# // - loss = E[ ( V(s) - Q_policy(s,a) )^2 ]
 
 import torch
 import torch.nn as nn
@@ -20,28 +25,64 @@ import os
 from .model import model
 from .DDQN import DDQN, Transition
 
-class DDQNSingle(DDQN):
-    def __init__(self, CONFIG, numAction, actionList, dimList,
-                    mode='normal', actType='Tanh'):
-        super(DDQNSingle, self).__init__(CONFIG)
+def actionIndexInt2Tuple(actionIdx, numActionList):
+    numJoinAction = int(numActionList[0] * numActionList[1])
+    assert actionIdx < numJoinAction, \
+        "The size of joint action set is {:d} but get index {:d}".format(
+        numJoinAction, actionIdx)
+    rowIdx = actionIdx // numActionList[1]
+    colIdx = actionIdx % numActionList[1]
+    return (rowIdx, colIdx)
+
+def actionIndexTuple2Int(actionIdxTuple, numActionList):
+    rowIdx, colIdx = actionIdxTuple
+    assert rowIdx < numActionList[0], \
+        "The size of evader's action set is {:d} but get index {:d}".format(
+        numActionList[0], rowIdx)
+    assert colIdx < numActionList[1], \
+        "The size of pursuer's action set is {:d} but get index {:d}".format(
+        numActionList[1], colIdx)
+
+    actionIdx = numActionList[1] * rowIdx + colIdx
+    return actionIdx
+
+
+class DDQNPursuitEvasion(DDQN):
+    def __init__(self, CONFIG, numActionList, dimList, mode='RA', actType='Tanh'):
+        """
+        __init__
+
+        Args:
+            CONFIG ([type]): configuration.
+            numActionList ([int]): the dimensions of the action sets of the evader
+                and the pursuer.
+            dimList ([int]): dimensions of each layer in the NN
+            mode (str, optional): the learning mode. Defaults to 'RA'.
+            actType (str, optional): the type of activation function in the NN.
+                Defaults to 'Tanh'.
+        """                    
+        super(DDQNPursuitEvasion, self).__init__(CONFIG)
         
         self.mode = mode # 'normal' or 'RA'
 
         #== ENV PARAM ==
-        self.numAction = numAction
-        self.actionList = actionList
+        self.numJoinAction = int(numActionList[0] * numActionList[1])
+        self.numActionList = numActionList
 
         #== Build NN for (D)DQN ==
         assert dimList is not None, "Define the architecture"
+        assert dimList[-1] == self.numJoinAction, \
+            "We expect the dim of the last layer to be {:d}, but get {:d}".format(self.numJoinAction, dimList[-1])
         self.dimList = dimList
         self.actType = actType
         self.build_network(dimList, actType)
         self.build_optimizer()
 
 
-    def build_network(self, dimList=None, actType='Tanh'):
+    def build_network(self, dimList, actType='Tanh'):
         self.Q_network = model(dimList, actType, verbose=True)
         self.target_network = model(dimList, actType)
+        self.build_optimizer()
 
         if self.device == torch.device('cuda'):
             self.Q_network.cuda()
@@ -84,9 +125,21 @@ class DDQNSingle(DDQN):
         # view(-1): from mtx to vector
         state_action_values = self.Q_network(state).gather(dim=1, index=action).view(-1)
 
-        #== get a' by Q_policy: a' = argmin_a' Q_policy(s', a') ==
+        # ? >>> CHECK IF THIS IS CORRECT
+        #== get a' ==
+        # u', d' = argmin_u' argmax_d' Q_policy(s', u', d')
+        # a' = tuple2Int(u', d')
         with torch.no_grad():
-            action_nxt = self.Q_network(non_final_state_nxt).min(1, keepdim=True)[1]
+            num_non_final = non_final_state_nxt.shape[0]
+            state_nxt_action_values = self.Q_network(non_final_state_nxt)
+            Q_mtx = state_nxt_action_values.detach().reshape(num_non_final, self.numActionList[0], self.numActionList[1])
+            # minmax values and indices
+            pursuerValues, colIndices = Q_mtx.max(dim=-1)
+            minmaxValue, rowIdx = pursuerValues.min(dim=-1)
+            colIdx = colIndices[np.arange(num_non_final), rowIdx]
+            action_nxt = [actionIndexTuple2Int((r,c), self.numActionList) for r, c in zip(rowIdx, colIdx)]
+            action_nxt = torch.LongTensor(action_nxt,  device=self.device).view(-1,1)
+        # ? <<<
 
         #== get expected value ==
         state_value_nxt = torch.zeros(self.BATCH_SIZE, device=self.device)
@@ -111,10 +164,7 @@ class DDQNSingle(DDQN):
             else:   # Better version instead of DRABE on the paper (discussed on Nov. 18, 2020)
                     # V(s) = gamma ( max{ g(s), min{ l(s), V_better(s') } } + (1-gamma) max{ g(s), l(s) },
                     # where V_better(s') = max{ g(s'), min{ l(s'), V(s') } }
-                #success_mask = torch.logical_and(torch.logical_not(non_final_mask), l_x<=0)
-                #failure_mask = torch.logical_and(torch.logical_not(non_final_mask), g_x>0)
                 V_better = torch.max( g_x_nxt, torch.min(l_x_nxt, state_value_nxt))
-                #V_better = state_value_nxt
                 min_term = torch.min(l_x, V_better)
                 non_terminal = torch.max(min_term, g_x)
                 terminal = torch.max(l_x, g_x)
@@ -147,18 +197,15 @@ class DDQNSingle(DDQN):
             cnt += 1
             print('\rWarmup Buffer [{:d}]'.format(cnt), end='')
             s = env.reset()
-            a, a_idx = self.select_action(s, explore=True)
-            s_, r, done, info = env.step(a_idx)
-            if done:
-                s_ = None
-            self.store_transition(s, a_idx, r, s_, info)
+            actionIdx, actionIdxTuple = self.select_action(s, explore=True)
+            s_, r, done, info = env.step(actionIdxTuple)
+            self.store_transition(s, actionIdx, r, s_, info)
         print(" --- Warmup Buffer Ends")
 
 
-    def initQ(  self, env, warmupIter, num_warmup_samples=200,
-                vmin=-1, vmax=1):
-        for ep_tmp in range(warmupIter):
-            print('\rWarmup Q [{:d}]'.format(ep_tmp+1), end='')
+    def initQ(  self, env, warmupIter, num_warmup_samples=200, vmin=-1, vmax=1):
+        for iterIdx in range(warmupIter):
+            print('\rWarmup Q [{:d}]'.format(iterIdx+1), end='')
             states, heuristic_v = env.get_warmup_examples(num_warmup_samples=num_warmup_samples)
 
             self.Q_network.train()
@@ -244,7 +291,7 @@ class DDQNSingle(DDQN):
 
         # == Warmup Q ==
         if warmupQ:
-            self.initQ(env, warmupIter=warmupIter, num_warmup_samples=200)
+            self.initQ(env, warmupIter=warmupIter, num_warmup_samples=200, vmin=vmin, vmax=vmax)
 
         # == Main Training ==
         TrainingRecord = namedtuple('TrainingRecord', ['ep', 'runningCost', 'cost', 'lossC'])
@@ -262,16 +309,18 @@ class DDQNSingle(DDQN):
             ep += 1
             # Rollout
             for step_num in range(MAX_EP_STEPS):
+                # ? >>> CHECK IF THIS IS CORRECT
                 # Select action
-                a, a_idx = self.select_action(s, explore=True)
+                actionIdx, actionIdxTuple = self.select_action(s, explore=True)
 
                 # Interact with env
-                s_, r, done, info = env.step(a_idx)
+                s_, r, done, info = env.step(actionIdxTuple)
                 epCost += r
 
                 # Store the transition in memory
-                self.store_transition(s, a_idx, r, s_, info)
+                self.store_transition(s, actionIdx, r, s_, info)
                 s = s_
+                # ? <<<
 
                 # Check after fixed number of gradient updates
                 if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
@@ -339,10 +388,16 @@ class DDQNSingle(DDQN):
 
 
     def select_action(self, state, explore=False):
-        # tensor.min() returns (value, indices), which are in tensor form
-        state = torch.from_numpy(state).float().unsqueeze(0)
         if (np.random.rand() < self.EPSILON) and explore:
-            action_index = np.random.randint(0, self.numAction)
+            actionIdx = np.random.randint(0, self.numJoinAction)
+            actionIdxTuple = actionIndexInt2Tuple(actionIdx, self.numActionList)
         else:
-            action_index = self.Q_network(state).min(dim=1)[1].item()
-        return self.actionList[action_index], action_index
+            state = torch.from_numpy(state).float()
+            state_action_values = self.Q_network(state)
+            Q_mtx = state_action_values.detach().reshape(self.numActionList[0], self.numActionList[1])
+            pursuerValues, colIndices = Q_mtx.max(dim=1)
+            minmaxValue, rowIdx = pursuerValues.min(dim=0)
+            colIdx = colIndices[rowIdx]
+            actionIdxTuple = (rowIdx, colIdx)
+            actionIdx = actionIndexTuple2Int(actionIdxTuple, self.numActionList)
+        return actionIdx, actionIdxTuple

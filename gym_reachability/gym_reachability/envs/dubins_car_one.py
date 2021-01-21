@@ -102,7 +102,7 @@ class DubinsCarOneEnv(gym.Env):
 
 
     def sample_random_state(self, keepOutOf=False, theta=None):
-        state = self.car.sample_random_state(keepOutOf=False, theta=None)
+        state = self.car.sample_random_state(keepOutOf=keepOutOf, theta=theta)
         return state
 
 
@@ -121,12 +121,14 @@ class DubinsCarOneEnv(gym.Env):
         if distance >= 1e-8:
             raise "There is a mismatch between the env state and car state: {:.2e}".format(distance)
 
-        state_nxt, done, info = self.car.step(action)
+        l_x_cur = self.target_margin(self.state[:2])
+        g_x_cur = self.safety_margin(self.state[:2])
+
+        state_nxt, done = self.car.step(action)
         self.state = state_nxt
-        g_x_cur = info['g_x']
-        g_x_nxt = info['g_x_nxt']
-        l_x_cur = info['l_x']
-        l_x_nxt = info['l_x_nxt']
+        l_x_nxt = self.target_margin(self.state[:2])
+        g_x_nxt = self.safety_margin(self.state[:2])
+        info = {"g_x": g_x_cur, "l_x": l_x_cur, "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt} 
 
         # cost
         if self.mode == 'RA':
@@ -333,7 +335,7 @@ class DubinsCarOneEnv(gym.Env):
             action_index = q_func(state_tensor).min(dim=1)[1].item()
             u = self.car.discrete_controls[action_index]
 
-            state, _ = self.car.integrate_forward(state, u)
+            state = self.car.integrate_forward(state, u)
             traj_x.append(state[0])
             traj_y.append(state[1])
 
@@ -367,11 +369,7 @@ class DubinsCarOneEnv(gym.Env):
 
 
 #== Plotting Functions ==
-    def render(self):
-        pass
-
-
-    def visualize(  self, q_func, no_show=False,
+    def visualize(  self, q_func,
                     vmin=-1, vmax=1, nx=101, ny=101, cmap='coolwarm',
                     labels=None, boolPlot=False, addBias=False, theta=np.pi/2,
                     rndTraj=False, num_rnd_traj=10, keepOutOf=False):

@@ -15,6 +15,7 @@ class DubinsCarDyn(object):
         self.high = self.bounds[:, 1]
 
         # Dubins car parameters.
+        self.alive = True
         self.time_step = 0.05
         self.speed = 0.5 # v
 
@@ -78,7 +79,10 @@ class DubinsCarDyn(object):
             l_x = self.target_margin(rnd_state)
             g_x = self.safety_margin(rnd_state)
 
-            terminal = (g_x > 0) or (l_x <= 0)
+            if l_x == None:
+                terminal = (g_x > 0)
+            else:
+                terminal = (g_x > 0) or (l_x <= 0)
             flag = terminal and keepOutOf
         x_rnd, y_rnd = rnd_state
 
@@ -96,14 +100,13 @@ class DubinsCarDyn(object):
             Tuple of (next state, signed distance of current state, whether the
             episode is done, info dictionary).
         """
-        # The signed distance must be computed before the environment steps forward.
         x, y, theta = self.state.copy()
 
         l_x_cur = self.target_margin(self.state[:2])
         g_x_cur = self.safety_margin(self.state[:2])
 
         u = self.discrete_controls[action]
-        state, [l_x_nxt, g_x_nxt] = self.integrate_forward(self.state, u)
+        state = self.integrate_forward(self.state, u)
         self.state = state
 
         # done
@@ -115,8 +118,10 @@ class DubinsCarDyn(object):
             success = l_x_cur <= 0
             done = fail or success
 
-        info = {"g_x": g_x_cur, "l_x": l_x_cur, "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}    
-        return np.copy(self.state), done, info
+        if done:
+            self.alive = False
+
+        return np.copy(self.state), done
 
 
     def integrate_forward(self, state, u):
@@ -137,13 +142,8 @@ class DubinsCarDyn(object):
         y = y + self.time_step * self.speed * np.sin(theta)
         theta = np.mod(theta + self.time_step * u, 2*np.pi)
         
-        l_x = self.target_margin(np.array([x, y]))
-        g_x = self.safety_margin(np.array([x, y]))
-
         state = np.array([x, y, theta])
-        info = np.array([l_x, g_x])
-        
-        return state, info
+        return state
 
 
 #== Setting Hyper-Parameter Functions ==

@@ -315,15 +315,22 @@ class DubinsCarPEEnv(gym.Env):
 
 
 #== Getting Functions ==
-    def get_warmup_examples(self, num_warmup_samples=100):
+    def get_warmup_examples(self, num_warmup_samples=100, 
+        theta=None, xPursuer=None, yPursuer=None, thetaPursuer=None):
         lowExt = np.tile(self.low, 2)
         highExt = np.tile(self.high, 2)
         states = np.random.default_rng().uniform(   low=lowExt,
                                                     high=highExt,
                                                     size=(num_warmup_samples, self.state.shape[0]))
-        # states[:, 2] = 0
-        # states[:, 5] = 0
-        # states[:, 3:5] = .3
+        if theta is not None:
+            states[:, 2] = theta
+        if xPursuer is not None:
+            states[:, 3] = xPursuer
+        if yPursuer is not None:
+            states[:, 4] = yPursuer
+        if thetaPursuer is not None:
+            states[:, 5] = thetaPursuer
+
         heuristic_v = np.zeros((num_warmup_samples, self.action_space.n))
 
         for i in range(num_warmup_samples):

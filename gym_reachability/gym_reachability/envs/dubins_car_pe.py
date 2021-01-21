@@ -349,9 +349,11 @@ class DubinsCarPEEnv(gym.Env):
 
     # ? Fix evader's theta and pursuer's (x, y, theta)
     def get_value(self, q_func, theta, xPursuer, yPursuer, thetaPursuer,
-            nx=101, ny=101, addBias=False):
-        print("Getting values with evader's theta and pursuer's (x, y, theta) equal to", end=' ')
-        print("{:.1f} and ({:.1f}, {:.1f}, {:.1f})".format(theta, xPursuer, yPursuer, thetaPursuer))
+            nx=101, ny=101, addBias=False, verbose=False):
+
+        if verbose:
+            print("Getting values with evader's theta and pursuer's (x, y, theta) equal to", end=' ')
+            print("{:.1f} and ({:.1f}, {:.1f}, {:.1f})".format(theta, xPursuer, yPursuer, thetaPursuer))
         v = np.zeros((nx, ny))
         it = np.nditer(v, flags=['multi_index'])
         xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)

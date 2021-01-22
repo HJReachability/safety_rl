@@ -36,7 +36,6 @@ class DDQNSingle(DDQN):
         self.dimList = dimList
         self.actType = actType
         self.build_network(dimList, actType)
-        self.build_optimizer()
 
 
     def build_network(self, dimList=None, actType='Tanh'):
@@ -46,6 +45,8 @@ class DDQNSingle(DDQN):
         if self.device == torch.device('cuda'):
             self.Q_network.cuda()
             self.target_network.cuda()
+
+        self.build_optimizer()
 
 
     def update(self, addBias=False):
@@ -59,22 +60,17 @@ class DDQNSingle(DDQN):
         batch = Transition(*zip(*transitions))
 
         # `non_final_mask` is used for environments that have next state to be None
-        non_final_mask = torch.tensor(  tuple(map(lambda s: s is not None, batch.s_)),
-                                        device=self.device, dtype=torch.bool)
-        non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None],
-                                                device=self.device)
-        state  = torch.FloatTensor(batch.s, device=self.device)
-        action = torch.LongTensor(batch.a,  device=self.device).view(-1,1)
-        reward = torch.FloatTensor(batch.r, device=self.device)
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)),
+            dtype=torch.bool).to(self.device)
+        non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None]).to(self.device)
+        state  = torch.FloatTensor(batch.s).to(self.device)
+        action = torch.LongTensor(batch.a).to(self.device).view(-1,1)
+        reward = torch.FloatTensor(batch.r).to(self.device)
         if self.mode == 'RA':
-            g_x = torch.FloatTensor([info['g_x'] for info in batch.info],
-                                    device=self.device).view(-1)
-            l_x = torch.FloatTensor([info['l_x'] for info in batch.info],
-                                    device=self.device).view(-1)
-            g_x_nxt = torch.FloatTensor([info['g_x_nxt'] for info in batch.info],
-                                    device=self.device).view(-1)
-            l_x_nxt = torch.FloatTensor([info['l_x_nxt'] for info in batch.info],
-                                    device=self.device).view(-1)
+            g_x = torch.FloatTensor([info['g_x'] for info in batch.info]).to(self.device).view(-1)
+            l_x = torch.FloatTensor([info['l_x'] for info in batch.info]).to(self.device).view(-1)
+            g_x_nxt = torch.FloatTensor([info['g_x_nxt'] for info in batch.info]).to(self.device).view(-1)
+            l_x_nxt = torch.FloatTensor([info['l_x_nxt'] for info in batch.info]).to(self.device).view(-1)
 
         #== get Q(s,a) ==
         # `gather` reguires idx to be Long, input and index should have the same shape
@@ -89,7 +85,7 @@ class DDQNSingle(DDQN):
             action_nxt = self.Q_network(non_final_state_nxt).min(1, keepdim=True)[1]
 
         #== get expected value ==
-        state_value_nxt = torch.zeros(self.BATCH_SIZE, device=self.device)
+        state_value_nxt = torch.zeros(self.BATCH_SIZE).to(self.device)
 
         with torch.no_grad(): # V(s') = Q_tar(s', a'), a' is from Q_policy
             if self.double:
@@ -340,7 +336,7 @@ class DDQNSingle(DDQN):
 
     def select_action(self, state, explore=False):
         # tensor.min() returns (value, indices), which are in tensor form
-        state = torch.from_numpy(state).float().unsqueeze(0)
+        state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
         if (np.random.rand() < self.EPSILON) and explore:
             action_index = np.random.randint(0, self.numAction)
         else:

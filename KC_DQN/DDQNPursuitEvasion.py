@@ -76,7 +76,6 @@ class DDQNPursuitEvasion(DDQN):
         self.dimList = dimList
         self.actType = actType
         self.build_network(dimList, actType)
-        self.build_optimizer()
 
 
     def build_network(self, dimList, actType='Tanh'):

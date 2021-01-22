@@ -198,7 +198,7 @@ class DDQNPursuitEvasion(DDQN):
         print(" --- Warmup Buffer Ends")
 
 
-    def initQ(  self, env, warmupIter, num_warmup_samples=200, vmin=-1, vmax=1):
+    def initQ(self, env, warmupIter, num_warmup_samples=200, vmin=-1, vmax=1):
         for iterIdx in range(warmupIter):
             print('\rWarmup Q [{:d}]'.format(iterIdx+1), end='')
             states, heuristic_v = env.get_warmup_examples(num_warmup_samples=num_warmup_samples)
@@ -215,6 +215,7 @@ class DDQNPursuitEvasion(DDQN):
             self.optimizer.step()
 
             if (iterIdx+1) % 20000 == 0:
+                self.Q_network.eval()
                 print()
                 fig, axes = plt.subplots(1,4, figsize=(16, 4))
 
@@ -224,14 +225,14 @@ class DDQNPursuitEvasion(DDQN):
                     cbarPlot = i==3
                     env.plot_formatting(ax=ax)
                     env.plot_target_failure_set(ax=ax, xPursuer=xPursuer, yPursuer=yPursuer)
-                    env.plot_v_values(agent.Q_network, ax=ax, fig=fig, cbarPlot=cbarPlot,
+                    env.plot_v_values(self.Q_network, ax=ax, fig=fig, cbarPlot=cbarPlot,
                                             xPursuer=xPursuer, yPursuer=yPursuer, cmap='seismic', vmin=-1, vmax=1)
                 plt.pause(0.001)
 
         print(" --- Warmup Q Ends")
-        self.Q_network.eval()
-        env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic')
-        plt.pause(0.001)
+        # self.Q_network.eval()
+        # env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic')
+        # plt.pause(0.001)
         self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
         self.build_optimizer()
 

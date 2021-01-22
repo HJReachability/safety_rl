@@ -200,6 +200,7 @@ class DDQNPursuitEvasion(DDQN):
 
 
     def initQ(self, env, warmupIter, num_warmup_samples=200, vmin=-1, vmax=1):
+        lossList = []
         for iterIdx in range(warmupIter):
             print('\rWarmup Q [{:d}]'.format(iterIdx+1), end='')
             states, heuristic_v = env.get_warmup_examples(num_warmup_samples=num_warmup_samples)
@@ -209,13 +210,14 @@ class DDQNPursuitEvasion(DDQN):
             states = torch.from_numpy(states).float().to(self.device)
             v = self.Q_network(states)
             loss = smooth_l1_loss(input=v, target=heuristic_v)
+            lossList.append(loss.data.cpu().numpy())
 
             self.optimizer.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
             self.optimizer.step()
 
-            if (iterIdx+1) % 20000 == 0:
+            if (iterIdx+1) % 10000 == 0:
                 self.Q_network.eval()
                 print()
                 fig, axes = plt.subplots(1,4, figsize=(16, 4))
@@ -236,6 +238,8 @@ class DDQNPursuitEvasion(DDQN):
         # plt.pause(0.001)
         self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
         self.build_optimizer()
+        lossList = np.array(lossList)
+        return lossList
 
 
     def learn(  self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100,

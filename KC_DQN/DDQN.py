@@ -54,7 +54,7 @@ class DDQN():
 
     def build_optimizer(self):
         # self.optimizer = optim.Adam(self.Q_network.parameters(), lr=self.LR_C)
-        self.optimizer = torch.optim.AdamW(self.Q_network.parameters(), lr=agent.LR_C, weight_decay=1e-3)
+        self.optimizer = torch.optim.AdamW(self.Q_network.parameters(), lr=self.LR_C, weight_decay=1e-3)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer,
             step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
         self.max_grad_norm = 1

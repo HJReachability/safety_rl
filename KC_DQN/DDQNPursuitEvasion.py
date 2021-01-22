@@ -82,11 +82,12 @@ class DDQNPursuitEvasion(DDQN):
     def build_network(self, dimList, actType='Tanh'):
         self.Q_network = model(dimList, actType, verbose=True)
         self.target_network = model(dimList, actType)
-        self.build_optimizer()
 
         if self.device == torch.device('cuda'):
             self.Q_network.cuda()
             self.target_network.cuda()
+
+        self.build_optimizer()
 
 
     def update(self, addBias=False):

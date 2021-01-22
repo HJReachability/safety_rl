@@ -103,14 +103,14 @@ env.set_costParam(args.penalty, args.reward, args.costType, args.scaling)
 def multi_experiment(seedNum, args, CONFIG, env, report_period):
     # == AGENT ==
     s_dim = env.observation_space.shape[0]
-    action_num = env.action_space.n
-    action_list = np.arange(action_num)
-    dimList = [s_dim, 100, 100, action_num]
+    numAction = env.action_space.n
+    actionList = np.arange(numAction)
+    dimList = [s_dim, 100, 100, numAction]
 
     env.set_seed(seedNum)
     np.random.seed(seedNum)
-    agent = DDQNSingle(s_dim, action_num, CONFIG, action_list, mode=agentMode,
-        dimList=dimList, actType='Tanh')
+    agent = DDQNSingle(CONFIG, numAction, actionList, dimList,
+                       mode=agentMode, actType='Tanh')
 
     # If *true* episode ends when gym environment gives done flag.
     # If *false* end

@@ -41,6 +41,7 @@ parser.add_argument("-p",   "--penalty",        help="when entering failure set"
 parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",            default=1,      type=float)
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coefficient",     default=0.999,  type=float)
+parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[512, 512, 512],  nargs="*", type=int)
 
 # RL type
 parser.add_argument("-m",   "--mode",           help="mode",            default='RA',       type=str)
@@ -106,7 +107,7 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period):
     s_dim = env.observation_space.shape[0]
     numAction = env.action_space.n
     actionList = np.arange(numAction)
-    dimList = [s_dim, 100, 100, numAction]
+    dimList = [s_dim] + args.architecture + [numAction]
 
     env.set_seed(seedNum)
     np.random.seed(seedNum)
@@ -129,12 +130,12 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period):
         curUpdates=None,
         # toEnd=args.toEnd,
         # reportPeriod=report_period,  # How often to report Value function figs.
-        plotFigure=True,  # Display value function while learning.
+        plotFigure=False,  # Display value function while learning.
         showBool=False,  # Show boolean reach avoid set 0/1.
         vmin=-1,
         vmax=1,
         checkPeriod=args.check_period,  # How often to compute Safe vs. Unsafe.
-        storeFigure=True,  # Store the figure in an eps file.
+        storeFigure=False,  # Store the figure in an eps file.
         storeModel=True,
         storeBest=False,
         # randomPlot=True,  # Plot from random starting points.

@@ -42,6 +42,7 @@ parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",        
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coefficient",     default=0.999,  type=float)
 parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[512, 512, 512],  nargs="*", type=int)
+parser.add_argument("-act", "--activation",     help="activation function",         default='Tanh', type=str)
 
 # RL type
 parser.add_argument("-m",   "--mode",           help="mode",            default='RA',       type=str)
@@ -112,7 +113,7 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period):
     env.set_seed(seedNum)
     np.random.seed(seedNum)
     agent = DDQNSingle(CONFIG, numAction, actionList, dimList,
-                       mode=agentMode, actType='Tanh')
+                       mode=agentMode, actType=args.activation)
 
     # If *true* episode ends when gym environment gives done flag.
     # If *false* end
@@ -147,18 +148,23 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period):
 def plot_experiment(args, CONFIG, env, path):
     # == AGENT ==
     s_dim = env.observation_space.shape[0]
-    action_num = env.action_space.n
-    action_list = np.arange(action_num)
-    agent = DDQNSingle(s_dim, action_num, CONFIG, action_list, mode=agentMode)
+    numAction = env.action_space.n
+    actionList = np.arange(numAction)
+    dimList = [s_dim] + args.architecture + [numAction]
+    agent = DDQNSingle(CONFIG, numAction, actionList, dimList,
+                       mode=agentMode, actType=args.activation)
     agent.restore(path)
 
-    env.visualize(agent.Q_network, True, nx=91, ny=91, boolPlot=False, trueRAZero=False,
-        addBias=True, lvlset=0)
+    # env.visualize(agent.Q_network, True, nx=91, ny=91, boolPlot=False, trueRAZero=False,
+    #     addBias=True, lvlset=0)
+
+    env.visualize(agent.Q_network, cmap='seismic', addBias=False)
+    # env.visualize(self.Q_network, vmin=0, boolPlot=True, addBias=addBias)
     plt.show()
 
-path1 = "models/RA2020-11-20-06_44_00/model-1500000.pth"
-path2 = "models/RA2020-11-20-06_58_53/model-1500000.pth"
-# plot_experiment(args, CONFIG, env, path2)
+path1 = "models/RA2021-01-21-21_37_49/model-1500000.pth"
+# path2 = "models/RA2020-11-20-06_58_53/model-1500000.pth"
+# plot_experiment(args, CONFIG, env, path1)
 multi_experiment(0, args, CONFIG, env, update_period)
 
 # == TESTING ==

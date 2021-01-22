@@ -100,22 +100,17 @@ class DDQNPursuitEvasion(DDQN):
         batch = Transition(*zip(*transitions))
 
         # `non_final_mask` is used for environments that have next state to be None
-        non_final_mask = torch.tensor(  tuple(map(lambda s: s is not None, batch.s_)),
-                                        device=self.device, dtype=torch.bool)
-        non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None],
-                                                device=self.device)
-        state  = torch.FloatTensor(batch.s, device=self.device)
-        action = torch.LongTensor(batch.a,  device=self.device).view(-1,1)
-        reward = torch.FloatTensor(batch.r, device=self.device)
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)),
+            dtype=torch.bool).to(self.device)
+        non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None]).to(self.device)
+        state  = torch.FloatTensor(batch.s).to(self.device)
+        action = torch.LongTensor(batch.a).to(self.device).view(-1,1)
+        reward = torch.FloatTensor(batch.r).to(self.device)
         if self.mode == 'RA':
-            g_x = torch.FloatTensor([info['g_x'] for info in batch.info],
-                                    device=self.device).view(-1)
-            l_x = torch.FloatTensor([info['l_x'] for info in batch.info],
-                                    device=self.device).view(-1)
-            g_x_nxt = torch.FloatTensor([info['g_x_nxt'] for info in batch.info],
-                                    device=self.device).view(-1)
-            l_x_nxt = torch.FloatTensor([info['l_x_nxt'] for info in batch.info],
-                                    device=self.device).view(-1)
+            g_x = torch.FloatTensor([info['g_x'] for info in batch.info]).to(self.device).view(-1)
+            l_x = torch.FloatTensor([info['l_x'] for info in batch.info]).to(self.device).view(-1)
+            g_x_nxt = torch.FloatTensor([info['g_x_nxt'] for info in batch.info]).to(self.device).view(-1)
+            l_x_nxt = torch.FloatTensor([info['l_x_nxt'] for info in batch.info]).to(self.device).view(-1)
 
         #== get Q(s,a) ==
         # `gather` reguires idx to be Long, input and index should have the same shape
@@ -138,11 +133,11 @@ class DDQNPursuitEvasion(DDQN):
             minmaxValue, rowIdx = pursuerValues.min(dim=-1)
             colIdx = colIndices[np.arange(num_non_final), rowIdx]
             action_nxt = [actionIndexTuple2Int((r,c), self.numActionList) for r, c in zip(rowIdx, colIdx)]
-            action_nxt = torch.LongTensor(action_nxt,  device=self.device).view(-1,1)
+            action_nxt = torch.LongTensor(action_nxt).to(self.device).view(-1,1)
         # ? <<<
 
         #== get expected value ==
-        state_value_nxt = torch.zeros(self.BATCH_SIZE, device=self.device)
+        state_value_nxt = torch.zeros(self.BATCH_SIZE).to(self.device)
 
         with torch.no_grad(): # V(s') = Q_tar(s', a'), a' is from Q_policy
             if self.double:

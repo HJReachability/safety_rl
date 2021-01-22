@@ -215,6 +215,7 @@ class DDQNPursuitEvasion(DDQN):
             self.optimizer.step()
 
         print(" --- Warmup Q Ends")
+        self.Q_network.eval()
         env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic')
         plt.pause(0.001)
         self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
@@ -319,6 +320,7 @@ class DDQNPursuitEvasion(DDQN):
 
                 # Check after fixed number of gradient updates
                 if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
+                    self.Q_network.eval()
                     _, results = env.simulate_trajectories( self.Q_network, T=MAX_EP_STEPS, 
                                                             num_rnd_traj=numRndTraj,
                                                             keepOutOf=False, toEnd=False)
@@ -343,6 +345,7 @@ class DDQNPursuitEvasion(DDQN):
                             self.save(self.cntUpdate, 'models/{:s}/'.format(outFolder))
 
                     if plotFigure or storeFigure:
+                        self.Q_network.eval()
                         if showBool:
                             env.visualize(self.Q_network, vmin=0, boolPlot=True, addBias=addBias)
                         else:
@@ -387,7 +390,9 @@ class DDQNPursuitEvasion(DDQN):
             actionIdx = np.random.randint(0, self.numJoinAction)
             actionIdxTuple = actionIndexInt2Tuple(actionIdx, self.numActionList)
         else:
+            self.Q_network.eval()
             state = torch.from_numpy(state).float()
+            state.to(self.device)
             state_action_values = self.Q_network(state)
             Q_mtx = state_action_values.detach().reshape(self.numActionList[0], self.numActionList[1])
             pursuerValues, colIndices = Q_mtx.max(dim=1)

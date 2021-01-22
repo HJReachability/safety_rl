@@ -217,7 +217,7 @@ class DDQNPursuitEvasion(DDQN):
             nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
             self.optimizer.step()
 
-            if (iterIdx+1) % 20000 == 0:
+            if (iterIdx+1) % 10000 == 0:
                 self.Q_network.eval()
                 print()
                 fig, axes = plt.subplots(1,4, figsize=(16, 4))

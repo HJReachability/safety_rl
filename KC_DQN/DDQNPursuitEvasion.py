@@ -393,10 +393,10 @@ class DDQNPursuitEvasion(DDQN):
             self.Q_network.eval()
             state = torch.from_numpy(state).float().to(self.device)
             state_action_values = self.Q_network(state)
-            Q_mtx = state_action_values.detach().reshape(self.numActionList[0], self.numActionList[1])
+            Q_mtx = state_action_values.detach().cpu().reshape(self.numActionList[0], self.numActionList[1])
             pursuerValues, colIndices = Q_mtx.max(dim=1)
             minmaxValue, rowIdx = pursuerValues.min(dim=0)
             colIdx = colIndices[rowIdx]
-            actionIdxTuple = (rowIdx, colIdx)
+            actionIdxTuple = (np.array(rowIdx), np.array(colIdx))
             actionIdx = actionIndexTuple2Int(actionIdxTuple, self.numActionList)
         return actionIdx, actionIdxTuple

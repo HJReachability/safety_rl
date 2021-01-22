@@ -214,6 +214,20 @@ class DDQNPursuitEvasion(DDQN):
             nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
             self.optimizer.step()
 
+            if (iterIdx+1) % 20000 == 0:
+                print()
+                fig, axes = plt.subplots(1,4, figsize=(16, 4))
+
+                xPursuerList=[.1, .3, .5, .7]
+                yPursuerList=[.1, .3, .5, .7]
+                for i, (ax, xPursuer, yPursuer) in enumerate(zip(axes, xPursuerList, yPursuerList)):
+                    cbarPlot = i==3
+                    env.plot_formatting(ax=ax)
+                    env.plot_target_failure_set(ax=ax, xPursuer=xPursuer, yPursuer=yPursuer)
+                    env.plot_v_values(agent.Q_network, ax=ax, fig=fig, cbarPlot=cbarPlot,
+                                            xPursuer=xPursuer, yPursuer=yPursuer, cmap='seismic', vmin=-1, vmax=1)
+                plt.pause(0.001)
+
         print(" --- Warmup Q Ends")
         self.Q_network.eval()
         env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic')

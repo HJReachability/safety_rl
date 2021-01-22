@@ -53,7 +53,8 @@ print(args)
 
 # == CONFIGURATION ==
 env_name = "lunar_lander_reachability-v0"
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 maxSteps = 20
 maxUpdates = args.maxAccess
 update_period = args.vis_period  # int(maxEpisodes / 10)

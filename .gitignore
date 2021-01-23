@@ -1,0 +1,16 @@
+*.pyc
+*.txt
+*.idea
+*.egg*
+data/*
+.DS_Store
+*.pickle
+figure/
+.gitignore
+KC_exp/
+models/
+.ipynb_checkpoints/
+RL_RA.code-workspace
+*.pdf
+*.ipynb
+*torchScheduler.py

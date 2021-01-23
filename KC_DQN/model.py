@@ -79,7 +79,7 @@ class model(nn.Module):
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                m.weight.data.normal_(0, 1)
+                m.weight.data.normal_(0, 0.1)
                 m.bias.data.zero_()
 
 

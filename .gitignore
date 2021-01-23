@@ -1,5 +1,7 @@
 *.pyc
+*.ipynb
 *.txt
+*.gdoc
 *.idea
 *.egg*
 data/*

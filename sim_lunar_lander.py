@@ -32,8 +32,9 @@ parser.add_argument("-nw",  "--num_worker",     help="the number of workers",   
 parser.add_argument("-te",  "--toEnd",          help="stop until reaching boundary",    action="store_true")
 parser.add_argument("-ab",  "--addBias",        help="add bias term for RA",            action="store_true")
 parser.add_argument("-ma",  "--maxAccess",      help="maximal number of access",        default=4e6,  type=int)
+parser.add_argument("-ms",  "--maxSteps",       help="maximal length of rollouts",      default=100,  type=int)
 parser.add_argument("-cp",  "--check_period",   help="check the success ratio",         default=50000,  type=int)
-parser.add_argument("-vp",  "--vis_period",     help="visualize period",                  default=5000,  type=int)
+parser.add_argument("-up",  "--update_period",  help="update period for scheduler",     default=int(4e6/20),  type=int)
 
 # hyper-parameters
 parser.add_argument("-r",   "--reward",         help="when entering target set",    default=-1,     type=float)
@@ -47,7 +48,7 @@ parser.add_argument("-act", "--activation",     help="activation function",     
 # RL type
 parser.add_argument("-m",   "--mode",           help="mode",            default='RA',       type=str)
 parser.add_argument("-ct",  "--costType",       help="cost type",       default='sparse',   type=str)
-parser.add_argument("-of",  "--outFolder",        help="output file",     default='RA' + timestr,       type=str)
+parser.add_argument("-of",  "--outFolder",      help="output file",     default='RA' + timestr,       type=str)
 
 args = parser.parse_args()
 print(args)
@@ -55,11 +56,10 @@ print(args)
 
 # == CONFIGURATION ==
 env_name = "lunar_lander_reachability-v0"
-device = torch.device("cpu")
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-maxSteps = 20
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+maxSteps = args.maxSteps  # Length limit for one episode.
 maxUpdates = args.maxAccess
-update_period = args.vis_period  # int(maxEpisodes / 10)
+update_period = args.update_period  # int(maxEpisodes / 10)
 update_period_half = int(update_period/2)
 
 # if args.mode == 'lagrange':
@@ -164,8 +164,8 @@ def plot_experiment(args, CONFIG, env, path):
 
 path1 = "models/RA2021-01-21-21_37_49/model-1500000.pth"
 # path2 = "models/RA2020-11-20-06_58_53/model-1500000.pth"
-plot_experiment(args, CONFIG, env, path1)
-# multi_experiment(0, args, CONFIG, env, update_period)
+# plot_experiment(args, CONFIG, env, path1)
+multi_experiment(0, args, CONFIG, env, update_period)
 
 # == TESTING ==
 

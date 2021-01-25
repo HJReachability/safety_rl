@@ -572,8 +572,7 @@ class LunarLanderReachability(LunarLander):
             # print("S_Margin: ", s_margin)
             # print("T_Margin: ", t_margin)
 
-            state_tensor = torch.FloatTensor(state,
-                                             device=self.device).unsqueeze(0)
+            state_tensor = torch.FloatTensor(state).to(self.device).unsqueeze(0)
             action_index = q_func(state_tensor).min(dim=1)[1].item()
 
             state, _, done, _ = self.step(action_index)
@@ -657,13 +656,11 @@ class LunarLanderReachability(LunarLander):
 
             if self.mode == 'normal' or self.mode == 'RA':
                 state = torch.FloatTensor(
-                    [x, y, x_dot, y_dot, theta, theta_dot],
-                    device=self.device).unsqueeze(0)
+                    [x, y, x_dot, y_dot, theta, theta_dot]).to(self.device).unsqueeze(0)
             else:
                 z = max([l_x, g_x])
                 state = torch.FloatTensor(
-                    [x, y, x_dot, y_dot, theta, theta_dot, z],
-                    device=self.device).unsqueeze(0)
+                    [x, y, x_dot, y_dot, theta, theta_dot, z]).to(self.device).unsqueeze(0)
             if addBias:
                 v[idx] = q_func(state).min(dim=1)[0].item() + max(l_x, g_x)
             else:

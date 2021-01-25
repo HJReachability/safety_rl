@@ -55,6 +55,7 @@ print(args)
 
 
 # == CONFIGURATION ==
+# todo(vrubies) change to "one_player_reach_avoid_lunar_lander-v0"
 env_name = "lunar_lander_reachability-v0"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 maxSteps = args.maxSteps  # Length limit for one episode.

@@ -1,4 +1,4 @@
-# Copyright (c) 2019–2020, The Regents of the University of California.
+# Copyright (c) 2021, The Regents of the University of California.
 # All rights reserved.
 #
 # This file is subject to the terms and conditions defined in the LICENSE file

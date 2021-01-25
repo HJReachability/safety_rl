@@ -11,6 +11,7 @@ figure/
 .gitignore
 KC_exp/
 models/
+scratch/
 .ipynb_checkpoints/
 RL_RA.code-workspace
 *.pdf

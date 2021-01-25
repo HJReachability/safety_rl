@@ -119,13 +119,13 @@ class DDQN():
             os.remove(os.path.join(logs_path, 'model-{}.pth' .format(min_step)))
         logs_path = os.path.join(logs_path, 'model-{}.pth' .format(step))
         torch.save(self.Q_network.state_dict(), logs_path)
-        print('=> Save {} after [{}] updates' .format(logs_path, step))
+        print('  => Save {} after [{}] updates' .format(logs_path, step))
 
 
     def restore(self, logs_path):
         self.Q_network.load_state_dict(torch.load(logs_path))
         self.target_network.load_state_dict(torch.load(logs_path))
-        print('=> Restore {}' .format(logs_path))
+        print('  => Restore {}' .format(logs_path))
 
 
     # ! Deprecated method, do not use

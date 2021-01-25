@@ -25,6 +25,8 @@ import os
 from .model import model
 from .DDQN import DDQN, Transition
 
+import time
+
 def actionIndexInt2Tuple(actionIdx, numActionList):
     numJoinAction = int(numActionList[0] * numActionList[1])
     assert actionIdx < numJoinAction, \
@@ -195,7 +197,7 @@ class DDQNPursuitEvasion(DDQN):
             actionIdx, actionIdxTuple = self.select_action(s, explore=True)
             s_, r, done, info = env.step(actionIdxTuple)
             self.store_transition(s, actionIdx, r, s_, info)
-        print(" --- Warmup Buffer Ends")
+        print("\n  => Warmup Buffer Ends")
 
 
     def initQ(self, env, warmupIter, num_warmup_samples=200, vmin=-1, vmax=1):
@@ -228,10 +230,10 @@ class DDQNPursuitEvasion(DDQN):
                     env.plot_formatting(ax=ax)
                     env.plot_target_failure_set(ax=ax, xPursuer=xPursuer, yPursuer=yPursuer)
                     env.plot_v_values(self.Q_network, ax=ax, fig=fig, cbarPlot=cbarPlot,
-                                            xPursuer=xPursuer, yPursuer=yPursuer, cmap='seismic', vmin=-1, vmax=1)
+                                        xPursuer=xPursuer, yPursuer=yPursuer, cmap='seismic', vmin=-1, vmax=1)
                 plt.pause(0.001)
 
-        print(" --- Warmup Q Ends")
+        print("\n  => Warmup Q Ends")
         # self.Q_network.eval()
         # env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic')
         # plt.pause(0.001)
@@ -299,16 +301,20 @@ class DDQNPursuitEvasion(DDQN):
                 success/failure/unfinished ratio of random trajectories and is
                 checked periodically.
         """
-
         # == Warmup Buffer ==
+        startInitBuffer = time.time()
         if warmupBuffer:
             self.initBuffer(env)
+        endInitBuffer = time.time()
 
         # == Warmup Q ==
+        startInitQ = time.time()
         if warmupQ:
             self.initQ(env, warmupIter=warmupIter, num_warmup_samples=200, vmin=vmin, vmax=vmax)
+        endInitQ = time.time()
 
         # == Main Training ==
+        startLearning = time.time()
         TrainingRecord = namedtuple('TrainingRecord', ['ep', 'runningCost', 'cost', 'lossC'])
         trainingRecords = []
         runningCost = 0.
@@ -349,7 +355,7 @@ class DDQNPursuitEvasion(DDQN):
                     trainProgress.append([success, failure, unfinish])
                     if verbose:
                         lr = self.optimizer.state_dict()['param_groups'][0]['lr']
-                        print('\nAfter [{:d}] updates:'.format(self.cntUpdate))
+                        print('\n\nAfter [{:d}] updates:'.format(self.cntUpdate))
                         print('  - eps={:.2f}, gamma={:.6f}, lr={:.1e}.'.format(
                             self.EPSILON, self.GAMMA, lr))
                         print('  - success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(
@@ -359,9 +365,9 @@ class DDQNPursuitEvasion(DDQN):
                         if storeBest:
                             if success > checkPointSucc:
                                 checkPointSucc = success
-                                self.save(self.cntUpdate, 'models/{:s}/'.format(outFolder))
+                                self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
                         else:
-                            self.save(self.cntUpdate, 'models/{:s}/'.format(outFolder))
+                            self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
 
                     if plotFigure or storeFigure:
                         self.Q_network.eval()
@@ -370,11 +376,13 @@ class DDQNPursuitEvasion(DDQN):
                         else:
                             env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
                         if storeFigure:
-                            figureFolder = 'figure/{:s}/'.format(outFolder)
+                            figureFolder = '{:s}/figure/'.format(outFolder)
                             os.makedirs(figureFolder, exist_ok=True)
-                            plt.savefig('{:s}/{:d}.png'.format(figureFolder, self.cntUpdate))
+                            plt.savefig('{:s}{:d}.png'.format(figureFolder, self.cntUpdate))
                         if plotFigure:
+                            plt.show()
                             plt.pause(0.001)
+                            plt.close()
 
                 # Perform one step of the optimization (on the target network)
                 lossC = self.update(addBias=addBias)
@@ -399,8 +407,13 @@ class DDQNPursuitEvasion(DDQN):
                     print("\n At Updates[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(self.cntUpdate, runningCost))
                     env.close()
                     break
-        print()
+        endLearning = time.time()
+        timeInitBuffer = endInitBuffer - startInitBuffer
+        timeInitQ = endInitQ - startInitQ
+        timeLearning = endLearning - startLearning
         self.save(self.cntUpdate, 'models/{:s}/'.format(outFolder))
+        print('\nInitBuffer: {:.1f}, InitQ: {:.1f}, Learning: {:.1f}'.format(
+            timeInitBuffer, timeInitQ, timeLearning))
         return trainingRecords, trainProgress
 
 

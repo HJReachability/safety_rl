@@ -402,8 +402,8 @@ class DubinsCarPEEnv(gym.Env):
             stateEvader  = state[:3]
             statePursuer = state[3:]
 
-        trajEvader = [stateEvader[:2]]
-        trajPursuer = [statePursuer[:2]]
+        trajEvader = [stateEvader[:3]]
+        trajPursuer = [statePursuer[:3]]
         result = 0 # not finished
 
         for t in range(T):
@@ -438,8 +438,8 @@ class DubinsCarPEEnv(gym.Env):
                 uPursuer = self.pursuer.discrete_controls[colIdx]
                 statePursuer = self.pursuer.integrate_forward(statePursuer, uPursuer)
 
-            trajEvader.append(stateEvader[:2])
-            trajPursuer.append(statePursuer[:2])
+            trajEvader.append(stateEvader[:3])
+            trajPursuer.append(statePursuer[:3])
 
         trajEvader = np.array(trajEvader)
         trajPursuer = np.array(trajPursuer)
@@ -515,11 +515,7 @@ class DubinsCarPEEnv(gym.Env):
             else:
                 self.plot_trajectories( q_func, T=200, states=state, toEnd=False, 
                                         ax=ax, orientation=0)
-
-            # ax.set_xlabel(r'$\theta={:.0f}^\circ$'.format(theta*180/np.pi), fontsize=28)
-
         plt.tight_layout()
-        plt.show()
 
 
     # ? 2D-plot based on evader's x and y
@@ -540,7 +536,6 @@ class DubinsCarPEEnv(gym.Env):
                         left=False, right=False)    # ticks along the left and right edges are off
         # ax.set_xticklabels([])
         # ax.set_yticklabels([])
-        #ax.set_title(r"$\theta$={:.1f}".format(theta * 180 / np.pi), fontsize=24)
 
 
     # ? Check get_values, 2D-plot based on evader's x and y

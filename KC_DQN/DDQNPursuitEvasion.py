@@ -197,7 +197,7 @@ class DDQNPursuitEvasion(DDQN):
             actionIdx, actionIdxTuple = self.select_action(s, explore=True)
             s_, r, done, info = env.step(actionIdxTuple)
             self.store_transition(s, actionIdx, r, s_, info)
-        print(" --- Warmup Buffer Ends")
+        print("\n  => Warmup Buffer Ends")
 
 
     def initQ(self, env, warmupIter, num_warmup_samples=200, vmin=-1, vmax=1):
@@ -233,7 +233,7 @@ class DDQNPursuitEvasion(DDQN):
                                         xPursuer=xPursuer, yPursuer=yPursuer, cmap='seismic', vmin=-1, vmax=1)
                 plt.pause(0.001)
 
-        print(" --- Warmup Q Ends")
+        print("\n  => Warmup Q Ends")
         # self.Q_network.eval()
         # env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic')
         # plt.pause(0.001)

@@ -20,6 +20,7 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 
 #== ARGS ==
+# e.g., python3 sim_car_one.py -te -w -d (default)
 # e.g., python3 sim_car_one.py -te -w -mu 10000 -ut 2
 parser = argparse.ArgumentParser()
 # parser.add_argument("-nt",  "--num_test",       help="the number of tests",         default=1,      type=int)
@@ -34,6 +35,7 @@ parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",     
 parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",                default=10000,  type=int)
 
 # hyper-parameters
+parser.add_argument("-d",  "--deeper",          help="deeper NN",           action="store_true")
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",       default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",  default=0.8,    type=float)
 parser.add_argument("-act", "--actType",        help="activation type",     default='Tanh', type=str)
@@ -144,8 +146,10 @@ CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name,
 
 
 #== AGENT ==
-# dimList = [stateNum, 512, 512, 512, actionNum]
-dimList = [stateNum, 100, actionNum]
+if args.deeper:
+    dimList = [stateNum, 512, 512, 512, actionNum]
+else:
+    dimList = [stateNum, 200, actionNum]
 
 agent=DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList, mode='RA', actType='Tanh')
 print()

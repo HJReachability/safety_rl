@@ -402,7 +402,7 @@ class DDQNPursuitEvasion(DDQN):
         timeInitBuffer = endInitBuffer - startInitBuffer
         timeInitQ = endInitQ - startInitQ
         timeLearning = endLearning - startLearning
-        self.save(self.cntUpdate, 'models/{:s}/'.format(outFolder))
+        self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
         print('\nInitBuffer: {:.1f}, InitQ: {:.1f}, Learning: {:.1f}'.format(
             timeInitBuffer, timeInitQ, timeLearning))
         return trainingRecords, trainProgress

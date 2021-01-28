@@ -3,6 +3,7 @@
 
 import torch
 import torch.nn as nn
+from torch.distributions import Normal
 import sys
 
 class Sin(nn.Module):
@@ -83,6 +84,114 @@ class model(nn.Module):
                 m.bias.data.zero_()
 
 
+# TODO == Twinned Q-Network ==
+class TwinnedQNetwork(nn.Module):
+    def __init__(self, dimList, actType='Tanh', device='cpu', verbose=False):
+        super(TwinnedQNetwork, self).__init__()
+
+        self.Q1 = model(dimList, actType, verbose=True)
+        self.Q2 = model(dimList, actType, verbose=False)
+
+        if self.device == torch.device('cuda'):
+            self.Q1.cuda()
+            self.Q2.cuda()
+        self.device=device
+
+    def forward(self, states, actions):
+        x = torch.cat([states, actions], dim=1).to(self.device)
+        q1 = self.Q1(x)
+        q2 = self.Q2(x)
+        return q1, q2
+
+
+# TODO == Policy (Actor) Model ==
+class GaussianPolicy(nn.Module):
+    LOG_STD_MAX = 1
+    LOG_STD_MIN = -8
+    eps = 1e-8
+
+    def __init__(self, dimList, actType='Tanh', device='cpu', action_space=None):
+        super(GaussianPolicy, self).__init__()
+        self.device = device
+        self.mean = model(dimList, actType, verbose=True).to(device)
+        self.log_std = model(dimList, actType, verbose=True).to(device)
+
+        # Action Scale and Bias
+        if action_space is None:
+            self.action_scale = torch.tensor(1.)
+            self.action_bias = torch.tensor(0.)
+        else:
+            self.action_scale = torch.FloatTensor(
+                (action_space.high - action_space.low) / 2.).to(device)
+            self.action_bias = torch.FloatTensor(
+                (action_space.high + action_space.low) / 2.).to(device)
+
+
+    def forward(self, state):
+        stateTensor = state.to(self.device)
+        mean = self.mean(stateTensor)
+        log_std = self.log_std(stateTensor)
+        log_std = torch.clamp(log_std, min=LOG_SIG_MIN, max=LOG_SIG_MAX)
+        return mean, log_std
+
+
+    def sample(self, state):
+        stateTensor = state.to(self.device)
+        mean, log_std = self.forward(stateTensor)
+        std = log_std.exp()
+        normalRV = Normal(mean, std)
+
+        x = normalRV.rsample()  # reparameterization trick (mean + std * N(0,1))
+        y = torch.tanh(x)   # constrain the output to be within [-1, 1]
+
+        action = y * self.action_scale + self.action_bias
+        log_prob = normalRV.log_prob(x)
+
+        # Get the correct probability: x -> y, y = c tanh(x) + b
+        # followed by: p(y) = p(x) x |det(dy/dx)|^-1
+        log_prob -= torch.log(self.action_scale * (1 - y.pow(2)) + eps)
+        log_prob = log_prob.sum(1, keepdim=True)
+        mean = torch.tanh(mean) * self.action_scale + self.action_bias
+        return action, log_prob, mean
+
+
+class DeterministicPolicy(nn.Module):
+    def __init__(self, dimList, actType='Tanh', device='cpu', action_space=None):
+        super(DeterministicPolicy, self).__init__()
+        self.device = device
+        self.mean = model(dimList, actType, verbose=True).to(device)
+        self.noise = Normal(0., 0.1)
+        self.noiseClamp = 0.25
+
+        # action rescaling
+        if action_space is None:
+            self.action_scale = 1.
+            self.action_bias = 0.
+        else:
+            self.action_scale = torch.FloatTensor(
+                (action_space.high - action_space.low) / 2.).to(device)
+            self.action_bias = torch.FloatTensor(
+                (action_space.high + action_space.low) / 2.).to(device)
+
+
+    def forward(self, state):
+        stateTensor = state.to(self.device)
+        mean = self.mean(stateTensor)
+        return mean
+
+
+    def sample(self, state):
+        stateTensor = state.to(self.device)
+        mean = self.forward(stateTensor)
+        noise = self.noise.sample().to(self.device)
+        noise = noise.clamp(-self.noiseClamp, self.noiseClamp)
+        action = mean + noise
+        action = action.clamp(-1., 1.)
+        action = action * self.action_scale + self.action_bias
+        mean = mean * self.action_scale + self.action_bias
+        return action, torch.tensor(0.), mean
+
+
 #== Scheduler ==
 class _scheduler(object):
     def __init__(self, last_epoch=-1, verbose=False):
@@ -140,129 +249,3 @@ class StepLRMargin(_scheduler):
         if self.endValue is not None and tmpValue >= self.endValue:
             return self.endValue
         return tmpValue
-
-
-# ! Deprecated method, do not use
-class modelTanhTwo(nn.Module):
-    def __init__(self, state_num, action_num):
-        super(modelTanhTwo, self).__init__()
-        # nn.ReLU() nn.Tanh()
-        self.fc1 = nn.Sequential(
-            nn.Linear(in_features=state_num, out_features=100),
-            nn.Tanh())
-        self.final = nn.Linear(100, action_num)
-        self._initialize_weights()
-        print("Using two-layer NN architecture with Tanh act.")
-
-    def forward(self, x):
-        out1 = self.fc1(x)
-        a = self.final(out1)
-        return a
-
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                m.weight.data.normal_(0, 1)
-                m.bias.data.zero_()
-
-
-# ! Deprecated method, do not use
-class modelTanhThree(nn.Module):
-    def __init__(self, state_num, action_num):
-        super(modelTanhThree, self).__init__()
-        self.fc1 = nn.Sequential(
-            nn.Linear(in_features=state_num, out_features=200),
-            nn.Tanh())
-        self.fc2 = nn.Sequential(
-            nn.Linear(in_features=200, out_features=200),
-            nn.Tanh())
-        self.final = nn.Linear(200, action_num)
-        self._initialize_weights()
-        print("Using three-layer NN architecture with Tanh act.")
-
-    def forward(self, x):
-        out1 = self.fc1(x)
-        out2 = self.fc2(out1)
-        a = self.final(out2)
-        return a
-
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                m.weight.data.normal_(0, 1)
-                m.bias.data.zero_()
-
-
-# ! Deprecated method, do not use
-class modelSinTwo(nn.Module):
-    def __init__(self, state_num, action_num):
-        super(modelSinTwo, self).__init__()
-        self.fc1 = nn.Linear(in_features=state_num, out_features=100)
-        self.final = nn.Linear(100, action_num)
-        self._initialize_weights()
-        print("Using two-layer NN architecture with Sin act.")
-
-    def forward(self, x):
-        out1 = self.fc1(x)
-        out1 = torch.sin(out1)
-        a = self.final(out1)
-        return a
-
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                m.weight.data.normal_(0, 1)
-                m.bias.data.zero_()
-
-
-# ! Deprecated method, do not use
-class modelSinThree(nn.Module):
-    def __init__(self, state_num, action_num):
-        super(modelSinThree, self).__init__()
-        self.fc1 = nn.Linear(in_features=state_num, out_features=100)
-        self.fc2 = nn.Linear(in_features=100, out_features=100)
-        self.final = nn.Linear(100, action_num)
-        self._initialize_weights()
-        print("Using three-layer NN architecture with Sin act.")
-
-    def forward(self, x):
-        out1 = self.fc1(x)
-        out1 = torch.sin(out1)
-        out2 = self.fc2(out1)
-        out2 = torch.sin(out2)
-        a = self.final(out2)
-        return a
-
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                m.weight.data.normal_(0, 1)
-                m.bias.data.zero_()
-
-
-# ! Deprecated method, do not use
-class modelSinFour(nn.Module):
-    def __init__(self, state_num, action_num):
-        super(modelSinFour, self).__init__()
-        self.fc1 = nn.Linear(in_features=state_num, out_features=512)
-        self.fc2 = nn.Linear(in_features=512, out_features=512)
-        self.fc3 = nn.Linear(in_features=512, out_features=512)
-        self.final = nn.Linear(512, action_num)
-        self._initialize_weights()
-        print("Using four-layer NN architecture with Sin act.")
-
-    def forward(self, x):
-        out1 = self.fc1(x)
-        out1 = torch.sin(out1)
-        out2 = self.fc2(out1)
-        out2 = torch.sin(out2)
-        out3 = self.fc2(out2)
-        out3 = torch.sin(out3)
-        a = self.final(out3)
-        return a
-
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                m.weight.data.normal_(0, 1)
-                m.bias.data.zero_()

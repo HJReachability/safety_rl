@@ -7,11 +7,6 @@
 #  
 #  - loss = E[ ( y - Q_policy(s,a) )^2 ]
 
-# // - a' = argmin_a' Q_policy(s', a')
-# // - V(s') = Q_tar(s', a')
-# // - V(s) = gamma ( max{ g(s), min{ l(s), V_better(s') } } + (1-gamma) max{ g(s), l(s) },
-# //   where V_better(s') = max{ g(s'), min{ l(s'), V(s') } }
-# // - loss = E[ ( V(s) - Q_policy(s,a) )^2 ]
 
 import torch
 import torch.nn as nn

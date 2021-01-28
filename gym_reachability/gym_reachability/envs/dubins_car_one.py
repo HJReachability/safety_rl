@@ -426,7 +426,6 @@ class DubinsCarOneEnv(gym.Env):
             ax.set_xlabel(r'$\theta={:.0f}^\circ$'.format(theta*180/np.pi), fontsize=28)
 
         plt.tight_layout()
-        plt.show()
 
 
     def plot_formatting(self, ax=None, labels=None):

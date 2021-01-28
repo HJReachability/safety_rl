@@ -78,10 +78,12 @@ class DDQNSingle(DDQN):
         # out[i][j][k] = input[i][j][ index[i][j][k] ], which has the same dim as index
         # -> state_action_values = Q [ i ][ action[i] ]
         # view(-1): from mtx to vector
+        self.Q_network.train()
         state_action_values = self.Q_network(state).gather(dim=1, index=action).view(-1)
 
         #== get a' by Q_policy: a' = argmin_a' Q_policy(s', a') ==
         with torch.no_grad():
+            self.Q_network.eval()
             action_nxt = self.Q_network(non_final_state_nxt).min(1, keepdim=True)[1]
 
         #== get expected value ==
@@ -89,8 +91,10 @@ class DDQNSingle(DDQN):
 
         with torch.no_grad(): # V(s') = Q_tar(s', a'), a' is from Q_policy
             if self.double:
+                self.target_network.eval()
                 Q_expect = self.target_network(non_final_state_nxt)
             else:
+                self.Q_network.eval()
                 Q_expect = self.Q_network(non_final_state_nxt)
         state_value_nxt[non_final_mask] = Q_expect.gather(dim=1, index=action_nxt).view(-1)
 
@@ -123,7 +127,6 @@ class DDQNSingle(DDQN):
             expected_state_action_values = state_value_nxt * self.GAMMA + reward
 
         #== regression: Q(s, a) <- V(s) ==
-        self.Q_network.train()
         loss = smooth_l1_loss(input=state_action_values, target=expected_state_action_values.detach())
 
         #== backpropagation ==
@@ -151,8 +154,8 @@ class DDQNSingle(DDQN):
         print(" --- Warmup Buffer Ends")
 
 
-    def initQ(  self, env, warmupIter, num_warmup_samples=200,
-                vmin=-1, vmax=1):
+    def initQ(  self, env, warmupIter, outFolder, num_warmup_samples=200,
+                vmin=-1, vmax=1, plotFigure=True, storeFigure=True):
         for ep_tmp in range(warmupIter):
             print('\rWarmup Q [{:d}]'.format(ep_tmp+1), end='')
             states, heuristic_v = env.get_warmup_examples(num_warmup_samples=num_warmup_samples)
@@ -169,8 +172,17 @@ class DDQNSingle(DDQN):
             self.optimizer.step()
 
         print(" --- Warmup Q Ends")
-        env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic')
-        plt.pause(0.001)
+        if plotFigure or storeFigure:
+            self.Q_network.eval()
+            env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic')
+            if storeFigure:
+                figureFolder = '{:s}/figure/'.format(outFolder)
+                os.makedirs(figureFolder, exist_ok=True)
+                plt.savefig('{:s}initQ.png'.format(figureFolder))
+            if plotFigure:
+                plt.show()
+                plt.pause(0.001)
+                plt.close()
         self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
         self.build_optimizer()
 
@@ -240,7 +252,8 @@ class DDQNSingle(DDQN):
 
         # == Warmup Q ==
         if warmupQ:
-            self.initQ(env, warmupIter=warmupIter, num_warmup_samples=200)
+            self.initQ(env, warmupIter=warmupIter, outFolder=outFolder,
+                plotFigure=plotFigure, storeFigure=storeFigure)
 
         # == Main Training ==
         TrainingRecord = namedtuple('TrainingRecord', ['ep', 'runningCost', 'cost', 'lossC'])
@@ -290,21 +303,24 @@ class DDQNSingle(DDQN):
                         if storeBest:
                             if success > checkPointSucc:
                                 checkPointSucc = success
-                                self.save(self.cntUpdate, 'models/{:s}/'.format(outFolder))
+                                self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
                         else:
-                            self.save(self.cntUpdate, 'models/{:s}/'.format(outFolder))
+                            self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
 
                     if plotFigure or storeFigure:
+                        self.Q_network.eval()
                         if showBool:
                             env.visualize(self.Q_network, vmin=0, boolPlot=True, addBias=addBias)
                         else:
                             env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
                         if storeFigure:
-                            figureFolder = 'figure/{:s}/'.format(outFolder)
+                            figureFolder = '{:s}/figure/'.format(outFolder)
                             os.makedirs(figureFolder, exist_ok=True)
-                            plt.savefig('{:s}/{:d}.png'.format(figureFolder, self.cntUpdate))
+                            plt.savefig('{:s}{:d}.png'.format(figureFolder, self.cntUpdate))
                         if plotFigure:
+                            plt.show()
                             plt.pause(0.001)
+                            plt.close()
 
                 # Perform one step of the optimization (on the target network)
                 lossC = self.update(addBias=addBias)
@@ -335,6 +351,7 @@ class DDQNSingle(DDQN):
 
 
     def select_action(self, state, explore=False):
+        self.Q_network.eval()
         # tensor.min() returns (value, indices), which are in tensor form
         state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
         if (np.random.rand() < self.EPSILON) and explore:

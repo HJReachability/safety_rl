@@ -41,7 +41,9 @@ parser.add_argument("-g",   "--gamma",          help="contraction coeff.",  defa
 parser.add_argument("-act", "--actType",        help="activation type",     default='Tanh', type=str)
 
 # file
-parser.add_argument("-of",  "--outFolder",  help="output file", default='scratch/gpfs/',    type=str)
+parser.add_argument("-of",  "--outFolder",      help="output file",     default='scratch/gpfs/',    type=str)
+parser.add_argument("-pf",  "--plotFigure",     help="plot figures",    action="store_true")
+parser.add_argument("-sf",  "--storeFigure",    help="store figures",   action="store_true")
 
 args = parser.parse_args()
 print(args)
@@ -163,4 +165,4 @@ training_records, trainProgress = agent.learn(env,
     warmupQ=args.warmup, warmupIter=args.warmupIter, doneTerminate=True,
     vmin=vmin, vmax=vmax, showBool=False,
     checkPeriod=checkPeriod, outFolder=outFolder,
-    plotFigure=False, storeFigure=True)
+    plotFigure=args.plotFigure, storeFigure=args.storeFigure)

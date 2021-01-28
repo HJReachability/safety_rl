@@ -2,6 +2,4 @@
 
 ## Implementation
 
-* Lagrange RL  (*TODO*)
-* Mayer RL (*TODO*)
-
+* actor-critic methods for RA

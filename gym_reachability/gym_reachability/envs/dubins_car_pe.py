@@ -105,16 +105,13 @@ class DubinsCarPEEnv(gym.Env):
         self.state = np.zeros(6)
         self.doneType = doneType
 
-        # Visualization params
-        self.evader_initial_states =[   np.array([ -.1, -self.R_turn, 0.]),
-                                        np.array([ -0.95*self.evader_constraint_radius, 0., 0.]) ]
-
-        self.pursuer_initial_states = [ np.array([ 0., .5, 0.]),
-                                        np.array([ .5,  0, 1.5*np.pi]),
-                                        np.array([ -.5, .5, 1.5*np.pi]),
-                                        np.array([ -.1, -.5, .75*np.pi]) ]
+        # Visualization parameters
+        self.visual_initial_states = [  np.array([ -0.9, 0., 0., -.5, -.3, .75*np.pi]),
+                                        np.array([ -0.9, .1, 0., -.5, -.3, .75*np.pi]),
+                                        np.array([ -0.9, 0., 0., -.5, -.3, .75*np.pi]),
+                                        np.array([ -0.9, 0., 0., -.2, -.3, .75*np.pi]) ]
         
-        # Cost Params
+        # Cost parameters
         self.targetScaling = 1.
         self.safetyScaling = 1.
         self.penalty = 1.
@@ -482,16 +479,11 @@ class DubinsCarPEEnv(gym.Env):
 
         axStyle = self.get_axes()
         fig, axes = plt.subplots(1,4, figsize=(16, 4))
-        init_states = []
-        for i, stateEvader in enumerate(self.evader_initial_states):
-            for j in range(2):
-                statePursuer = self.pursuer_initial_states[2*i+j]
-                init_states.append(np.concatenate((stateEvader, statePursuer), axis=0))
 
-        for i, (ax, state) in enumerate(zip(axes, init_states)):
+        for i, (ax, state) in enumerate(zip(axes, self.visual_initial_states)):
             state=[state]
             ax.cla()
-            if i == len(init_states)-1:
+            if i == 3:
                 cbarPlot=True
             else: 
                 cbarPlot=False
@@ -500,10 +492,11 @@ class DubinsCarPEEnv(gym.Env):
             self.plot_formatting(ax=ax, labels=labels)
 
             #== Plot failure / target set ==
-            self.plot_target_failure_set(ax)
+            self.plot_target_failure_set(ax=ax, xPursuer=state[0][3], yPursuer=state[0][4])
 
             #== Plot V ==
-            self.plot_v_values( q_func, ax=ax, fig=fig, theta=theta,
+            self.plot_v_values( q_func, ax=ax, fig=fig, theta=state[0][0],
+                                xPursuer=state[0][3], yPursuer=state[0][4], thetaPursuer=state[0][5],
                                 vmin=vmin, vmax=vmax, nx=nx, ny=ny, cmap=cmap,
                                 boolPlot=boolPlot, cbarPlot=cbarPlot, addBias=addBias)
 

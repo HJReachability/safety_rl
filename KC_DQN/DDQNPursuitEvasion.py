@@ -195,7 +195,9 @@ class DDQNPursuitEvasion(DDQN):
         print("\n  => Warmup Buffer Ends")
 
 
-    def initQ(self, env, warmupIter, num_warmup_samples=200, vmin=-1, vmax=1):
+    def initQ(self, env, warmupIter, outFolder, num_warmup_samples=200,
+                vmin=-1, vmax=1, plotFigure=True, storeFigure=True):
+
         lossList = []
         for iterIdx in range(warmupIter):
             print('\rWarmup Q [{:d}]'.format(iterIdx+1), end='')
@@ -213,28 +215,21 @@ class DDQNPursuitEvasion(DDQN):
             nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
             self.optimizer.step()
 
-            if (iterIdx+1) % 10000 == 0:
-                self.Q_network.eval()
-                print()
-                fig, axes = plt.subplots(1,4, figsize=(16, 4))
-
-                xPursuerList=[.1, .3, .5, .7]
-                yPursuerList=[.1, .3, .5, .7]
-                for i, (ax, xPursuer, yPursuer) in enumerate(zip(axes, xPursuerList, yPursuerList)):
-                    cbarPlot = i==3
-                    env.plot_formatting(ax=ax)
-                    env.plot_target_failure_set(ax=ax, xPursuer=xPursuer, yPursuer=yPursuer)
-                    env.plot_v_values(self.Q_network, ax=ax, fig=fig, cbarPlot=cbarPlot,
-                                        xPursuer=xPursuer, yPursuer=yPursuer, cmap='seismic', vmin=-1, vmax=1)
+        if plotFigure or storeFigure:
+            self.Q_network.eval()
+            env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic')
+            if storeFigure:
+                figureFolder = '{:s}/figure/'.format(outFolder)
+                os.makedirs(figureFolder, exist_ok=True)
+                plt.savefig('{:s}initQ.png'.format(figureFolder))
+            if plotFigure:
+                plt.show()
                 plt.pause(0.001)
-
-        print("\n  => Warmup Q Ends")
-        # self.Q_network.eval()
-        # env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic')
-        # plt.pause(0.001)
+                plt.close()
         self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
         self.build_optimizer()
         lossList = np.array(lossList)
+        print("\n  => Warmup Q Ends")
         return lossList
 
 
@@ -305,7 +300,8 @@ class DDQNPursuitEvasion(DDQN):
         # == Warmup Q ==
         startInitQ = time.time()
         if warmupQ:
-            self.initQ(env, warmupIter=warmupIter, num_warmup_samples=200, vmin=vmin, vmax=vmax)
+            self.initQ(env, warmupIter=warmupIter, outFolder=outFolder,
+                plotFigure=plotFigure, storeFigure=storeFigure, vmin=vmin, vmax=vmax)
         endInitQ = time.time()
 
         # == Main Training ==

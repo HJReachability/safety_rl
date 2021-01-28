@@ -20,7 +20,7 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 
 #== ARGS ==
-# e.g., python3 sim_car_PE.py -te -mu 10000 -ut 2
+# e.g., python3 sim_car_PE.py -te -w -mu 10000 -ut 2
 parser = argparse.ArgumentParser()
 # parser.add_argument("-nt",  "--num_test",       help="the number of tests",         default=1,      type=int)
 # parser.add_argument("-nw",  "--num_worker",     help="the number of workers",       default=1,      type=int)
@@ -28,8 +28,10 @@ parser = argparse.ArgumentParser()
 # training scheme
 parser.add_argument("-te",  "--toEnd",          help="stop until reaching boundary",    action="store_true")
 parser.add_argument("-ab",  "--addBias",        help="add bias term for RA",            action="store_true")
+parser.add_argument("-w",   "--warmup",         help="warmup Q-network",                action="store_true")
 parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",       default=4e6,    type=int)
 parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",             default=20,     type=int)
+parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",                default=20000,  type=int)
 
 # hyper-parameters
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",       default=1e-3,   type=float)
@@ -53,7 +55,7 @@ updatePeriod = int(maxUpdates / updateTimes)
 updatePeriodHalf = int(updatePeriod/2)
 maxSteps = 100
 
-outFolder = args.outFolder + timestr
+outFolder = args.outFolder + 'carPE/' + timestr
 figureFolder = '{:s}/figure/'.format(outFolder)
 os.makedirs(figureFolder, exist_ok=True)
 
@@ -141,12 +143,11 @@ CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name,
 #== AGENT ==
 numActionList = env.numActionList
 numJoinAction = int(numActionList[0] * numActionList[1])
-# dimList = [stateNum, 512, 512, 512, actionNum]
-dimList = [stateNum, 5, actionNum]
+dimList = [stateNum, 512, 512, 512, actionNum]
+# dimList = [stateNum, 5, actionNum]
 
 agent = DDQNPursuitEvasion(CONFIG, numActionList, dimList, actType=args.actType)
 print()
-# agent.optimizer = torch.optim.AdamW(agent.Q_network.parameters(), lr=agent.LR_C, weight_decay=1e-3)
 print(agent.optimizer, '\n')
 
 vmin = -1
@@ -154,7 +155,7 @@ vmax = 1
 checkPeriod = updatePeriod
 training_records, trainProgress = agent.learn(env,
     MAX_UPDATES=maxUpdates, MAX_EP_STEPS=CONFIG.MAX_EP_STEPS, addBias=args.addBias,
-    warmupQ=True, warmupIter=20, doneTerminate=True,
+    warmupQ=args.warmup, warmupIter=args.warmupIter, doneTerminate=True,
     vmin=vmin, vmax=vmax, showBool=False,
     checkPeriod=checkPeriod, outFolder=outFolder,
     plotFigure=False, storeFigure=True)

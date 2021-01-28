@@ -24,7 +24,7 @@ class DDQN():
 
         #== PARAM ==
         # Exploration
-        self.EpsilonScheduler = StepLR( initValue=CONFIG.EPSILON, period=CONFIG.EPS_PERIOD, 
+        self.EpsilonScheduler = StepLR( initValue=CONFIG.EPSILON, period=CONFIG.EPS_PERIOD,
                                         decay=CONFIG.EPS_DECAY, endValue=CONFIG.EPS_END)
         self.EPSILON = self.EpsilonScheduler.get_variable()
         # Learning Rate
@@ -37,7 +37,7 @@ class DDQN():
         self.MAX_MODEL = CONFIG.MAX_MODEL
         self.device = CONFIG.DEVICE
         # Discount Factor
-        self.GammaScheduler = StepLRMargin( initValue=CONFIG.GAMMA, period=CONFIG.GAMMA_PERIOD, 
+        self.GammaScheduler = StepLRMargin( initValue=CONFIG.GAMMA, period=CONFIG.GAMMA_PERIOD,
                                             decay=CONFIG.GAMMA_DECAY, endValue=CONFIG.GAMMA_END,
                                             goalValue=1.)
         self.GAMMA = self.GammaScheduler.get_variable()
@@ -95,7 +95,7 @@ class DDQN():
                 param_group['lr'] = self.LR_C_END
         else:
             self.scheduler.step()
-        
+
         self.EpsilonScheduler.step()
         self.EPSILON = self.EpsilonScheduler.get_variable()
         self.GammaScheduler.step()
@@ -123,8 +123,10 @@ class DDQN():
 
 
     def restore(self, logs_path):
-        self.Q_network.load_state_dict(torch.load(logs_path))
-        self.target_network.load_state_dict(torch.load(logs_path))
+        self.Q_network.load_state_dict(
+            torch.load(logs_path, map_location=torch.device('cpu')))
+        self.target_network.load_state_dict(
+            torch.load(logs_path, map_location=torch.device('cpu')))
         print('  => Restore {}' .format(logs_path))
 
 

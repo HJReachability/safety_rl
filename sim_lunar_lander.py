@@ -156,17 +156,17 @@ def plot_experiment(args, CONFIG, env, path):
                        mode=agentMode, actType=args.activation)
     agent.restore(path)
 
-    env.visualize(agent.Q_network, True, nx=91, ny=91, boolPlot=False, trueRAZero=False,
+    env.visualize(agent.Q_network, True, nx=91, ny=91, boolPlot=True, trueRAZero=False,
         addBias=False, lvlset=0)
 
     # env.visualize(agent.Q_network, cmap='seismic', addBias=False)
     # env.visualize(agent.Q_network, vmin=0, boolPlot=True, addBias=False)
     plt.show()
 
-path1 = "models/RA2021-01-21-21_37_49/model-1500000.pth"
+path1 = "models/RA2021-01-24-21_25_20/model-5000000.pth"
 # path2 = "models/RA2020-11-20-06_58_53/model-1500000.pth"
-# plot_experiment(args, CONFIG, env, path1)
-multi_experiment(0, args, CONFIG, env, update_period)
+plot_experiment(args, CONFIG, env, path1)
+# multi_experiment(0, args, CONFIG, env, update_period)
 
 # == TESTING ==
 

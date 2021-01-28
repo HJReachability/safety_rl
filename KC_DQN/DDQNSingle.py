@@ -346,7 +346,7 @@ class DDQNSingle(DDQN):
                     env.close()
                     break
         print()
-        self.save(self.cntUpdate, 'models/{:s}/'.format(outFolder))
+        self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
         return trainingRecords, trainProgress
 
 

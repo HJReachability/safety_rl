@@ -294,7 +294,7 @@ class DubinsCarOneEnv(gym.Env):
             g_x = self.safety_margin(np.array([x, y]))
 
             if self.mode == 'normal' or self.mode == 'RA':
-                state = torch.FloatTensor([x, y, theta].to(self.device).unsqueeze(0)
+                state = torch.FloatTensor([x, y, theta]).to(self.device).unsqueeze(0)
             else:
                 z = max([l_x, g_x])
                 state = torch.FloatTensor([x, y, theta, z]).to(self.device).unsqueeze(0)

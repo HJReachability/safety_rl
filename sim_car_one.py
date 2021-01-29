@@ -155,6 +155,7 @@ else:
     dimList = [stateNum, 200, actionNum]
 
 agent=DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList, mode='RA', actType='Tanh')
+print(device, env.device, agent.device)
 print(agent.Q_network.moduleList[0].weight.type())
 print(agent.optimizer, '\n')
 

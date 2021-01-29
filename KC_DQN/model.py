@@ -86,13 +86,13 @@ class model(nn.Module):
 
 # TODO == Twinned Q-Network ==
 class TwinnedQNetwork(nn.Module):
-    def __init__(self, dimList, actType='Tanh', device='cpu', verbose=False):
+    def __init__(self, dimList, actType='Tanh', device='cpu'):
         super(TwinnedQNetwork, self).__init__()
 
         self.Q1 = model(dimList, actType, verbose=True)
         self.Q2 = model(dimList, actType, verbose=False)
 
-        if self.device == torch.device('cuda'):
+        if device == torch.device('cuda'):
             self.Q1.cuda()
             self.Q2.cuda()
         self.device=device

@@ -32,9 +32,9 @@ class config():
                 Defaults to 1.
             EPS_DECAY (float, optional): multiplicative factor of epsilon.
                 Defaults to 0.5.
-            LR_C ([type], optional): learning rate of critic model.
+            LR_C (float, optional): learning rate of critic model.
                 Defaults to 1e-3.
-            LR_C_END ([type], optional): terminal value of LR_C.
+            LR_C_END (float, optional): terminal value of LR_C.
                 Defaults to 1e-4.
             LR_C_PERIOD (int, optional): update period of LR_C.
                 Defaults to 1.
@@ -126,8 +126,49 @@ class dqnConfig(config):
         self.HARD_UPDATE = HARD_UPDATE
         self.SOFT_UPDATE = SOFT_UPDATE
 
-#== for actor-critic, DDPG
-# self.LR_A = LR_A
-# self.LR_A_END = LR_A_END
+
+class actorCriticConfig(config):
+    def __init__(self,  ENV_NAME='Pendulum-v0',
+                        DEVICE='cpu',
+                        MAX_UPDATES=2000000, MAX_EP_STEPS=200,
+                        EPSILON=0.95, EPS_END=0.05, EPS_PERIOD=1, EPS_DECAY=0.5,
+                        LR_C=1e-3, LR_C_END=1e-4, LR_C_PERIOD=1, LR_C_DECAY=0.5,
+                        LR_A=1e-3, LR_A_END=1e-4, LR_A_PERIOD=1, LR_A_DECAY=0.5,
+                        GAMMA=0.9, GAMMA_END=0.99999999, GAMMA_PERIOD=200, GAMMA_DECAY=0.5,
+                        TAU=0.01,
+                        MEMORY_CAPACITY=10000,
+                        BATCH_SIZE=32,
+                        RENDER=False,                         
+                        MAX_MODEL=5):
+        """
+        __init__
+
+        Args:
+            LR_A (float, optional): learning rate of actor model.
+                Defaults to 1e-3.
+            LR_A_END (float, optional): terminal value of LR_A.
+                Defaults to 1e-4.
+            LR_A_PERIOD (int, optional): update period of LR_A.
+                Defaults to 1.
+            LR_A_DECAY (float, optional): multiplicative factor of LR_A.
+                Defaults to 0.5.
+        """        
+        super().__init__(ENV_NAME=ENV_NAME,
+                        DEVICE=DEVICE,
+                        MAX_UPDATES=MAX_UPDATES, MAX_EP_STEPS=MAX_EP_STEPS,
+                        EPSILON=EPSILON, EPS_END=EPS_END, EPS_PERIOD=EPS_PERIOD, EPS_DECAY=EPS_DECAY,
+                        LR_C=LR_C, LR_C_END=LR_C_END, LR_C_PERIOD=LR_C_PERIOD, LR_C_DECAY=LR_C_DECAY,
+                        GAMMA=GAMMA, GAMMA_END=GAMMA_END, GAMMA_PERIOD=GAMMA_PERIOD, GAMMA_DECAY=GAMMA_DECAY,
+                        MEMORY_CAPACITY=MEMORY_CAPACITY,
+                        BATCH_SIZE=BATCH_SIZE,
+                        RENDER=RENDER,                         
+                        MAX_MODEL=MAX_MODEL)
+        self.LR_A = LR_A
+        self.LR_A_END = LR_A_END
+        self.LR_A_PERIOD = LR_A_PERIOD
+        self.LR_A_DECAY = LR_A_DECAY
+
+        self.TAU = TAU
+
 #== for DDPG
 # self.SIGMA = SIGMA

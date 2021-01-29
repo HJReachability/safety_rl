@@ -294,10 +294,10 @@ class DubinsCarOneEnv(gym.Env):
             g_x = self.safety_margin(np.array([x, y]))
 
             if self.mode == 'normal' or self.mode == 'RA':
-                state = torch.FloatTensor([x, y, theta], device=self.device).unsqueeze(0)
+                state = torch.FloatTensor([x, y, theta].to(self.device).unsqueeze(0)
             else:
                 z = max([l_x, g_x])
-                state = torch.FloatTensor([x, y, theta, z], device=self.device).unsqueeze(0)
+                state = torch.FloatTensor([x, y, theta, z]).to(self.device).unsqueeze(0)
             if addBias:
                 v[idx] = q_func(state).min(dim=1)[0].item() + max(l_x, g_x)
             else:
@@ -331,7 +331,7 @@ class DubinsCarOneEnv(gym.Env):
                     result = 1 # succeeded
                     break
 
-            state_tensor = torch.FloatTensor(state, device=self.device).unsqueeze(0)
+            state_tensor = torch.FloatTensor(state).to(self.device).unsqueeze(0)
             action_index = q_func(state_tensor).min(dim=1)[1].item()
             u = self.car.discrete_controls[action_index]
 

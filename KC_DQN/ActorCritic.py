@@ -11,14 +11,14 @@
 #       + Q1, Q2
 #       + target networks
 #   - Actor Model
-#       + SAC: GaussianPolicy, without target, care entropy loss
+#       + SAC: GaussianPolicy,      without target, care entropy loss
 #       + TD3: DeterministicPolicy, with target
 #   - Replay Buffer
 #       + (extension) prioritized experience replay
 #   - Hyper-Parameter Scheduler
 #       + learning rate: Q1, Q2, Actor
-#       + contraction factor
-#       + epsilon
+#       + contraction factor: gamma
+#       + exploration-exploitation trade-off: epsilon
 #   - Optimizer: Q1, Q2, Actor
 
 # * Functions
@@ -37,17 +37,16 @@
 #   - Others
 #       + __init__
 #       + store_transition (o)
-#       + select_action -> in child class
-#       + save
-#       + restore
+#       + select_action (o)
+#       + save (o)
+#       + restore (o)
 
 
 import torch
 import torch.nn as nn
 from torch.nn.functional import mse_loss, smooth_l1_loss
-from torch.autograd import Variable
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import StepLR
+from torch.optim import lr_scheduler
 
 from collections import namedtuple
 import numpy as np
@@ -56,7 +55,7 @@ import glob
 
 from .model import StepLR, StepLRMargin, GaussianPolicy, DeterministicPolicy, TwinnedQNetwork
 from .ReplayMemory import ReplayMemory
-from .utils import soft_update
+from .utils import soft_update, save_model
 
 Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
 
@@ -111,12 +110,14 @@ class ActorCritic(object):
         self.build_optimizer()
 
 
-    def build_actor(self): # in child class
+    def build_actor(self, dimList, actType='Tanh', device='cpu'): # in child class
+        # self.actor = DeterministicPolicy(dimList, actType, device)
+        # self.actorTarget = DeterministicPolicy(dimList, actType, device)
         raise NotImplementedError
 
 
     def build_critic(self, dimList, actType='Tanh', device='cpu'):
-        self.critic = TwinnedQNetwork(dimList, actType, device, verbose=True)
+        self.critic = TwinnedQNetwork(dimList, actType, device)
         self.criticTarget = TwinnedQNetwork(dimList, actType, device)
 
 
@@ -124,9 +125,9 @@ class ActorCritic(object):
         self.Q1Optimizer    = AdamW(self.critic.Q1.parameters(), lr=self.LR_C, weight_decay=1e-3)
         self.Q2Optimizer    = AdamW(self.critic.Q2.parameters(), lr=self.LR_C, weight_decay=1e-3)
         self.ActorOptimizer = AdamW(self.actor.parameters(),     lr=self.LR_A, weight_decay=1e-3)
-        self.Q1Scheduler    = StepLR(self.Q1Optimizer,    step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
-        self.Q2Scheduler    = StepLR(self.Q2Optimizer,    step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
-        self.ActorScheduler = StepLR(self.ActorOptimizer, step_size=self.LR_A_PERIOD, gamma=self.LR_A_DECAY)
+        self.Q1Scheduler    = lr_scheduler.StepLR(self.Q1Optimizer,    step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
+        self.Q2Scheduler    = lr_scheduler.StepLR(self.Q2Optimizer,    step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
+        self.ActorScheduler = lr_scheduler.StepLR(self.ActorOptimizer, step_size=self.LR_A_PERIOD, gamma=self.LR_A_DECAY)
         self.max_grad_norm = 1
         self.cntUpdate = 0
     # * BUILD NETWORK ENDS
@@ -184,6 +185,7 @@ class ActorCritic(object):
 
 
     def learn(self): # TODO: Not yet implemented
+        raise NotImplemented
     # * LEARN ENDS
 
 
@@ -192,24 +194,37 @@ class ActorCritic(object):
         self.memory.update(Transition(*args))
 
 
-    def save(self, step, logs_path): # TODO: Not yet modified
-        os.makedirs(logs_path, exist_ok=True)
-        model_list =  glob.glob(os.path.join(logs_path, '*.pth'))
-        #print(model_list)
-        if len(model_list) > self.MAX_MODEL - 1 :
-            min_step = min([int(li.split('/')[-1][6:-4]) for li in model_list])
-            os.remove(os.path.join(logs_path, 'model-{}.pth' .format(min_step)))
-        logs_path = os.path.join(logs_path, 'model-{}.pth' .format(step))
-        torch.save(self.Q_network.state_dict(), logs_path)
-        print('  => Save {} after [{}] updates' .format(logs_path, step))
+    def save(self, step, logs_path):
+        logs_path_critic = os.path.join(logs_path, 'critic/')
+        logs_path_actor = os.path.join(logs_path, 'actor/')
+        save_model(self.critic, step, logs_path_critic, 'critic', self.MAX_MODEL)
+        save_model(self.actor,  step, logs_path_actor, 'actor',  self.MAX_MODEL)
 
 
-    def restore(self, logs_path): # TODO: Not yet modified
-        self.Q_network.load_state_dict(torch.load(logs_path))
-        self.target_network.load_state_dict(torch.load(logs_path))
+    def restore(self, step, logs_path):
+        logs_path_critic = os.path.join(logs_path, 'critic/critic-{}.pth'.format(step))
+        logs_path_actor  = os.path.join(logs_path, 'actor/actor-{}.pth'.format(step))
+        self.critic.load_state_dict(
+            torch.load(logs_path_critic, map_location=self.device))
+        self.critic.to(self.device)
+        self.criticTarget.load_state_dict(
+            torch.load(logs_path_critic, map_location=self.device))
+        self.criticTarget.to(self.device)
+        self.actor.load_state_dict(
+            torch.load(logs_path_actor, map_location=self.device))
+        self.actor.to(self.device)    
+        if self.actorType == 'TD3':
+            self.actorTarget.load_state_dict(
+                torch.load(logs_path_actor, map_location=self.device))
+            self.actorTarget.to(self.device)   
         print('  => Restore {}' .format(logs_path))
 
 
-    def select_action(self): # in child class
-        raise NotImplementedError
+    def select_action(self, state, explore=False):
+        stateTensor = torch.from_numpy(state).float().to(self.device).unsqueeze(0)
+        if explore:
+            action, _, _ = self.actor.sample(stateTensor)
+        else:
+            _, _, action = self.actor.sample(stateTensor)
+        return action.detach().cpu().numpy()[0]
     # * OTHERS ENDS

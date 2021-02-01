@@ -194,6 +194,11 @@ class DubinsCarOneEnv(gym.Env):
         self.car.set_radius_rotation(R_turn=R_turn, verbose=verbose)
 
 
+    def set_speed(self, speed=.5):
+        self.speed = speed
+        self.car.set_speed(speed=speed)
+
+
     def set_seed(self, seed):
         """ Set the random seed.
 

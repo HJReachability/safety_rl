@@ -40,6 +40,11 @@ parser.add_argument("-lr",  "--learningRate",   help="learning rate",       defa
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",  default=0.8,    type=float)
 parser.add_argument("-act", "--actType",        help="activation type",     default='Tanh', type=str)
 
+# car dynamics
+parser.add_argument("-cr",      "--constraintRadius",   help="constraint radius",   default=1., type=float)
+parser.add_argument("-tr",      "--targetRadius",       help="target radius",       default=.5, type=float)
+parser.add_argument("-turn",    "--turnRadius",         help="turning radius",      default=.6, type=float)
+
 # file
 parser.add_argument("-of",  "--outFolder",      help="output file",     default='scratch/gpfs/',    type=str)
 parser.add_argument("-pf",  "--plotFigure",     help="plot figures",    action="store_true")
@@ -78,8 +83,9 @@ print("State Dimension: {:d}, ActionSpace Dimension: {:d}".format(stateNum, acti
 
 
 #== Setting in this Environment ==
-env.set_target(radius=.5)
-env.set_radius_rotation(R_turn=.6)
+env.set_target(radius=args.targetRadius)
+env.set_constraint(radius=args.constraintRadius)
+env.set_radius_rotation(R_turn=args.turnRadius)
 print("Dynamic parameters:")
 print("  CAR")
 print("    Constraint radius: {:.1f}, Target radius: {:.1f}, Turn radius: {:.2f}, Maximum speed: {:.1f}, Maximum angular speed: {:.3f}".format(

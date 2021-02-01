@@ -44,6 +44,7 @@ parser.add_argument("-act", "--actType",        help="activation type",     defa
 parser.add_argument("-cr",      "--constraintRadius",   help="constraint radius",   default=1., type=float)
 parser.add_argument("-tr",      "--targetRadius",       help="target radius",       default=.5, type=float)
 parser.add_argument("-turn",    "--turnRadius",         help="turning radius",      default=.6, type=float)
+parser.add_argument("-s",       "--speed",              help="speed",               default=.5, type=float)
 
 # file
 parser.add_argument("-of",  "--outFolder",      help="output file",     default='scratch/gpfs/',    type=str)
@@ -83,6 +84,7 @@ print("State Dimension: {:d}, ActionSpace Dimension: {:d}".format(stateNum, acti
 
 
 #== Setting in this Environment ==
+env.set_speed(speed=args.speed)
 env.set_target(radius=args.targetRadius)
 env.set_constraint(radius=args.constraintRadius)
 env.set_radius_rotation(R_turn=args.turnRadius)

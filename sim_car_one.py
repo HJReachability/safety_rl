@@ -5,6 +5,7 @@ from gym_reachability import gym_reachability  # Custom Gym env.
 import gym
 import numpy as np
 import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import torch
 from collections import namedtuple

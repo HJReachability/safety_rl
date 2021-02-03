@@ -91,10 +91,10 @@ env.set_constraint(radius=args.constraintRadius)
 env.set_radius_rotation(R_turn=args.turnRadius)
 print("Dynamic parameters:")
 print("  CAR")
-print("    Constraint radius: {:.1f}, Target radius: {:.1f}, Turn radius: {:.2f}, Maximum speed: {:.1f}, Maximum angular speed: {:.3f}".format(
+print("    Constraint radius: {:.1f}, Target radius: {:.1f}, Turn radius: {:.2f}, Maximum speed: {:.2f}, Maximum angular speed: {:.2f}".format(
     env.car.constraint_radius, env.car.target_radius, env.car.R_turn, env.car.speed, env.car.max_turning_rate))
 print("  ENV")
-print("    Constraint radius: {:.1f}, Target radius: {:.1f}, Turn radius: {:.2f}, Maximum speed: {:.1f}".format(
+print("    Constraint radius: {:.1f}, Target radius: {:.1f}, Turn radius: {:.2f}, Maximum speed: {:.2f}".format(
     env.constraint_radius, env.target_radius, env.R_turn, env.speed))
 print(env.car.discrete_controls)
 if 2*env.R_turn-env.constraint_radius > env.target_radius:
@@ -164,10 +164,12 @@ else:
     dimList = [stateNum, 200, actionNum]
 
 agent=DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList, mode='RA', actType='Tanh')
-print(device, env.device, agent.device)
+# print(device, env.device, agent.device)
 print(agent.Q_network.moduleList[0].weight.type())
 print(agent.optimizer, '\n')
 
+
+print("\n== Training Information ==")
 vmin = -1
 vmax = 1
 checkPeriod = updatePeriod

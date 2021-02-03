@@ -172,6 +172,10 @@ class DubinsCarDyn(object):
 
     def set_speed(self, speed=.5):
         self.speed = speed
+        self.max_turning_rate = self.speed / self.R_turn # w
+        self.discrete_controls = np.array([ -self.max_turning_rate,
+                                            0.,
+                                            self.max_turning_rate])
 
 
     def set_time_step(self, time_step=.05):

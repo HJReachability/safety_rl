@@ -161,7 +161,7 @@ CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name,
 if args.deeper:
     dimList = [stateNum, 512, 512, 512, actionNum]
 else:
-    dimList = [stateNum, 200, actionNum]
+    dimList = [stateNum, 100, actionNum]
 
 agent=DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList, mode='RA', actType='Tanh')
 # print(device, env.device, agent.device)

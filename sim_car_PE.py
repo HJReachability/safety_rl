@@ -21,6 +21,7 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 #== ARGS ==
 # e.g., python3 sim_car_PE.py -te -w -mu 10000 -ut 2
+# test: python3 sim_car_PE.py -te -w -mu 100 -ut 2 -wi 1 -of scratch/
 parser = argparse.ArgumentParser()
 # parser.add_argument("-nt",  "--num_test",       help="the number of tests",         default=1,      type=int)
 # parser.add_argument("-nw",  "--num_worker",     help="the number of workers",       default=1,      type=int)
@@ -30,15 +31,18 @@ parser.add_argument("-te",  "--toEnd",          help="stop until reaching bounda
 parser.add_argument("-ab",  "--addBias",        help="add bias term for RA",            action="store_true")
 parser.add_argument("-w",   "--warmup",         help="warmup Q-network",                action="store_true")
 parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",       default=4e6,    type=int)
+parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",                  default=1e4,    type=int)
 parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",             default=20,     type=int)
 parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",                default=20000,  type=int)
 
 # hyper-parameters
+parser.add_argument("-d",   "--deeper",         help="deeper NN",           action="store_true")
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",       default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",  default=0.8,    type=float)
 parser.add_argument("-act", "--actType",        help="activation type",     default='Tanh', type=str)
 
 # file
+parser.add_argument("-n",   "--name",       help="extra name",  default='',                 type=str)
 parser.add_argument("-of",  "--outFolder",  help="output file", default='scratch/gpfs/',    type=str)
 
 args = parser.parse_args()
@@ -55,7 +59,7 @@ updatePeriod = int(maxUpdates / updateTimes)
 updatePeriodHalf = int(updatePeriod/2)
 maxSteps = 100
 
-outFolder = args.outFolder + 'carPE/' + timestr
+outFolder = args.outFolder + 'carPE/' + args.name + timestr
 figureFolder = '{:s}/figure/'.format(outFolder)
 os.makedirs(figureFolder, exist_ok=True)
 
@@ -132,7 +136,7 @@ plt.close()
 print("\n== Agent Information ==")
 CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, 
     MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps,
-    BATCH_SIZE=100, MEMORY_CAPACITY=10000,
+    BATCH_SIZE=100, MEMORY_CAPACITY=args.memoryCapacity,
     GAMMA=args.gamma, GAMMA_PERIOD=updatePeriod, GAMMA_END=0.999999,
     EPS_PERIOD=updatePeriod, EPS_DECAY=0.6,
     LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
@@ -143,9 +147,10 @@ CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name,
 #== AGENT ==
 numActionList = env.numActionList
 numJoinAction = int(numActionList[0] * numActionList[1])
-dimList = [stateNum, 512, 512, 512, actionNum]
-# dimList = [stateNum, 5, actionNum]
-
+if args.deeper:
+    dimList = [stateNum, 512, 512, 512, actionNum]
+else:
+    dimList = [stateNum, 512, 512, actionNum]
 agent = DDQNPursuitEvasion(CONFIG, numActionList, dimList, actType=args.actType)
 print()
 print(agent.optimizer, '\n')

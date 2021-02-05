@@ -49,6 +49,7 @@ parser.add_argument("-pf",  "--plotFigure",     help="plot figures",    action="
 parser.add_argument("-sf",  "--storeFigure",    help="store figures",   action="store_true")
 
 args = parser.parse_args()
+print("\n== Arguments ==")
 print(args)
 
 
@@ -155,9 +156,8 @@ if args.deeper:
 else:
     dimList = [stateNum, 512, 512, actionNum]
 agent = DDQNPursuitEvasion(CONFIG, numActionList, dimList, actType=args.actType)
-print()
-print(agent.optimizer, '\n')
 
+print("\n== Training Information ==")
 vmin = -1
 vmax = 1
 checkPeriod = updatePeriod

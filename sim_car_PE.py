@@ -146,6 +146,7 @@ CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name,
     LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
     MAX_MODEL=50)
 # print(vars(CONFIG))
+print(agent.device)
 
 
 #== AGENT ==

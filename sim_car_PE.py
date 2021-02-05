@@ -5,6 +5,7 @@ from gym_reachability import gym_reachability  # Custom Gym env.
 import gym
 import numpy as np
 import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import torch
 from collections import namedtuple
@@ -44,6 +45,8 @@ parser.add_argument("-act", "--actType",        help="activation type",     defa
 # file
 parser.add_argument("-n",   "--name",       help="extra name",  default='',                 type=str)
 parser.add_argument("-of",  "--outFolder",  help="output file", default='scratch/gpfs/',    type=str)
+parser.add_argument("-pf",  "--plotFigure",     help="plot figures",    action="store_true")
+parser.add_argument("-sf",  "--storeFigure",    help="store figures",   action="store_true")
 
 args = parser.parse_args()
 print(args)
@@ -163,4 +166,4 @@ training_records, trainProgress = agent.learn(env,
     warmupQ=args.warmup, warmupIter=args.warmupIter, doneTerminate=True,
     vmin=vmin, vmax=vmax, showBool=False,
     checkPeriod=checkPeriod, outFolder=outFolder,
-    plotFigure=False, storeFigure=True)
+    plotFigure=args.plotFigure, storeFigure=args.storeFigure)

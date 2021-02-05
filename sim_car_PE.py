@@ -21,7 +21,7 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 
 #== ARGS ==
-# e.g., python3 sim_car_PE.py -te -w -mu 10000 -ut 2
+# e.g., python3 sim_car_PE.py -te -w 
 # test: python3 sim_car_PE.py -te -w -mu 100 -ut 2 -wi 1 -of scratch/
 parser = argparse.ArgumentParser()
 # parser.add_argument("-nt",  "--num_test",       help="the number of tests",         default=1,      type=int)
@@ -43,8 +43,8 @@ parser.add_argument("-g",   "--gamma",          help="contraction coeff.",  defa
 parser.add_argument("-act", "--actType",        help="activation type",     default='Tanh', type=str)
 
 # file
-parser.add_argument("-n",   "--name",       help="extra name",  default='',                 type=str)
-parser.add_argument("-of",  "--outFolder",  help="output file", default='scratch/gpfs/',    type=str)
+parser.add_argument("-n",   "--name",           help="extra name",      default='',                 type=str)
+parser.add_argument("-of",  "--outFolder",      help="output file",     default='scratch/gpfs/',    type=str)
 parser.add_argument("-pf",  "--plotFigure",     help="plot figures",    action="store_true")
 parser.add_argument("-sf",  "--storeFigure",    help="store figures",   action="store_true")
 

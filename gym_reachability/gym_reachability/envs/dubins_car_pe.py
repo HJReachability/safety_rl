@@ -106,10 +106,10 @@ class DubinsCarPEEnv(gym.Env):
         self.doneType = doneType
 
         # Visualization parameters
-        self.visual_initial_states = [  np.array([ -0.9, 0., 0., -.5, -.3, .75*np.pi]),
-                                        np.array([ -0.9, .1, 0., -.5, -.3, .75*np.pi]),
-                                        np.array([ -0.9, 0., 0., -.5, -.3, .75*np.pi]),
-                                        np.array([ -0.9, 0., 0., -.2, -.3, .75*np.pi]) ]
+        self.visual_initial_states = [  np.array([ -0.9,   0.,    0., -0.1, -0.3, .75*np.pi]),
+                                        np.array([ -0.9,   0.,    0., -0.2, -0.3, .75*np.pi]),
+                                        np.array([ -0.6,   0., np.pi,  0.1,   0.,     np.pi]),
+                                        np.array([ -0.8, -0.4,    0., -0.4,  0.8,        0.])]
         
         # Cost parameters
         self.targetScaling = 1.

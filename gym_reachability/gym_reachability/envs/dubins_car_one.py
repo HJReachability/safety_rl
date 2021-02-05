@@ -317,12 +317,11 @@ class DubinsCarOneEnv(gym.Env):
         # reset
         if state is None:
             state = self.car.sample_random_state(keepOutOf=keepOutOf, theta=theta)
-        x, y = state[:2]
-        traj_x = [x]
-        traj_y = [y]
+        traj = []
         result = 0 # not finished
 
         for t in range(T):
+            traj.append(state)
             if toEnd:
                 done = not self.car.check_within_bounds(state)
                 if done:
@@ -341,10 +340,8 @@ class DubinsCarOneEnv(gym.Env):
             u = self.car.discrete_controls[action_index]
 
             state = self.car.integrate_forward(state, u)
-            traj_x.append(state[0])
-            traj_y.append(state[1])
-
-        return traj_x, traj_y, result
+        traj = np.array(traj)
+        return traj, result
 
 
     def simulate_trajectories(  self, q_func, T=10,
@@ -359,15 +356,15 @@ class DubinsCarOneEnv(gym.Env):
         if states is None:
             results = np.empty(shape=(num_rnd_traj,), dtype=int)
             for idx in range(num_rnd_traj):
-                traj_x, traj_y, result = self.simulate_one_trajectory(  q_func, T=T, theta=theta, 
+                traj, result = self.simulate_one_trajectory(  q_func, T=T, theta=theta, 
                                                                         keepOutOf=keepOutOf, toEnd=toEnd)
-                trajectories.append((traj_x, traj_y))
+                trajectories.append(traj)
                 results[idx] = result
         else:
             results = np.empty(shape=(len(states),), dtype=int)
             for idx, state in enumerate(states):
-                traj_x, traj_y, result = self.simulate_one_trajectory(q_func, T=T, state=state, toEnd=toEnd)
-                trajectories.append((traj_x, traj_y))
+                traj, result = self.simulate_one_trajectory(q_func, T=T, state=state, toEnd=toEnd)
+                trajectories.append(traj)
                 results[idx] = result
 
         return trajectories, results
@@ -446,9 +443,9 @@ class DubinsCarOneEnv(gym.Env):
         ax.tick_params( axis='both', which='both',  # both x and y axes, both major and minor ticks are affected
                         bottom=False, top=False,    # ticks along the top and bottom edges are off
                         left=False, right=False)    # ticks along the left and right edges are off
-        ax.set_xticklabels([])
-        ax.set_yticklabels([])
-        #ax.set_title(r"$\theta$={:.1f}".format(theta * 180 / np.pi), fontsize=24)
+        # ax.set_xticklabels([])
+        # ax.set_yticklabels([])
+        # ax.set_title(r"$\theta$={:.1f}".format(theta * 180 / np.pi), fontsize=24)
 
 
     def plot_v_values(  self, q_func, theta=np.pi/2, ax=None, fig=None,
@@ -496,7 +493,8 @@ class DubinsCarOneEnv(gym.Env):
         if ax == None:
             ax = plt.gca()
         for traj in trajectories:
-            traj_x, traj_y = traj
+            traj_x = traj[:,0]
+            traj_y = traj[:,1]
             ax.scatter(traj_x[0], traj_y[0], s=48, c=c)
             ax.plot(traj_x, traj_y, color=c,  linewidth=lw)
 

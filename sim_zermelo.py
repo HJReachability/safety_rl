@@ -142,7 +142,7 @@ for ith in range( int(L/(nThr+1e-6))+1 ):
 #print(trainProgressList)
 
 
-== RECORD ==
+#== RECORD ==
 import pickle
 with open("data/{:s}.txt".format(args.outFile), "wb") as fp:   #Pickling
     pickle.dump(trainProgressList, fp)

@@ -399,26 +399,50 @@ class DubinsCarPEEnv(gym.Env):
             stateEvader  = state[:3]
             statePursuer = state[3:]
 
-        trajEvader = [stateEvader[:3]]
-        trajPursuer = [statePursuer[:3]]
+        trajEvader = []
+        trajPursuer = []
         result = 0 # not finished
 
+        valueList=[]
+        gxList=[]
+        lxList=[]
         for t in range(T):
+            trajEvader.append(stateEvader[:3])
+            trajPursuer.append(statePursuer[:3])
             state = np.concatenate((stateEvader, statePursuer), axis=0)
             doneEvader = not self.evader.check_within_bounds(stateEvader)
             donePursuer = not self.pursuer.check_within_bounds(statePursuer)
+
+            g_x = self.safety_margin(state)
+            l_x = self.target_margin(state)
+
+            #= Rollout Record
+            if t == 0:
+                maxG = g_x
+                current = max(l_x, maxG)
+                minV = current
+            else:
+                maxG = max(maxG, g_x)
+                current = max(l_x, maxG)
+                minV = min(current, minV)
+
+            valueList.append(minV)
+            gxList.append(g_x)
+            lxList.append(l_x)
+
             if toEnd:
                 if doneEvader and donePursuer:
                     result = 1
                     break
             else:
-                if self.safety_margin(state) > 0:
+                if g_x > 0:
                     result = -1 # failed
                     break
-                elif self.target_margin(state) <= 0:
+                elif l_x <= 0:
                     result = 1 # succeeded
                     break
-                    
+
+            #= Dynamics
             stateTensor = torch.FloatTensor(state).to(self.device)
             with torch.no_grad():
                 state_action_values = q_func(stateTensor)
@@ -435,12 +459,10 @@ class DubinsCarPEEnv(gym.Env):
                 uPursuer = self.pursuer.discrete_controls[colIdx]
                 statePursuer = self.pursuer.integrate_forward(statePursuer, uPursuer)
 
-            trajEvader.append(stateEvader[:3])
-            trajPursuer.append(statePursuer[:3])
-
         trajEvader = np.array(trajEvader)
         trajPursuer = np.array(trajPursuer)
-        return trajEvader, trajPursuer, result
+        info = {'valueList':valueList, 'gxList':gxList, 'lxList':lxList}
+        return trajEvader, trajPursuer, result, minV, info
 
 
     def simulate_trajectories(  self, q_func, T=10,
@@ -454,20 +476,23 @@ class DubinsCarPEEnv(gym.Env):
 
         if states is None:
             results = np.empty(shape=(num_rnd_traj,), dtype=int)
+            minVs = np.empty(shape=(num_rnd_traj,), dtype=float)
             for idx in range(num_rnd_traj):
-                trajEvader, trajPursuer, result = self.simulate_one_trajectory(
+                trajEvader, trajPursuer, result, minV, _ = self.simulate_one_trajectory(
                     q_func, T=T, theta=theta, keepOutOf=keepOutOf, toEnd=toEnd)
                 trajectories.append((trajEvader, trajPursuer))
                 results[idx] = result
+                minVs[idx] = minV
         else:
             results = np.empty(shape=(len(states),), dtype=int)
+            minVs = np.empty(shape=(len(states),), dtype=float)
             for idx, state in enumerate(states):
-                trajEvader, trajPursuer, result = self.simulate_one_trajectory(
+                trajEvader, trajPursuer, result, minV, _ = self.simulate_one_trajectory(
                     q_func, T=T, state=state, toEnd=toEnd)
                 trajectories.append((trajEvader, trajPursuer))
                 results[idx] = result
-
-        return trajectories, results
+                minVs[idx] = minV
+        return trajectories, results, minVs
 
 
 #== Plotting Functions ==
@@ -569,9 +594,9 @@ class DubinsCarPEEnv(gym.Env):
                 tmpStates.append(np.concatenate((stateEvaderTilde, statePursuerTilde), axis=0))
             states = tmpStates
 
-        trajectories, results = self.simulate_trajectories( q_func, T=T, num_rnd_traj=num_rnd_traj, 
-                                                            states=states, theta=theta, 
-                                                            keepOutOf=keepOutOf, toEnd=toEnd)
+        trajectories, results, minVs = self.simulate_trajectories(   q_func, T=T, num_rnd_traj=num_rnd_traj, 
+                                                                    states=states, theta=theta, 
+                                                                    keepOutOf=keepOutOf, toEnd=toEnd)
         if ax == None:
             ax = plt.gca()
         for traj, result in zip(trajectories, results):
@@ -590,7 +615,7 @@ class DubinsCarPEEnv(gym.Env):
             if result == -1:
                 ax.scatter(trajEvaderX[-1], trajEvaderY[-1], s=60, c=c[0], marker='x', zorder=3)
 
-        return results
+        return results, minVs
 
 
     # ! Analytic solutions available?

@@ -153,7 +153,7 @@ if args.plotFigure or args.storeFigure:
 print("\n== Agent Information ==")
 CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, 
     MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps,
-    BATCH_SIZE=100, MEMORY_CAPACITY=10000,
+    BATCH_SIZE=100, MEMORY_CAPACITY=args.memoryCapacity,
     ARCHITECTURE=args.architecture, ACTIVATION=args.actType,
     GAMMA=args.gamma, GAMMA_PERIOD=updatePeriod, GAMMA_END=0.999999,
     EPS_PERIOD=updatePeriod, EPS_DECAY=0.6,

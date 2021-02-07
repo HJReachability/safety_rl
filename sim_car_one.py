@@ -33,6 +33,7 @@ parser.add_argument("-te",  "--toEnd",          help="stop until reaching bounda
 parser.add_argument("-ab",  "--addBias",        help="add bias term for RA",            action="store_true")
 parser.add_argument("-w",   "--warmup",         help="warmup Q-network",                action="store_true")
 parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",       default=4e6,    type=int)
+parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",                  default=1e4,    type=int)
 parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",             default=20,     type=int)
 parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",                default=10000,  type=int)
 

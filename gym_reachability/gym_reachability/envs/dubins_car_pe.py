@@ -575,7 +575,7 @@ class DubinsCarPEEnv(gym.Env):
                             cmap=cmap, vmin=vmin, vmax=vmax)
             if cbarPlot:
                 cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95, ticks=[vmin, 0, vmax])
-                cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
+                cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=16)
 
 
     # ? Plot trajectories based on x-y location of the evader and the pursuer

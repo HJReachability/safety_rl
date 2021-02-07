@@ -9,6 +9,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import torch
 from collections import namedtuple
+import pickle
 import os
 import argparse
 
@@ -36,7 +37,8 @@ parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",     
 parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",                default=10000,  type=int)
 
 # hyper-parameters
-parser.add_argument("-d",  "--deeper",          help="deeper NN",           action="store_true")
+# parser.add_argument("-d",  "--deeper",          help="deeper NN",           action="store_true")
+parser.add_argument("-arc", "--architecture",   help="NN architecture",     default=[512, 512, 512],  nargs="*", type=int)
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",       default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",  default=0.8,    type=float)
 parser.add_argument("-act", "--actType",        help="activation type",     default='Tanh', type=str)
@@ -48,7 +50,7 @@ parser.add_argument("-turn",    "--turnRadius",         help="turning radius",  
 parser.add_argument("-s",       "--speed",              help="speed",               default=.5, type=float)
 
 # file
-parser.add_argument("-of",  "--outFolder",      help="output file",     default='scratch/gpfs/',    type=str)
+parser.add_argument("-of",  "--outFolder",      help="output file",     default='scratch/',    type=str)
 parser.add_argument("-pf",  "--plotFigure",     help="plot figures",    action="store_true")
 parser.add_argument("-sf",  "--storeFigure",    help="store figures",   action="store_true")
 
@@ -150,23 +152,23 @@ print("\n== Agent Information ==")
 CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, 
     MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps,
     BATCH_SIZE=100, MEMORY_CAPACITY=10000,
+    ARCHITECTURE=args.architecture, ACTIVATION=args.actType,
     GAMMA=args.gamma, GAMMA_PERIOD=updatePeriod, GAMMA_END=0.999999,
     EPS_PERIOD=updatePeriod, EPS_DECAY=0.6,
     LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
     MAX_MODEL=50)
 # print(vars(CONFIG))
+picklePath = outFolder+'/CONFIG.pkl'
+with open(picklePath, 'wb') as handle:
+    pickle.dump(CONFIG, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 #== AGENT ==
-if args.deeper:
-    dimList = [stateNum, 512, 512, 512, actionNum]
-else:
-    dimList = [stateNum, 100, actionNum]
-
+dimList = [stateNum] + CONFIG.ARCHITECTURE + [actionNum]
 agent=DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList, mode='RA', actType='Tanh')
-# print(device, env.device, agent.device)
-print(agent.Q_network.moduleList[0].weight.type())
-print(agent.optimizer, '\n')
+print(device)
+# print(agent.Q_network.moduleList[0].weight.type())
+# print(agent.optimizer, '\n')
 
 
 print("\n== Training Information ==")

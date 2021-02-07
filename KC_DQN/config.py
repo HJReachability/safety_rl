@@ -11,7 +11,9 @@ class config():
                         MEMORY_CAPACITY=10000,
                         BATCH_SIZE=32,
                         RENDER=False,                         
-                        MAX_MODEL=5):
+                        MAX_MODEL=5,
+                        ARCHITECTURE=[512, 512, 512],
+                        ACTIVATION='Tanh'):
         """
         __init__
 
@@ -83,6 +85,8 @@ class config():
 
         self.MAX_MODEL = MAX_MODEL
         self.DEVICE=DEVICE
+        self.ARCHITECTURE = ARCHITECTURE
+        self.ACTIVATION = ACTIVATION
 
 
 class dqnConfig(config):
@@ -97,7 +101,9 @@ class dqnConfig(config):
                         BATCH_SIZE=32,
                         RENDER=False,                         
                         MAX_MODEL=10,
-                        DOUBLE=True):
+                        DOUBLE=True,
+                        ARCHITECTURE=[512, 512, 512],
+                        ACTIVATION='Tanh'):
         """
         __init__
 
@@ -120,7 +126,9 @@ class dqnConfig(config):
                         MEMORY_CAPACITY=MEMORY_CAPACITY,
                         BATCH_SIZE=BATCH_SIZE,
                         RENDER=RENDER,                         
-                        MAX_MODEL=MAX_MODEL)
+                        MAX_MODEL=MAX_MODEL,
+                        ARCHITECTURE=ARCHITECTURE,
+                        ACTIVATION=ACTIVATION)
         self.DOUBLE = DOUBLE
         self.TAU = TAU
         self.HARD_UPDATE = HARD_UPDATE
@@ -139,7 +147,9 @@ class actorCriticConfig(config):
                         MEMORY_CAPACITY=10000,
                         BATCH_SIZE=32,
                         RENDER=False,                         
-                        MAX_MODEL=5):
+                        MAX_MODEL=5,
+                        ARCHITECTURE=[512, 512, 512],
+                        ACTIVATION='Tanh'):
         """
         __init__
 
@@ -162,7 +172,9 @@ class actorCriticConfig(config):
                         MEMORY_CAPACITY=MEMORY_CAPACITY,
                         BATCH_SIZE=BATCH_SIZE,
                         RENDER=RENDER,                         
-                        MAX_MODEL=MAX_MODEL)
+                        MAX_MODEL=MAX_MODEL,
+                        ARCHITECTURE=ARCHITECTURE,
+                        ACTIVATION=ACTIVATION)
         self.LR_A = LR_A
         self.LR_A_END = LR_A_END
         self.LR_A_PERIOD = LR_A_PERIOD

@@ -467,7 +467,7 @@ class DubinsCarOneEnv(gym.Env):
                             cmap=cmap, vmin=vmin, vmax=vmax)
             if cbarPlot:
                 cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95, ticks=[vmin, 0, vmax])
-                cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
+                cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=16)
 
 
     def plot_trajectories(  self, q_func, T=10, num_rnd_traj=None, states=None, theta=None,

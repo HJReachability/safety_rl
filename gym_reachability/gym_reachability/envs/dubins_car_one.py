@@ -253,7 +253,7 @@ class DubinsCarOneEnv(gym.Env):
         Returns:
             Margin for the state s.
         """
-        return self.car.safety_margin(s)
+        return self.car.safety_margin(s[:2])
 
 
     def target_margin(self, s):
@@ -265,7 +265,7 @@ class DubinsCarOneEnv(gym.Env):
         Returns:
             Margin for the state s.
         """
-        return self.car.target_margin(s)
+        return self.car.target_margin(s[:2])
 
 
 #== Getting Functions ==
@@ -332,29 +332,51 @@ class DubinsCarOneEnv(gym.Env):
             state = self.car.sample_random_state(keepOutOf=keepOutOf, theta=theta)
         traj = []
         result = 0 # not finished
-
+        valueList = []
+        gxList = []
+        lxList = []
         for t in range(T):
             traj.append(state)
+
+            g_x = self.safety_margin(state)
+            l_x = self.target_margin(state)
+
+            #= Rollout Record
+            if t == 0:
+                maxG = g_x
+                current = max(l_x, maxG)
+                minV = current
+            else:
+                maxG = max(maxG, g_x)
+                current = max(l_x, maxG)
+                minV = min(current, minV)
+
+            valueList.append(minV)
+            gxList.append(g_x)
+            lxList.append(l_x)
+
             if toEnd:
                 done = not self.car.check_within_bounds(state)
                 if done:
                     result = 1
                     break
             else:
-                if self.safety_margin(state[:2]) > 0:
+                if g_x > 0:
                     result = -1 # failed
                     break
-                elif self.target_margin(state[:2]) <= 0:
+                elif l_x <= 0:
                     result = 1 # succeeded
                     break
-
+            
+            q_func.eval()
             state_tensor = torch.FloatTensor(state).to(self.device).unsqueeze(0)
             action_index = q_func(state_tensor).min(dim=1)[1].item()
             u = self.car.discrete_controls[action_index]
 
             state = self.car.integrate_forward(state, u)
         traj = np.array(traj)
-        return traj, result
+        info = {'valueList':valueList, 'gxList':gxList, 'lxList':lxList}
+        return traj, result, minV, info
 
 
     def simulate_trajectories(  self, q_func, T=10,
@@ -368,19 +390,23 @@ class DubinsCarOneEnv(gym.Env):
 
         if states is None:
             results = np.empty(shape=(num_rnd_traj,), dtype=int)
+            minVs = np.empty(shape=(num_rnd_traj,), dtype=float)
             for idx in range(num_rnd_traj):
-                traj, result = self.simulate_one_trajectory(  q_func, T=T, theta=theta, 
+                traj, result, minV, _ = self.simulate_one_trajectory(  q_func, T=T, theta=theta, 
                                                                         keepOutOf=keepOutOf, toEnd=toEnd)
                 trajectories.append(traj)
                 results[idx] = result
+                minVs[idx] = minV
         else:
             results = np.empty(shape=(len(states),), dtype=int)
+            minVs = np.empty(shape=(len(states),), dtype=float)
             for idx, state in enumerate(states):
-                traj, result = self.simulate_one_trajectory(q_func, T=T, state=state, toEnd=toEnd)
+                traj, result, minV, _ = self.simulate_one_trajectory(q_func, T=T, state=state, toEnd=toEnd)
                 trajectories.append(traj)
                 results[idx] = result
+                minVs[idx] = minV
 
-        return trajectories, results
+        return trajectories, results, minVs
 
 
 #== Plotting Functions ==
@@ -500,7 +526,7 @@ class DubinsCarOneEnv(gym.Env):
                 tmpStates.append(np.array([xtilde, ytilde, thetatilde]))
             states = tmpStates
 
-        trajectories, results = self.simulate_trajectories( q_func, T=T, num_rnd_traj=num_rnd_traj, 
+        trajectories, results, minVs = self.simulate_trajectories( q_func, T=T, num_rnd_traj=num_rnd_traj, 
                                                             states=states, theta=theta, 
                                                             keepOutOf=keepOutOf, toEnd=toEnd)
         if ax == None:
@@ -511,7 +537,7 @@ class DubinsCarOneEnv(gym.Env):
             ax.scatter(traj_x[0], traj_y[0], s=48, c=c)
             ax.plot(traj_x, traj_y, color=c,  linewidth=lw)
 
-        return results
+        return results, minVs
 
 
     def plot_reach_avoid_set(self, ax, c='g', lw=3, orientation=0):

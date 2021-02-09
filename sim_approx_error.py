@@ -70,7 +70,10 @@ def run(args):
     print("\n== Environment Information ==")
 
     env_name = "dubins_car_pe-v0"
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if args.forceCPU:
+        device = torch.device("cpu")
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     env = gym.make(env_name, device=device, mode='RA', doneType='toEnd')
 
     stateNum = env.state.shape[0]
@@ -174,6 +177,7 @@ def run(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument("-f",   "--forceCPU",       help="force CPU",   action="store_true")
     parser.add_argument("-ns",  "--numSample",      help="#samples",    default=3,              type=int)
     parser.add_argument("-nw",  "--numWorker",      help="#workers",    default=6,              type=int)
     parser.add_argument("-of",  "--outFile",        help="output file", default='carPEDict',    type=str)

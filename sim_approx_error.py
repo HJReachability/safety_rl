@@ -18,7 +18,7 @@ from KC_DQN.config import dqnConfig
 import argparse
 
 # 27554 seconds for 11 samples per dimension with 6 workers, NN: 2-layer with 512 neurons per leayer
-
+# ex: python3 sim_approx_error.py -ns 11 -nw 6 -mf scratch/carPE/largeBuffer-3-512-2021-02-07-01_51 -of largeBuffer-3-512
 
 def multi_experiment(env, agent, firstIdx, numSample, maxLength, toEnd):
     bounds = np.array([ [-1, 1],
@@ -95,8 +95,14 @@ def run(args):
     #== AGENT ==
     print("\n== Agent Information ==")
     with open('{:s}/CONFIG.pkl'.format(args.modelFolder), 'rb') as handle:
-        CONFIG = pickle.load(handle)
+        tmpConfig = pickle.load(handle)
+    CONFIG = dqnConfig()
+    for key, value in tmpConfig.__dict__.items():
+        CONFIG.__dict__[key] = tmpConfig.__dict__[key]
     CONFIG.DEVICE = device
+    CONFIG.SEED = 0
+    print(vars(CONFIG))
+
     numActionList = env.numActionList
     numJoinAction = int(numActionList[0] * numActionList[1])
     # * Need to specify the dimension list for different NNs manually

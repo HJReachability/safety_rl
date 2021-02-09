@@ -18,9 +18,9 @@ from .dubins_car_dyn import DubinsCarDyn
 
 
 class DubinsCarOneEnv(gym.Env):
-    def __init__(self, device, mode='normal', doneType='toEnd'):
+    def __init__(self, device, mode='normal', doneType='toEnd', seed=0):
         # Set random seed.
-        self.seed_val = 0
+        self.seed_val = seed
         np.random.seed(self.seed_val)
 
         # State bounds.

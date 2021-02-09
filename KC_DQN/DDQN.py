@@ -20,7 +20,7 @@ from .ReplayMemory import ReplayMemory
 Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
 class DDQN():
     def __init__(self, CONFIG):
-        self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)
+        self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY, CONFIG.SEED)
 
         #== PARAM ==
         # Exploration

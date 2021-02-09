@@ -3,7 +3,7 @@
 
 class config():
     def __init__(self,  ENV_NAME='Pendulum-v0',
-                        DEVICE='cpu',
+                        DEVICE='cpu', SEED=0,
                         MAX_UPDATES=2000000, MAX_EP_STEPS=200,
                         EPSILON=0.95, EPS_END=0.05, EPS_PERIOD=1, EPS_DECAY=0.5,
                         LR_C=1e-3, LR_C_END=1e-4, LR_C_PERIOD=1, LR_C_DECAY=0.5,
@@ -12,8 +12,7 @@ class config():
                         BATCH_SIZE=32,
                         RENDER=False,                         
                         MAX_MODEL=5,
-                        ARCHITECTURE=[512, 512, 512],
-                        ACTIVATION='Tanh'):
+                        ARCHITECTURE=[512, 512, 512], ACTIVATION='Tanh'):
         """
         __init__
 
@@ -82,6 +81,7 @@ class config():
 
         self.RENDER = RENDER
         self.ENV_NAME = ENV_NAME
+        self.SEED = SEED
 
         self.MAX_MODEL = MAX_MODEL
         self.DEVICE=DEVICE
@@ -91,7 +91,7 @@ class config():
 
 class dqnConfig(config):
     def __init__(self,  ENV_NAME='Pendulum-v0',
-                        DEVICE='cpu',
+                        DEVICE='cpu', SEED=0,
                         MAX_UPDATES=2000000, MAX_EP_STEPS=200,
                         EPSILON=0.95, EPS_END=0.05, EPS_PERIOD=1, EPS_DECAY=0.5,
                         LR_C=1e-3, LR_C_END=1e-4, LR_C_PERIOD=1, LR_C_DECAY=0.5,
@@ -102,8 +102,7 @@ class dqnConfig(config):
                         RENDER=False,                         
                         MAX_MODEL=10,
                         DOUBLE=True,
-                        ARCHITECTURE=[512, 512, 512],
-                        ACTIVATION='Tanh'):
+                        ARCHITECTURE=[512, 512, 512], ACTIVATION='Tanh'):
         """
         __init__
 
@@ -118,7 +117,7 @@ class dqnConfig(config):
                 Defaults to True.
         """        
         super().__init__(ENV_NAME=ENV_NAME,
-                        DEVICE=DEVICE,
+                        DEVICE=DEVICE, SEED=SEED,
                         MAX_UPDATES=MAX_UPDATES, MAX_EP_STEPS=MAX_EP_STEPS,
                         EPSILON=EPSILON, EPS_END=EPS_END, EPS_PERIOD=EPS_PERIOD, EPS_DECAY=EPS_DECAY,
                         LR_C=LR_C, LR_C_END=LR_C_END, LR_C_PERIOD=LR_C_PERIOD, LR_C_DECAY=LR_C_DECAY,
@@ -127,8 +126,7 @@ class dqnConfig(config):
                         BATCH_SIZE=BATCH_SIZE,
                         RENDER=RENDER,                         
                         MAX_MODEL=MAX_MODEL,
-                        ARCHITECTURE=ARCHITECTURE,
-                        ACTIVATION=ACTIVATION)
+                        ARCHITECTURE=ARCHITECTURE, ACTIVATION=ACTIVATION)
         self.DOUBLE = DOUBLE
         self.TAU = TAU
         self.HARD_UPDATE = HARD_UPDATE
@@ -137,7 +135,7 @@ class dqnConfig(config):
 
 class actorCriticConfig(config):
     def __init__(self,  ENV_NAME='Pendulum-v0',
-                        DEVICE='cpu',
+                        DEVICE='cpu', SEED=0,
                         MAX_UPDATES=2000000, MAX_EP_STEPS=200,
                         EPSILON=0.95, EPS_END=0.05, EPS_PERIOD=1, EPS_DECAY=0.5,
                         LR_C=1e-3, LR_C_END=1e-4, LR_C_PERIOD=1, LR_C_DECAY=0.5,
@@ -148,8 +146,7 @@ class actorCriticConfig(config):
                         BATCH_SIZE=32,
                         RENDER=False,                         
                         MAX_MODEL=5,
-                        ARCHITECTURE=[512, 512, 512],
-                        ACTIVATION='Tanh'):
+                        ARCHITECTURE=[512, 512, 512], ACTIVATION='Tanh'):
         """
         __init__
 
@@ -164,7 +161,7 @@ class actorCriticConfig(config):
                 Defaults to 0.5.
         """        
         super().__init__(ENV_NAME=ENV_NAME,
-                        DEVICE=DEVICE,
+                        DEVICE=DEVICE, SEED=SEED,
                         MAX_UPDATES=MAX_UPDATES, MAX_EP_STEPS=MAX_EP_STEPS,
                         EPSILON=EPSILON, EPS_END=EPS_END, EPS_PERIOD=EPS_PERIOD, EPS_DECAY=EPS_DECAY,
                         LR_C=LR_C, LR_C_END=LR_C_END, LR_C_PERIOD=LR_C_PERIOD, LR_C_DECAY=LR_C_DECAY,

@@ -1,8 +1,8 @@
 # Please contact the author(s) of this library if you have any questions.
 # Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
-import random
-#import numpy as np
+# import random
+import numpy as np
 
 class ReplayMemory(object):
 
@@ -11,6 +11,8 @@ class ReplayMemory(object):
         self.memory = []
         self.position = 0
         self.isfull = False
+        self.seed = seed
+        np.random.seed(self.seed)
 
     def reset(self):
         self.memory = []
@@ -26,10 +28,11 @@ class ReplayMemory(object):
             self.isfull = True
 
     def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
-        #length = len(self.memory)
-        #indices = np.random.randint(low=0, high=length, size=(batch_size,))
-        #return np.array(self.memory)[indices]
+        # return random.sample(self.memory, batch_size)
+        length = len(self.memory)
+        indices = np.random.randint(low=0, high=length, size=(batch_size,))
+        return [self.memory[i] for i in indices]
+        # return np.array(self.memory[indices], dtype=object)
 
     def __len__(self):
         return len(self.memory)

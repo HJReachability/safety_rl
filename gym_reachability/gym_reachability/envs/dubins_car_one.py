@@ -13,6 +13,7 @@ import gym
 import matplotlib
 import matplotlib.pyplot as plt
 import torch
+import random
 
 from .dubins_car_dyn import DubinsCarDyn
 
@@ -22,6 +23,12 @@ class DubinsCarOneEnv(gym.Env):
         # Set random seed.
         self.seed_val = seed
         np.random.seed(self.seed_val)
+        torch.manual_seed(self.seed_val)
+        torch.cuda.manual_seed(self.seed_val)
+        torch.cuda.manual_seed_all(self.seed_val)  # if you are using multi-GPU.
+        random.seed(self.seed_val) 
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
 
         # State bounds.
         self.bounds = np.array([[-1.1, 1.1],
@@ -207,6 +214,12 @@ class DubinsCarOneEnv(gym.Env):
         """
         self.seed_val = seed
         np.random.seed(self.seed_val)
+        torch.manual_seed(self.seed_val)
+        torch.cuda.manual_seed(self.seed_val)
+        torch.cuda.manual_seed_all(self.seed_val)  # if you are using multi-GPU.
+        random.seed(self.seed_val) 
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
         self.car.set_seed(seed)
 
 

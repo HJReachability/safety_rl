@@ -7,6 +7,7 @@ import gym
 import matplotlib
 import matplotlib.pyplot as plt
 import torch
+import random
 
 
 class ZermeloKCEnv(gym.Env):
@@ -296,6 +297,12 @@ class ZermeloKCEnv(gym.Env):
         """
         self.seed_val = seed
         np.random.seed(self.seed_val)
+        torch.manual_seed(self.seed_val)
+        torch.cuda.manual_seed(self.seed_val)
+        torch.cuda.manual_seed_all(self.seed_val)  # if you are using multi-GPU.
+        random.seed(self.seed_val) 
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
 
 
     def set_bounds(self, bounds):

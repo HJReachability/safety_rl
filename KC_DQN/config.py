@@ -21,6 +21,8 @@ class config():
                 Defaults to 'Pendulum-v0'.
             DEVICE (str, optional): on which you want to run your PyTorch model.
                 Defaults to 'cpu'.
+            SEED (int, optional): random seed.
+                Defaults to 0.
             MAX_UPDATES (int, optional): maximal number of gradient updates.
                 Defaults to 2000000.
             MAX_EP_STEPS (int, optional): maximal number of steps in an episode.
@@ -57,7 +59,11 @@ class config():
                 Defaults to False.
             MAX_MODEL (int, optional): maximal number of models you want to store during the training process.
                 Defaults to 5.
-        """        
+            ARCHITECTURE (list, optional): the architecture of the hidden layers of the NN.
+                Defaults to [512, 512, 512].
+            ACTIVATION (str, optional): the activation function used in the NN.
+                Defaults to 'Tanh'.
+        """
         self.MAX_UPDATES = MAX_UPDATES
         self.MAX_EP_STEPS = MAX_EP_STEPS
 

@@ -337,7 +337,7 @@ class DDQNSingle(DDQN):
             if verbose:
                 print('\r{:3.0f}: This episode gets running/episode cost = ({:3.2f}/{:.2f}) after {:d} steps.'.format(\
                     ep, runningCost, epCost, step_num+1), end=' ')
-                print('The agent currently updates {:d} times'.format(self.cntUpdate), end='\t\t')
+                print('The agent currently updates {:d} times.'.format(self.cntUpdate), end='\t\t')
 
             # Check stopping criteria
             if runningCostThr != None:

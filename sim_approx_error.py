@@ -21,6 +21,7 @@ import argparse
 # ex: python3 sim_approx_error.py -ns 11 -nw 6 -mf scratch/carPE/largeBuffer-3-512-2021-02-07-01_51 -of largeBuffer-3-512
 
 def multi_experiment(env, agent, firstIdx, numSample, maxLength, toEnd):
+    print("I'm process", os.getpid())
     bounds = np.array([ [-1, 1],
                         [-1, 1],
                         [0, 2*np.pi]])
@@ -108,8 +109,6 @@ def run(args):
 
     numActionList = env.numActionList
     numJoinAction = int(numActionList[0] * numActionList[1])
-    # * Need to specify the dimension list for different NNs manually
-    # dimList = [stateNum, 512, 512, actionNum]
     dimList = [stateNum] + CONFIG.ARCHITECTURE + [actionNum]
 
     agent = DDQNPursuitEvasion(CONFIG, numActionList, dimList, actType='Tanh')

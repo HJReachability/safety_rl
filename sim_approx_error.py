@@ -114,6 +114,7 @@ def run(args):
     agent = DDQNPursuitEvasion(CONFIG, numActionList, dimList, actType='Tanh')
     modelFile = '{:s}/model-{:d}.pth'.format(args.modelFolder + '/model', 4000000)
     agent.restore(modelFile)
+    print(agent.device)
 
 
     #== ROLLOUT RESULTS ==

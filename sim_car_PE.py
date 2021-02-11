@@ -32,21 +32,21 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-te",  "--toEnd",          help="stop until reaching boundary",    action="store_true")
 parser.add_argument("-ab",  "--addBias",        help="add bias term for RA",            action="store_true")
 parser.add_argument("-w",   "--warmup",         help="warmup Q-network",                action="store_true")
+parser.add_argument("-rnd", "--randomSeed",     help="random seed",                     default=0,      type=int)
 parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",       default=4e6,    type=int)
 parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",                  default=1e4,    type=int)
 parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",             default=20,     type=int)
 parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",                default=20000,  type=int)
 
 # hyper-parameters
-# parser.add_argument("-d",   "--deeper",         help="deeper NN",           action="store_true")
 parser.add_argument("-arc", "--architecture",   help="NN architecture",     default=[512, 512, 512],  nargs="*", type=int)
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",       default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",  default=0.8,    type=float)
 parser.add_argument("-act", "--actType",        help="activation type",     default='Tanh', type=str)
 
 # file
-parser.add_argument("-n",   "--name",           help="extra name",      default='',            type=str)
-parser.add_argument("-of",  "--outFolder",      help="output file",     default='scratch/',    type=str)
+parser.add_argument("-n",   "--name",           help="extra name",      default='',                         type=str)
+parser.add_argument("-of",  "--outFolder",      help="output file",     default='/scratch/gpfs/kaichieh/',  type=str)
 parser.add_argument("-pf",  "--plotFigure",     help="plot figures",    action="store_true")
 parser.add_argument("-sf",  "--storeFigure",    help="store figures",   action="store_true")
 
@@ -140,7 +140,7 @@ plt.close()
 
 #== Agent CONFIG ==
 print("\n== Agent Information ==")
-CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, 
+CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
     MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps,
     BATCH_SIZE=100, MEMORY_CAPACITY=args.memoryCapacity,
     ARCHITECTURE=args.architecture, ACTIVATION=args.actType,

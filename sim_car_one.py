@@ -51,8 +51,8 @@ parser.add_argument("-turn",    "--turnRadius",         help="turning radius",  
 parser.add_argument("-s",       "--speed",              help="speed",               default=.5, type=float)
 
 # file
-parser.add_argument("-n",   "--name",           help="extra name",      default='',                           type=str)
-parser.add_argument("-of",  "--outFolder",      help="output file",     default='/scratch/gpfs/kaichieh/',    type=str)
+parser.add_argument("-n",   "--name",           help="extra name",      default='',                         type=str)
+parser.add_argument("-of",  "--outFolder",      help="output file",     default='/scratch/gpfs/kaichieh/',  type=str)
 parser.add_argument("-pf",  "--plotFigure",     help="plot figures",    action="store_true")
 parser.add_argument("-sf",  "--storeFigure",    help="store figures",   action="store_true")
 

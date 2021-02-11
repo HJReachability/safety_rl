@@ -284,9 +284,9 @@ class DDQNSingle(DDQN):
 
                 # Check after fixed number of gradient updates
                 if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
-                    _, results = env.simulate_trajectories( self.Q_network, T=MAX_EP_STEPS, 
-                                                            num_rnd_traj=numRndTraj,
-                                                            keepOutOf=False, toEnd=False)
+                    results= env.simulate_trajectories(self.Q_network,
+                        T=MAX_EP_STEPS, num_rnd_traj=numRndTraj,
+                        keepOutOf=False, toEnd=False)[1]
                     success  = np.sum(results==1) / numRndTraj
                     failure  = np.sum(results==-1)/ numRndTraj
                     unfinish = np.sum(results==0) / numRndTraj

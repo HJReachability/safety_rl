@@ -22,8 +22,8 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 
 #== ARGS ==
-# e.g., python3 sim_car_one.py -te -w -d (default)
-# e.g., python3 sim_car_one.py -te -w -mu 10000 -ut 2
+# e.g., python3 sim_car_one.py -te -w (default)
+# e.g., n
 parser = argparse.ArgumentParser()
 # parser.add_argument("-nt",  "--num_test",       help="the number of tests",         default=1,      type=int)
 # parser.add_argument("-nw",  "--num_worker",     help="the number of workers",       default=1,      type=int)
@@ -32,13 +32,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-te",  "--toEnd",          help="stop until reaching boundary",    action="store_true")
 parser.add_argument("-ab",  "--addBias",        help="add bias term for RA",            action="store_true")
 parser.add_argument("-w",   "--warmup",         help="warmup Q-network",                action="store_true")
+parser.add_argument("-rnd", "--randomSeed",     help="random seed",                     default=0,      type=int)
 parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",       default=4e6,    type=int)
 parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",                  default=1e4,    type=int)
 parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",             default=20,     type=int)
 parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",                default=10000,  type=int)
 
 # hyper-parameters
-# parser.add_argument("-d",  "--deeper",          help="deeper NN",           action="store_true")
 parser.add_argument("-arc", "--architecture",   help="NN architecture",     default=[512, 512, 512],  nargs="*", type=int)
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",       default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",  default=0.8,    type=float)
@@ -151,7 +151,7 @@ if args.plotFigure or args.storeFigure:
 
 #== Agent CONFIG ==
 print("\n== Agent Information ==")
-CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, 
+CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
     MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps,
     BATCH_SIZE=100, MEMORY_CAPACITY=args.memoryCapacity,
     ARCHITECTURE=args.architecture, ACTIVATION=args.actType,
@@ -159,7 +159,7 @@ CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name,
     EPS_PERIOD=updatePeriod, EPS_DECAY=0.6,
     LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
     MAX_MODEL=50)
-# print(vars(CONFIG))
+print(vars(CONFIG))
 picklePath = outFolder+'/CONFIG.pkl'
 with open(picklePath, 'wb') as handle:
     pickle.dump(CONFIG, handle, protocol=pickle.HIGHEST_PROTOCOL)

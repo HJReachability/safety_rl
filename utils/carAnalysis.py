@@ -11,8 +11,8 @@ silver = '#C0C0C0'
 
 
 def thetaMtx(theta):
-    return np.array([[np.cos(theta), -np.sin(theta)],
-                     [np.sin(theta), np.cos(theta)]])
+    return np.array([   [np.cos(theta), -np.sin(theta)],
+                        [np.sin(theta), np.cos(theta)]])
 
 #== Basic Plots ==
 def plot_arc(p, r, thetaParam, ax, c='b', lw=3, orientation=0):

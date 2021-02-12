@@ -1,26 +1,27 @@
-# Estimation error: predicted vs. rollout value
+# == ESTIMATION ERROR ==
+# We want to evaluate how well we learned from the data.
+# We compare the DDQN-predicted value vs. the rollout value by DDQN-induced 
+# policies.
 
 from warnings import simplefilter 
 simplefilter(action='ignore', category=FutureWarning)
-
 from gym_reachability import gym_reachability  # Custom Gym env.
 import gym
 import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
 import torch
-from collections import namedtuple
 import os
 import time
 import pickle
 
-from KC_DQN.DDQNPursuitEvasion import DDQNPursuitEvasion
-from KC_DQN.config import dqnConfig
+from utils.carPEAnalysis import *
 
 import argparse
 
-# 27554 seconds for 11 samples per dimension with 6 workers, NN: 2-layer with 512 neurons per leayer
-# ex: python3 sim_approx_error.py -ns 11 -nw 6 -mf scratch/carPE/largeBuffer-3-512-2021-02-07-01_51 -of largeBuffer-3-512
+# 27554 seconds
+#   11 samples per dimension with 6 workers
+#   NN: 2-layer with 512 neurons per leayer
+# ex: python3 sim_est_error.py -ns 11 -nw 6 -of largeBuffer-3-512
+#   -mf scratch/carPE/largeBuffer-3-512-2021-02-07-01_51 
 
 def multi_experiment(env, agent, firstIdx, numSample, maxLength, toEnd):
     print("I'm process", os.getpid())
@@ -28,13 +29,15 @@ def multi_experiment(env, agent, firstIdx, numSample, maxLength, toEnd):
                         [-1, 1],
                         [0, 2*np.pi]])
     stateBound = np.concatenate((bounds, bounds), axis=0)
-    samples = np.linspace(start=stateBound[:,0], stop=stateBound[:,1], num=numSample)
+    samples = np.linspace(start=stateBound[:,0], stop=stateBound[:,1],
+        num=numSample)
 
     freeCoordNum = 5
-    rolloutResult  = np.empty(shape=np.ones(freeCoordNum, dtype=int)*numSample, dtype=int)
-    trajLength     = np.empty(shape=np.ones(freeCoordNum, dtype=int)*numSample, dtype=int)
-    ddqnValue      = np.empty(shape=np.ones(freeCoordNum, dtype=int)*numSample, dtype=float)
-    rolloutValue   = np.empty(shape=np.ones(freeCoordNum, dtype=int)*numSample, dtype=float)
+    shapeTmp = np.ones(freeCoordNum, dtype=int)*numSample
+    rolloutResult   = np.empty(shape=shapeTmp, dtype=int)
+    trajLength      = np.empty(shape=shapeTmp, dtype=int)
+    ddqnValue       = np.empty(shape=shapeTmp, dtype=float)
+    rolloutValue    = np.empty(shape=shapeTmp, dtype=float)
     it = np.nditer(rolloutResult, flags=['multi_index'])
 
     while not it.finished:
@@ -51,7 +54,8 @@ def multi_experiment(env, agent, firstIdx, numSample, maxLength, toEnd):
         agent.Q_network.eval()
         state = torch.from_numpy(state).float().to(agent.device)
         state_action_values = agent.Q_network(state)
-        Q_mtx = state_action_values.detach().cpu().reshape(agent.numActionList[0], agent.numActionList[1])
+        Q_mtx = state_action_values.detach().cpu().reshape(
+            agent.numActionList[0], agent.numActionList[1])
         pursuerValues, _ = Q_mtx.max(dim=1)
         minmaxValue, _ = pursuerValues.min(dim=0)
         ddqnValue[idx] = minmaxValue
@@ -70,54 +74,15 @@ def multi_experiment(env, agent, firstIdx, numSample, maxLength, toEnd):
 
 def run(args):
     #== ENVIRONMENT ==
-    print("\n== Environment Information ==")
-
-    env_name = "dubins_car_pe-v0"
-    if args.forceCPU:
-        device = torch.device("cpu")
-    else:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    env = gym.make(env_name, device=device, mode='RA', doneType='toEnd')
-
+    env = loadEnv(args)
     stateNum = env.state.shape[0]
     actionNum = env.action_space.n
-    action_list = np.arange(actionNum)
-    print("State Dimension: {:d}, ActionSpace Dimension: {:d}".format(stateNum, actionNum))
-
-    print("Dynamic parameters:")
-    print("  EVADER")
-    print("    Constraint radius: {:.1f}, Target radius: {:.1f}, Turn radius: {:.2f}, Maximum speed: {:.2f}, Maximum angular speed: {:.3f}".format(
-        env.evader.constraint_radius, env.evader.target_radius, env.evader.R_turn, env.evader.speed, env.evader.max_turning_rate))
-    print("  PURSUER")
-    print("    Constraint radius: {:.1f}, Turn radius: {:.2f}, Maximum speed: {:.2f}, Maximum angular speed: {:.3f}".format(
-        env.pursuer.constraint_radius, env.pursuer.R_turn, env.pursuer.speed, env.pursuer.max_turning_rate))
-    print(env.evader.discrete_controls)
-    if 2*env.evader.R_turn-env.evader.constraint_radius > env.evader.target_radius:
-        print("Type II Reach-Avoid Set")
-    else:
-        print("Type I Reach-Avoid Set")
-
+    numActionList = env.numActionList
+    device = env.device
 
     #== AGENT ==
-    print("\n== Agent Information ==")
-    with open('{:s}/CONFIG.pkl'.format(args.modelFolder), 'rb') as handle:
-        tmpConfig = pickle.load(handle)
-    CONFIG = dqnConfig()
-    for key, value in tmpConfig.__dict__.items():
-        CONFIG.__dict__[key] = tmpConfig.__dict__[key]
-    CONFIG.DEVICE = device
-    CONFIG.SEED = 0
-    print(vars(CONFIG))
-
-    numActionList = env.numActionList
-    numJoinAction = int(numActionList[0] * numActionList[1])
-    dimList = [stateNum] + CONFIG.ARCHITECTURE + [actionNum]
-
-    agent = DDQNPursuitEvasion(CONFIG, numActionList, dimList, actType='Tanh')
-    modelFile = '{:s}/model-{:d}.pth'.format(args.modelFolder + '/model', 4000000)
-    agent.restore(modelFile)
-    print(agent.device)
-
+    configFile = '{:s}/CONFIG.pkl'.format(args.modelFolder)
+    agent = loadAgent(args, configFile, device, stateNum, actionNum, numActionList)
 
     #== ROLLOUT RESULTS ==
     print("\n== Approximate Error Information ==")
@@ -127,7 +92,8 @@ def run(args):
                         [-1, 1],
                         [0, 2*np.pi]])
     stateBound = np.concatenate((bounds, bounds), axis=0)
-    samples = np.linspace(start=stateBound[:,0], stop=stateBound[:,1], num=numSample)
+    samples = np.linspace(start=stateBound[:,0], stop=stateBound[:,1],
+        num=numSample)
     print(samples)
 
     from multiprocessing import Pool
@@ -139,7 +105,9 @@ def run(args):
     for ith in range(numTurn):
         print('{} / {}'.format(ith+1, numTurn))
         with Pool(processes = numThread) as pool:
-            firstIdxList = list(range(ith*numThread, min(numSample, (ith+1)*numThread) ))
+            startIdx = ith*numThread
+            endIdx = min(numSample, (ith+1)*numThread)
+            firstIdxList = list(range(startIdx, endIdx))
             print(firstIdxList)
             numExp = len(firstIdxList)
             envList       = [env]       * numExp
@@ -149,14 +117,16 @@ def run(args):
             toEndList     = [toEnd]     * numExp
 
             carPESubDict_i = pool.starmap(multi_experiment, zip(
-                envList, agentList, firstIdxList, numSampleList, maxLengthList, toEndList))
+                envList, agentList, firstIdxList, numSampleList, maxLengthList, 
+                toEndList))
         carPESubDictList = carPESubDictList + carPESubDict_i
 
     #== COMBINE RESULTS ==
-    rolloutResult  = np.empty(shape=np.ones(6, dtype=int)*numSample, dtype=int)
-    trajLength     = np.empty(shape=np.ones(6, dtype=int)*numSample, dtype=int)
-    ddqnValue      = np.empty(shape=np.ones(6, dtype=int)*numSample, dtype=float)
-    rolloutValue   = np.empty(shape=np.ones(6, dtype=int)*numSample, dtype=float)
+    shapeTmp = np.ones(6, dtype=int)*numSample
+    rolloutResult  = np.empty(shape=shapeTmp, dtype=int)
+    trajLength     = np.empty(shape=shapeTmp, dtype=int)
+    ddqnValue      = np.empty(shape=shapeTmp, dtype=float)
+    rolloutValue   = np.empty(shape=shapeTmp, dtype=float)
 
     for i, carPESubDict_i in enumerate(carPESubDictList):
         rolloutResult[i, :, :, :, :, :] = carPESubDict_i['rolloutResult']
@@ -179,12 +149,16 @@ def run(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f",   "--forceCPU",       help="force CPU",   action="store_true")
-    parser.add_argument("-ns",  "--numSample",      help="#samples",    default=3,              type=int)
-    parser.add_argument("-nw",  "--numWorker",      help="#workers",    default=6,              type=int)
-    parser.add_argument("-of",  "--outFile",        help="output file", default='carPEDict',    type=str)
-    parser.add_argument("-mf",  "--modelFolder",    help="model folder", 
-        default='scratch/carPE/smallBuffer-2021-02-04-23_02', type=str)
+    parser.add_argument("-f",  "--forceCPU",    help="force CPU",
+        action="store_true")
+    parser.add_argument("-ns", "--numSample",   help="#samples",
+        default=3, type=int)
+    parser.add_argument("-nw", "--numWorker",   help="#workers",
+        default=6, type=int)
+    parser.add_argument("-of", "--outFile",     help="output file",
+        default='carPEDict', type=str)
+    parser.add_argument("-mf", "--modelFolder", help="model folder", 
+        default='scratch/carPE/largeBuffer-2021-02-04-23_02', type=str)
 
     args = parser.parse_args()
     print("\n== Arguments ==")

@@ -1,6 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
+import pickle
+from gym_reachability import gym_reachability  # Custom Gym env.
+import gym
+
+from KC_DQN.config import dqnConfig
+from KC_DQN.DDQNPursuitEvasion import DDQNPursuitEvasion
 
 tiffany = '#0abab5'
 
@@ -120,10 +126,9 @@ def pursuerResponse(env, agent, statePursuer, trajEvader):
     return trajPursuer, result, minV, info
 
 
-def evaderResponse(env, agent, state, actionSeq, maxLength=40, resPeriod=4):
-    assert actionSeq.shape[0] >= np.ceil(maxLength/resPeriod),\
-        'The action sequence is too short! expected {:.0f} but got {:.0f}'.format(
-        np.ceil(maxLength/resPeriod), actionSeq.shape[0])
+def evaderResponse(env, agent, state, actionSeq, maxLength=40):
+    numPursuerStep = actionSeq.shape[0]
+    resPeriod = int(np.ceil(maxLength/numPursuerStep))
     stateEvader  = state[:3]
     statePursuer = state[3:]
     trajPursuer = [statePursuer]
@@ -185,22 +190,72 @@ def evaderResponse(env, agent, state, actionSeq, maxLength=40, resPeriod=4):
     return trajEvader, trajPursuer, minV, info
 
 
-def validateEvaderPolicy(env, agent, state, maxLength=40, resPeriod=4):
-    numPursuerStep = int(np.ceil(maxLength/resPeriod))
+def validateEvaderPolicy(env, agent, state, maxLength=40, numPursuerStep=10):
     actionSet= np.empty(shape=(env.numActionList[1], numPursuerStep), dtype=int)
     for i in range(numPursuerStep):
         actionSet[:, i] = np.arange(env.numActionList[1])
-    print(actionSet)
 
-    rolloutResult  = np.empty(shape=np.ones(numPursuerStep, dtype=int)*env.numActionList[1], dtype=int)
+    shapeTmp = np.ones(numPursuerStep, dtype=int)*env.numActionList[1]
+    rolloutResult = np.empty(shape=shapeTmp, dtype=int)
     it = np.nditer(rolloutResult, flags=['multi_index'])
-    responseDict={}
+    responseDict={'state':state, 'maxLength':maxLength, 
+        'numPursuerStep':numPursuerStep}
+    flag = True
     while not it.finished:
         idx = it.multi_index
         actionSeq = actionSet[idx, np.arange(numPursuerStep)]
         print(actionSeq, end='\r')
-        trajEvader, trajPursuer, minV, _ = evaderResponse(env, agent, state, actionSeq, maxLength, resPeriod)
+        trajEvader, trajPursuer, minV, _ = evaderResponse(
+            env, agent, state, actionSeq, maxLength)
         info = {'trajEvader':trajEvader, 'trajPursuer':trajPursuer, 'minV':minV}
         responseDict[idx] = info
         it.iternext()
+        if flag:
+            maxminV = minV
+            maxminIdx = idx
+            flag = False
+        elif minV > maxminV:
+            maxminV = minV
+            maxminIdx = idx
+    responseDict['maxminV'] = maxminV
+    responseDict['maxminIdx'] = maxminIdx
     return responseDict
+
+
+def loadEnv(args, verbose=True):
+    env_name = "dubins_car_pe-v0"
+    if args.forceCPU:
+        device = torch.device("cpu")
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    env = gym.make(env_name, device=device, mode='RA', doneType='toEnd')
+
+    if verbose:
+        print("\n== Environment Information ==")
+        env.report()
+        print()
+    return env
+
+
+def loadAgent(args, configFile, device, stateNum, actionNum, numActionList,
+    verbose=True):
+    if verbose:
+        print("\n== Agent Information ==")
+    with open(configFile, 'rb') as handle:
+        tmpConfig = pickle.load(handle)
+    CONFIG = dqnConfig()
+    for key, value in tmpConfig.__dict__.items():
+        CONFIG.__dict__[key] = tmpConfig.__dict__[key]
+    CONFIG.DEVICE = device
+    CONFIG.SEED = 0
+
+    dimList = [stateNum] + CONFIG.ARCHITECTURE + [actionNum]
+    agent = DDQNPursuitEvasion(CONFIG, numActionList, dimList, CONFIG.ACTIVATION)
+    modelFile = '{:s}/model-{:d}.pth'.format(args.modelFolder+'/model', 4000000)
+    agent.restore(modelFile)
+
+    if verbose:
+        print(vars(CONFIG))
+        print('agent\'s device:', agent.device)
+
+    return agent

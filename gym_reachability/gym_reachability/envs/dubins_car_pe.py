@@ -395,6 +395,30 @@ class DubinsCarPEEnv(gym.Env):
         return v
 
 
+    def report(self):
+        stateNum = self.state.shape[0]
+        actionNum = self.action_space.n
+        print("State Dimension: {:d}, ActionSpace Dimension: {:d}".format(
+            stateNum, actionNum))
+        print("Dynamic parameters:")
+        print("  EVADER", end='\n    ')
+        print("Constraint: {:.1f}".format(self.evader.constraint_radius), end=', ')
+        print("Target: {:.1f}".format(self.evader.target_radius), end=', ')
+        print("Turn: {:.2f}".format(self.evader.R_turn), end=', ')
+        print("Max speed: {:.2f}".format(self.evader.speed), end=', ')
+        print("Max angular speed: {:.3f}".format(self.evader.max_turning_rate))
+        print("  PURSUER", end='\n    ')
+        print("Constraint: {:.1f}".format(self.pursuer.constraint_radius), end=', ')
+        print("Turn: {:.2f}".format(self.pursuer.R_turn), end=', ')
+        print("Max speed: {:.2f}".format(self.pursuer.speed), end=', ')
+        print("Max angular speed: {:.3f}".format(self.pursuer.max_turning_rate))
+        print(self.evader.discrete_controls)
+        if 2*self.evader.R_turn-self.evader.constraint_radius > self.evader.target_radius:
+            print("Type II Reach-Avoid Set")
+        else:
+            print("Type I Reach-Avoid Set")
+
+
 #== Trajectory Functions ==
     def simulate_one_trajectory(self, q_func, T=10, state=None, theta=None,
                                 keepOutOf=False, toEnd=False):

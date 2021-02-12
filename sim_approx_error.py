@@ -98,11 +98,12 @@ def run(args):
     maxLength = args.maxLength
     numPursuerStep = args.numPursuerStep
     for ith in range(numTurn):
-        print('{} / {}'.format(ith+1, numTurn))
+        print('\n{} / {}: '.format(ith+1, numTurn), end='')
         with Pool(processes = numThread) as pool:
             startIdx = ith*numThread
-            endIdx = min(numSample, (ith+1)*numThread)
+            endIdx = min(args.numTest, (ith+1)*numThread)
             stateList = []
+            print('{:.0f}-{:.0f}'.format(startIdx, endIdx-1))
             for i in range(startIdx, endIdx):
                 stateList.append(states[i, :])
             numExp = len(stateList)

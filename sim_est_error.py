@@ -82,7 +82,8 @@ def run(args):
 
     #== AGENT ==
     configFile = '{:s}/CONFIG.pkl'.format(args.modelFolder)
-    agent = loadAgent(args, configFile, device, stateNum, actionNum, numActionList)
+    agent = loadAgent(
+        args, configFile, device, stateNum, actionNum, numActionList)
 
     #== ROLLOUT RESULTS ==
     print("\n== Approximate Error Information ==")

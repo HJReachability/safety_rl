@@ -20,17 +20,19 @@ import argparse
 # 27554 seconds
 #   11 samples per dimension with 6 workers
 #   NN: 2-layer with 512 neurons per leayer
-# ex: python3 sim_est_error.py -ns 11 -nw 6 -of largeBuffer-3-512
-#   -mf scratch/carPE/largeBuffer-3-512-2021-02-07-01_51 
+# ex: python3 sim_est_error.py -of largeBuffer-3-512-new
 
-def multi_experiment(env, agent, firstIdx, numSample, maxLength, toEnd):
+def multi_experiment(env, agent, samples, firstIdx, numSample, maxLength, toEnd):
     print("I'm process", os.getpid())
-    bounds = np.array([ [-1, 1],
-                        [-1, 1],
-                        [0, 2*np.pi]])
-    stateBound = np.concatenate((bounds, bounds), axis=0)
-    samples = np.linspace(start=stateBound[:,0], stop=stateBound[:,1],
-        num=numSample)
+    # R = env.evader_constraint_radius
+    # r = env.evader_target_radius
+    # bounds = np.array([ [r, R],
+    #                     [0., 2*np.pi*(1-1/numSample)],
+    #                     [0., 2*np.pi*(1-1/numSample)],
+    #                     [0.01, R],
+    #                     [np.pi*(1/numSample), np.pi*(2-1/numSample)],
+    #                     [0., 2*np.pi*(1-1/numSample)]])
+    # samples = np.linspace(start=bounds[:,0], stop=bounds[:,1], num=numSample)
 
     freeCoordNum = 5
     shapeTmp = np.ones(freeCoordNum, dtype=int)*numSample
@@ -45,6 +47,12 @@ def multi_experiment(env, agent, firstIdx, numSample, maxLength, toEnd):
         stateIdx = (firstIdx,) + idx
         print(stateIdx, end='\r')
         state = samples[stateIdx, np.arange(6)]
+        dist, phi = state[[0, 1]]
+        state[0] = dist * np.cos(phi)
+        state[1] = dist * np.sin(phi)
+        dist, phi = state[[3, 4]]
+        state[3] = dist * np.cos(phi)
+        state[4] = dist * np.sin(phi)
         traj, _, result, minV, _ = env.simulate_one_trajectory(
             agent.Q_network, T=maxLength, state=state, toEnd=toEnd)
         trajLength[idx] = traj.shape[0]
@@ -89,17 +97,20 @@ def run(args):
     print("\n== Approximate Error Information ==")
     np.set_printoptions(precision=2, suppress=True)
     numSample = args.numSample
-    bounds = np.array([ [-1, 1],
-                        [-1, 1],
-                        [0, 2*np.pi]])
-    stateBound = np.concatenate((bounds, bounds), axis=0)
-    samples = np.linspace(start=stateBound[:,0], stop=stateBound[:,1],
-        num=numSample)
+    R = env.evader_constraint_radius
+    r = env.evader_target_radius + 0.05
+    bounds = np.array([ [r, R],
+                        [0., 2*np.pi*(1-1/numSample)],
+                        [0., 2*np.pi*(1-1/numSample)],
+                        [0.01, R],
+                        [np.pi*(1/numSample), np.pi*(2-1/numSample)],
+                        [0., 2*np.pi*(1-1/numSample)]])
+    samples = np.linspace(start=bounds[:,0], stop=bounds[:,1], num=numSample)
     print(samples)
 
     from multiprocessing import Pool
-    maxLength = 150
-    toEnd = True
+    maxLength = args.maxLength
+    toEnd = args.toEnd
     carPESubDictList = []
     numThread = args.numWorker
     numTurn = int(numSample/(numThread+1e-6))+1
@@ -113,13 +124,14 @@ def run(args):
             numExp = len(firstIdxList)
             envList       = [env]       * numExp
             agentList     = [agent]     * numExp
+            samplesList   = [samples]   * numExp
             numSampleList = [numSample] * numExp
             maxLengthList = [maxLength] * numExp
             toEndList     = [toEnd]     * numExp
 
             carPESubDict_i = pool.starmap(multi_experiment, zip(
-                envList, agentList, firstIdxList, numSampleList, maxLengthList, 
-                toEndList))
+                envList, agentList, samplesList, firstIdxList, numSampleList, 
+                maxLengthList, toEndList))
         carPESubDictList = carPESubDictList + carPESubDict_i
 
     #== COMBINE RESULTS ==
@@ -143,6 +155,7 @@ def run(args):
     carPEDict['trajLength']    = trajLength
     carPEDict['ddqnValue']     = ddqnValue
     carPEDict['rolloutValue']  = rolloutValue
+    carPEDict['samples']       = samples
 
     outFile = 'data/' + args.outFile + '.npy'
     np.save('{:s}'.format(outFile), carPEDict)
@@ -152,12 +165,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-f",  "--forceCPU",    help="force CPU",
         action="store_true")
+    parser.add_argument("-te", "--toEnd",       help="to end",
+        action="store_true")
+    parser.add_argument("-ml", "--maxLength",   help="max length",
+        default=150, type=int)
     parser.add_argument("-ns", "--numSample",   help="#samples",
-        default=3, type=int)
+        default=11, type=int)
     parser.add_argument("-nw", "--numWorker",   help="#workers",
         default=6, type=int)
     parser.add_argument("-of", "--outFile",     help="output file",
-        default='carPEDict', type=str)
+        default='largeBuffer-3-512', type=str)
     parser.add_argument("-mf", "--modelFolder", help="model folder", 
         default='scratch/carPE/largeBuffer-2021-02-04-23_02', type=str)
 

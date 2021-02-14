@@ -18,8 +18,10 @@ import os
 from utils.carPEAnalysis import *
 
 # Example: python3 sim_approx_error.py -nt 10
+# Example: python3 sim_approx_error.py
+# 18k seconds
 
-def multi_experiment(env, agent, state, maxLength=50, numPursuerStep=10):
+def multi_experiment(env, agent, state, maxLength=40, numPursuerStep=10):
     """
     multi_experiment: simulate defender's trajectories and record the maximum
         value among these trajectories.
@@ -70,26 +72,26 @@ def run(args):
     print('Load from {:s} ...'.format(args.resultFile))
     read_dictionary = np.load(args.resultFile, allow_pickle='TRUE').item()
     print(read_dictionary.keys())
-    ddqnValue = read_dictionary['ddqnValue']
-    numSample = read_dictionary['numSample']
+    ddqnValue    = read_dictionary['ddqnValue']
+    rolloutValue = read_dictionary['rolloutValue']
+    samples      = read_dictionary['samples']
 
-    DDQNSucMtx = (ddqnValue <= 0)
+    DDQNSucMtx = np.logical_and((rolloutValue <= 0), (ddqnValue <= 0))
     DDQNSucIndices = np.argwhere(DDQNSucMtx)
     length = DDQNSucIndices.shape[0]
     indices = np.random.randint(low=0, high=length, size=(args.numTest,))
-
-    bounds = np.array([ [-1, 1],
-                        [-1, 1],
-                        [0, 2*np.pi]])
-    stateBound = np.concatenate((bounds, bounds), axis=0)
-    samples = np.linspace(start=stateBound[:,0], stop=stateBound[:,1],
-        num=numSample)
     states = np.empty(shape=(args.numTest, 6), dtype=float)
     for cnt, i in enumerate(indices):
         idx = tuple(DDQNSucIndices[i])
         state = samples[idx, np.arange(6)]
+        dist, phi = state[[0, 1]]
+        state[0] = dist * np.cos(phi)
+        state[1] = dist * np.sin(phi)
+        dist, phi = state[[3, 4]]
+        state[3] = dist * np.cos(phi)
+        state[4] = dist * np.sin(phi)
         states[cnt, :] = state
-
+    # print(states)
     #== Estimating Approximation Error in Parallel ==
     from multiprocessing import Pool
     dictList = []
@@ -133,11 +135,11 @@ if __name__ == '__main__':
     parser.add_argument("-f", "--forceCPU", help="force CPU",
         action="store_true")
     parser.add_argument("-nt", "--numTest", help="#tests",
-        default=10, type=int)
+        default=100, type=int)
     parser.add_argument("-nw", "--numWorker", help="#workers",
         default=6,  type=int)
     parser.add_argument("-ml", "--maxLength", help="max length",
-        default=40, type=int)
+        default=50, type=int)
     parser.add_argument("-nps", "--numPursuerStep", help="#pursuer steps",
         default=10, type=int)
     parser.add_argument("-of", "--outFile", help="output file",
@@ -145,7 +147,7 @@ if __name__ == '__main__':
     parser.add_argument("-mf", "--modelFolder", help="model folder", 
         default='scratch/carPE/largeBuffer-2021-02-04-23_02', type=str)
     parser.add_argument("-rf", "--resultFile", help="result file", 
-        default='data/largeBuffer.npy', type=str)
+        default='data/largeBuffer-2-512-new.npy', type=str)
     args = parser.parse_args()
     print("\n== Arguments ==")
     print(args)

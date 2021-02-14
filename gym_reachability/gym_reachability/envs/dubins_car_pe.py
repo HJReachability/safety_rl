@@ -67,6 +67,12 @@ class DubinsCarPEEnv(gym.Env):
         # Set random seed.
         self.seed_val = 0
         np.random.seed(self.seed_val)
+        torch.manual_seed(self.seed_val)
+        torch.cuda.manual_seed(self.seed_val)
+        torch.cuda.manual_seed_all(self.seed_val)  # if you are using multi-GPU.
+        random.seed(self.seed_val) 
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
 
         # State bounds.
         self.bounds = np.array([[-1.1, 1.1],

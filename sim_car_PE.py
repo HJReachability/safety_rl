@@ -23,23 +23,21 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 #== ARGS ==
 # e.g., python3 sim_car_PE.py -te -w 
-# test: python3 sim_car_PE.py -te -w -mu 100 -ut 2 -wi 1 -of scratch/
-parser = argparse.ArgumentParser()
-# parser.add_argument("-nt",  "--num_test",       help="the number of tests",         default=1,      type=int)
-# parser.add_argument("-nw",  "--num_worker",     help="the number of workers",       default=1,      type=int)
+# test: python3 sim_car_PE.py -te -w -sf -mu 100 -ut 2 -wi 1 -of scratch/
 
+parser = argparse.ArgumentParser()
 # training scheme
 parser.add_argument("-te",  "--toEnd",          help="stop until reaching boundary",    action="store_true")
 parser.add_argument("-ab",  "--addBias",        help="add bias term for RA",            action="store_true")
 parser.add_argument("-w",   "--warmup",         help="warmup Q-network",                action="store_true")
 parser.add_argument("-rnd", "--randomSeed",     help="random seed",                     default=0,      type=int)
 parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",       default=4e6,    type=int)
-parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",                  default=1e4,    type=int)
+parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",                  default=5e4,    type=int)
 parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",             default=20,     type=int)
 parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",                default=20000,  type=int)
 
 # hyper-parameters
-parser.add_argument("-arc", "--architecture",   help="NN architecture",     default=[512, 512, 512],  nargs="*", type=int)
+parser.add_argument("-arc", "--architecture",   help="NN architecture",     default=[512, 512],  nargs="*", type=int)
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",       default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",  default=0.8,    type=float)
 parser.add_argument("-act", "--actType",        help="activation type",     default='Tanh', type=str)
@@ -80,21 +78,7 @@ else:
 stateNum = env.state.shape[0]
 actionNum = env.action_space.n
 action_list = np.arange(actionNum)
-print("State Dimension: {:d}, ActionSpace Dimension: {:d}".format(stateNum, actionNum))
-
-
-#== Setting in this Environment ==
-print("Dynamic parameters:")
-print("  EVADER")
-print("    Constraint radius: {:.1f}, Target radius: {:.1f}, Turn radius: {:.2f}, Maximum speed: {:.1f}, Maximum angular speed: {:.3f}".format(
-    env.evader.constraint_radius, env.evader.target_radius, env.evader.R_turn, env.evader.speed, env.evader.max_turning_rate))
-print("  PURSUER")
-print("    Constraint radius: {:.1f}, Turn radius: {:.2f}, Maximum speed: {:.2f}, Maximum angular speed: {:.3f}".format(
-    env.pursuer.constraint_radius, env.pursuer.R_turn, env.pursuer.speed, env.pursuer.max_turning_rate))
-if 2*env.evader.R_turn-env.evader.constraint_radius > env.evader.target_radius:
-    print("Type II Reach-Avoid Set")
-else:
-    print("Type I Reach-Avoid Set")
+env.report()
 
 
 #== Get and Plot max{l_x, g_x} ==
@@ -106,8 +90,8 @@ g_x = np.zeros((4, nx, ny))
 xs = np.linspace(env.bounds[0,0], env.bounds[0,1], nx)
 ys =np.linspace(env.bounds[1,0], env.bounds[1,1], ny)
 
-xPursuerList=[.1, .3, .5, .7]
-yPursuerList=[.1, .3, .5, .7]
+xPursuerList=[.1, .3, .5, .8]
+yPursuerList=[.1, .3, .5, .8]
 for i, (xPursuer, yPursuer) in enumerate(zip(xPursuerList, yPursuerList)):
     it = np.nditer(l_x[0], flags=['multi_index'])
 

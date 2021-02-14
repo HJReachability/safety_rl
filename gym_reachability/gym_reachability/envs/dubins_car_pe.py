@@ -315,7 +315,9 @@ class DubinsCarPEEnv(gym.Env):
 
     def target_margin(self, s):
         evader_l_x = self.evader.target_margin(s[:2])
-        return evader_l_x
+        # return evader_l_x
+        pursuer_g_x = self.evader.safety_margin(s[3:5])
+        return min(evader_l_x, -pursuer_g_x)
 
 
 #== Getting Functions ==

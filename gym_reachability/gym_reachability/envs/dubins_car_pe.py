@@ -62,7 +62,8 @@ def rotatePoint(state, orientation):
 
 
 class DubinsCarPEEnv(gym.Env):
-    def __init__(self, device, mode='normal', doneType='toEnd'):
+    def __init__(self, device, mode='normal', doneType='toEnd',
+        considerPursuerFailure=False):
         # Set random seed.
         self.seed_val = 0
         np.random.seed(self.seed_val)
@@ -92,6 +93,7 @@ class DubinsCarPEEnv(gym.Env):
         # Target set parameters.
         self.evader_target_center = np.array([0, 0])
         self.evader_target_radius = 0.5
+        self.considerPursuerFailure = considerPursuerFailure
 
         # Dubins cars parameters.
         self.time_step = 0.05
@@ -119,8 +121,6 @@ class DubinsCarPEEnv(gym.Env):
         self.reward = -1.
         self.costType = 'sparse'
         self.device = device
-
-        print("Env: mode---{:s}; doneType---{:s}".format(mode, doneType))
 
 
     def init_car(self):
@@ -260,6 +260,10 @@ class DubinsCarPEEnv(gym.Env):
             self.pursuer.set_constraint(center=center, radius=radius)
 
 
+    def set_considerPursuerFailure(self, considerPursuerFailure):
+        self.considerPursuerFailure = considerPursuerFailure
+
+
     def set_radius_rotation(self, R_turn=.6, verbose=False):
         self.R_turn = R_turn
         self.evader.set_radius_rotation(R_turn=R_turn, verbose=verbose)
@@ -315,9 +319,11 @@ class DubinsCarPEEnv(gym.Env):
 
     def target_margin(self, s):
         evader_l_x = self.evader.target_margin(s[:2])
-        # return evader_l_x
-        pursuer_g_x = self.evader.safety_margin(s[3:5])
-        return min(evader_l_x, -pursuer_g_x)
+        if self.considerPursuerFailure:
+            pursuer_g_x = self.evader.safety_margin(s[3:5])
+            return min(evader_l_x, -pursuer_g_x)
+        else:
+            return evader_l_x
 
 
 #== Getting Functions ==
@@ -400,6 +406,8 @@ class DubinsCarPEEnv(gym.Env):
     def report(self):
         stateNum = self.state.shape[0]
         actionNum = self.action_space.n
+        print("Env: mode---{:s}; doneType---{:s}".format(
+            self.mode, self.doneType))
         print("State Dimension: {:d}, ActionSpace Dimension: {:d}".format(
             stateNum, actionNum))
         print("Dynamic parameters:")
@@ -414,6 +422,10 @@ class DubinsCarPEEnv(gym.Env):
         print("Turn: {:.2f}".format(self.pursuer.R_turn), end=', ')
         print("Max speed: {:.2f}".format(self.pursuer.speed), end=', ')
         print("Max angular speed: {:.3f}".format(self.pursuer.max_turning_rate))
+        if self.considerPursuerFailure:
+            print("Target set also includes failure set of the pursuer")
+        else:
+            print("Target set only includes target set of the evader")
         print(self.evader.discrete_controls)
         if 2*self.evader.R_turn-self.evader.constraint_radius > self.evader.target_radius:
             print("Type II Reach-Avoid Set")

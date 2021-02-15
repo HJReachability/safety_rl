@@ -26,8 +26,11 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 # test: python3 sim_car_PE.py -te -w -sf -mu 100 -ut 2 -wi 1 -of scratch/
 
 parser = argparse.ArgumentParser()
-# training scheme
+# environment parameter
 parser.add_argument("-te",  "--toEnd",          help="stop until reaching boundary",    action="store_true")
+parser.add_argument("-cpf", "--cpf",            help="consider pursuer failure set",    action="store_true")
+
+# training scheme
 parser.add_argument("-ab",  "--addBias",        help="add bias term for RA",            action="store_true")
 parser.add_argument("-w",   "--warmup",         help="warmup Q-network",                action="store_true")
 parser.add_argument("-rnd", "--randomSeed",     help="random seed",                     default=0,      type=int)
@@ -74,7 +77,7 @@ if toEnd:
     env = gym.make(env_name, device=device, mode='RA', doneType='toEnd')
 else:
     env = gym.make(env_name, device=device, mode='RA', doneType='TF')
-
+env.set_considerPursuerFailure(args.cpf)
 stateNum = env.state.shape[0]
 actionNum = env.action_space.n
 action_list = np.arange(actionNum)

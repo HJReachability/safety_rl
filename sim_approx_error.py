@@ -20,6 +20,9 @@ from utils.carPEAnalysis import *
 # Example: python3 sim_approx_error.py -nt 10
 # Example: python3 sim_approx_error.py
 # 18k seconds
+# ex: python3 sim_approx_error.py -of val-large-3-512-new
+#       -mf scratch/carPE/largeBuffer-3-512-2021-02-07-01_51
+#       -rf data/largeBuffer-2-512-new.npy
 
 def multi_experiment(env, agent, state, maxLength=40, numPursuerStep=10):
     """
@@ -133,6 +136,10 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--forceCPU", help="force CPU",
+        action="store_true")
+    parser.add_argument("-te", "--toEnd", help="to end",
+        action="store_true")
+    parser.add_argument("-cpf", "--cpf", help="consider pursuer failure",
         action="store_true")
     parser.add_argument("-nt", "--numTest", help="#tests",
         default=100, type=int)

@@ -21,6 +21,8 @@ import argparse
 #   11 samples per dimension with 6 workers
 #   NN: 2-layer with 512 neurons per leayer
 # ex: python3 sim_est_error.py -of largeBuffer-3-512-new
+#       -mf scratch/carPE/largeBuffer-3-512-2021-02-07-01_51
+# ex: py3 sim_est_error.py -mf scratch/carPE/largeBuffer-3-512-2021-02-07-01_51
 
 def multi_experiment(env, agent, samples, firstIdx, numSample, maxLength, toEnd):
     print("I'm process", os.getpid())
@@ -97,8 +99,8 @@ def run(args):
     print("\n== Approximate Error Information ==")
     np.set_printoptions(precision=2, suppress=True)
     numSample = args.numSample
-    R = env.evader_constraint_radius
-    r = env.evader_target_radius + 0.05
+    R = env.evader_constraint_radius - 0.01
+    r = env.evader_target_radius + 0.01
     bounds = np.array([ [r, R],
                         [0., 2*np.pi*(1-1/numSample)],
                         [0., 2*np.pi*(1-1/numSample)],
@@ -157,7 +159,9 @@ def run(args):
     carPEDict['rolloutValue']  = rolloutValue
     carPEDict['samples']       = samples
 
-    outFile = 'data/' + args.outFile + '.npy'
+    outFolder = args.modelFolder + '/data/'
+    os.makedirs(outFolder, exist_ok=True)
+    outFile = outFolder + args.outFile + '.npy'
     np.save('{:s}'.format(outFile), carPEDict)
 
 
@@ -167,6 +171,8 @@ if __name__ == '__main__':
         action="store_true")
     parser.add_argument("-te", "--toEnd",       help="to end",
         action="store_true")
+    parser.add_argument("-cpf", "--cpf",        help="consider pursuer failure",
+        action="store_true")
     parser.add_argument("-ml", "--maxLength",   help="max length",
         default=150, type=int)
     parser.add_argument("-ns", "--numSample",   help="#samples",
@@ -174,7 +180,7 @@ if __name__ == '__main__':
     parser.add_argument("-nw", "--numWorker",   help="#workers",
         default=6, type=int)
     parser.add_argument("-of", "--outFile",     help="output file",
-        default='largeBuffer-3-512', type=str)
+        default='estError', type=str)
     parser.add_argument("-mf", "--modelFolder", help="model folder", 
         default='scratch/carPE/largeBuffer-2021-02-04-23_02', type=str)
 

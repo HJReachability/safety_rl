@@ -229,7 +229,7 @@ def loadEnv(args, verbose=True):
     else:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     env = gym.make(env_name, device=device, mode='RA', doneType='toEnd')
-
+    env.set_considerPursuerFailure(args.cpf)
     if verbose:
         print("\n== Environment Information ==")
         env.report()

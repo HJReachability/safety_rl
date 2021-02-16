@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-import pickle
+import pickle5 as pickle
 from gym_reachability import gym_reachability  # Custom Gym env.
 import gym
 

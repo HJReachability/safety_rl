@@ -85,18 +85,25 @@ def run(args):
     rolloutValue = read_dictionary['rolloutValue']
     samples      = read_dictionary['samples']
 
-    if args.type == 'TN':
+    if args.type == 0:
         pickMtx = np.logical_and((rolloutValue <= 0), (ddqnValue <= 0))
-    elif args.type == 'TP':
+        sampleType = 'TN'
+    elif args.type == 1:
         pickMtx = np.logical_and((rolloutValue > 0), (ddqnValue > 0))
-    elif args.type == 'FN':
+        sampleType = 'TP'
+    elif args.type == 2:
         pickMtx = np.logical_and((rolloutValue > 0), (ddqnValue <= 0))
-    elif args.type == 'FP':
+        sampleType = 'FN'
+    elif args.type == 3:
         pickMtx = np.logical_and((rolloutValue <= 0), (ddqnValue > 0))
-    elif args.type == 'POS':
+        sampleType = 'FP'
+    elif args.type == 4:
         pickMtx = (ddqnValue > 0)
-    elif args.type == 'NEG':
+        sampleType = 'POS'
+    elif args.type == 5:
         pickMtx = (ddqnValue <= 0)
+        sampleType = 'NEG'
+
     pickIndices = np.argwhere(pickMtx)
     length = pickIndices.shape[0]
     indices = np.random.randint(low=0, high=length, size=(args.numTest,))
@@ -160,7 +167,7 @@ def run(args):
 
     outFolder = args.modelFolder + '/data/'
     os.makedirs(outFolder, exist_ok=True)
-    outFile = outFolder + args.outFile + '.npy'
+    outFile = outFolder + args.outFile + sampleType + '.npy'
     np.save('{:s}'.format(outFile), finalDict)
     print('--> Save to {:s} ...'.format(outFile))
 
@@ -186,7 +193,7 @@ if __name__ == '__main__':
     parser.add_argument("-rnd", "--randomSeed", help="random seed",
         default=0, type=int)
     parser.add_argument("-t", "--type", help="type of sampled states",
-        default='TN', type=str)
+        default=0, type=int)
 
     # File Parameters
     parser.add_argument("-of", "--outFile", help="output file",

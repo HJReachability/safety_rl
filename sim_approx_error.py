@@ -10,7 +10,7 @@
 
 # EXAMPLES
     # test:
-        # python3 sim_approx_error.py -nt 10
+        # python3 sim_approx_error.py -nt 5 -nps 5
     # default:
         # python3 sim_approx_error.py (18k seconds)
     # specify model:
@@ -85,14 +85,29 @@ def run(args):
     rolloutValue = read_dictionary['rolloutValue']
     samples      = read_dictionary['samples']
 
-    DDQNSucMtx = np.logical_and((rolloutValue <= 0), (ddqnValue <= 0))
-    DDQNSucIndices = np.argwhere(DDQNSucMtx)
-    length = DDQNSucIndices.shape[0]
+    if args.type == 'TN':
+        pickMtx = np.logical_and((rolloutValue <= 0), (ddqnValue <= 0))
+    elif args.type == 'TP':
+        pickMtx = np.logical_and((rolloutValue > 0), (ddqnValue > 0))
+    elif args.type == 'FN':
+        pickMtx = np.logical_and((rolloutValue > 0), (ddqnValue <= 0))
+    elif args.type == 'FP':
+        pickMtx = np.logical_and((rolloutValue <= 0), (ddqnValue > 0))
+    elif args.type == 'POS':
+        pickMtx = (ddqnValue > 0)
+    elif args.type == 'NEG':
+        pickMtx = (ddqnValue <= 0)
+    pickIndices = np.argwhere(pickMtx)
+    length = pickIndices.shape[0]
     indices = np.random.randint(low=0, high=length, size=(args.numTest,))
     print(indices)
     states = np.empty(shape=(args.numTest, 6), dtype=float)
+    ddqnList = []
+    rollvalList = []
     for cnt, i in enumerate(indices):
-        idx = tuple(DDQNSucIndices[i])
+        idx = tuple(pickIndices[i])
+        ddqnList.append(ddqnValue[idx])
+        rollvalList.append(rolloutValue[idx])
         state = samples[idx, np.arange(6)]
         dist, phi = state[[0, 1]]
         state[0] = dist * np.cos(phi)
@@ -102,6 +117,8 @@ def run(args):
         state[4] = dist * np.sin(phi)
         states[cnt, :] = state
     # print(states)
+    print(ddqnList)
+    print(rollvalList)
 
     #== Estimating Approximation Error in Parallel ==
     print("\n== Approximation Error Information ==")
@@ -168,10 +185,12 @@ if __name__ == '__main__':
         default=10, type=int)
     parser.add_argument("-rnd", "--randomSeed", help="random seed",
         default=0, type=int)
+    parser.add_argument("-t", "--type", help="type of sampled states",
+        default='TN', type=str)
 
     # File Parameters
     parser.add_argument("-of", "--outFile", help="output file",
-        default='validationDict', type=str)
+        default='valDict', type=str)
     parser.add_argument("-mf", "--modelFolder", help="model folder", 
         default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str)
     parser.add_argument("-rf", "--resultFile", help="result file", 

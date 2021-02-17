@@ -3,6 +3,22 @@
 # We compare the DDQN-predicted value vs. the rollout value by DDQN-induced 
 # policies.
 
+# EXECUTION TIME
+    # 27554 seconds
+        # 11 samples per dimension with 6 workers
+        # NN: 2-layer with 512 neurons per leayer
+
+# EXAMPLES
+    # test:
+        # python3 sim_est_error.py -of tmp -ns 3 
+    # default:
+        # python3 sim_est_error.py
+    # toEnd:
+        # python3 sim_est_error.py -te
+    # consider pursuer failure set:
+        # python3 sim_est_error.py -cpf
+        #   -mf scratch/carPE/largeBuffer-3-512-cpf-2021-02-14-23_24
+
 from warnings import simplefilter 
 simplefilter(action='ignore', category=FutureWarning)
 from gym_reachability import gym_reachability  # Custom Gym env.
@@ -12,20 +28,11 @@ import torch
 import os
 import time
 import pickle
+import argparse
+from multiprocessing import Pool
 
 from utils.carPEAnalysis import *
 
-import argparse
-
-# 27554 seconds
-#   11 samples per dimension with 6 workers
-#   NN: 2-layer with 512 neurons per leayer
-# default: python3 sim_est_error.py
-# toEnd: python3 sim_est_error.py -te
-# consider pursuer failure set: python3 sim_est_error.py -cpf
-#           -mf scratch/carPE/largeBuffer-3-512-cpf-2021-02-14-23_24
-# test: python3 sim_est_error.py -of tmp -ns 3
-#           -mf scratch/carPE/largeBuffer-3-512-2021-02-07-01_51  
 
 def multiExp(env, agent, samples, firstIdx, numSample, maxLength, toEnd):
     print("I'm process", os.getpid())
@@ -87,7 +94,7 @@ def run(args):
     agent = loadAgent(args, device, stateNum, actionNum, numActionList)
 
     #== ROLLOUT RESULTS ==
-    print("\n== Approximate Error Information ==")
+    print("\n== Estimation Error Information ==")
     np.set_printoptions(precision=2, suppress=True)
     numSample = args.numSample
     R = env.evader_constraint_radius - 0.01
@@ -101,7 +108,6 @@ def run(args):
     samples = np.linspace(start=bounds[:,0], stop=bounds[:,1], num=numSample)
     print(samples)
 
-    from multiprocessing import Pool
     maxLength = args.maxLength
     toEnd = args.toEnd
     carPESubDictList = []
@@ -142,7 +148,7 @@ def run(args):
 
     endTime = time.time()
     execTime = endTime - startTime
-    print('Execution time: {:.1f}'.format(execTime))
+    print('--> Execution time: {:.1f}'.format(execTime))
 
     carPEDict = {}
     carPEDict['numSample']     = numSample
@@ -159,7 +165,7 @@ def run(args):
     os.makedirs(outFolder, exist_ok=True)
     outFile = outFolder + args.outFile + '.npy'
     np.save('{:s}'.format(outFile), carPEDict)
-    print('Save to {:s} ...'.format(outFile))
+    print('--> Save to {:s} ...'.format(outFile))
 
 
 if __name__ == '__main__':
@@ -184,9 +190,11 @@ if __name__ == '__main__':
     parser.add_argument("-of", "--outFile",     help="output file",
         default='estError', type=str)
     parser.add_argument("-mf", "--modelFolder", help="model folder", 
-        default='scratch/carPE/largeBuffer-2021-02-04-23_02', type=str)
+        default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str)
 
     args = parser.parse_args()
     print("\n== Arguments ==")
     print(args)
+
+    #== Execution ==
     run(args)

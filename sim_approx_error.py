@@ -6,7 +6,16 @@
 #   trajectories, so that we can be confident that our system truly succeeds not 
 #   only against the “oracle adversary” predicted by the Q-network, but also 
 #   against any possible adversary.
+# 3. Pre-requirement: we need to run `sim_est_error.py` before to get resultFile
 
+# EXAMPLES
+    # test:
+        # python3 sim_approx_error.py -nt 10
+    # default:
+        # python3 sim_approx_error.py (18k seconds)
+    # specify model:
+        # python3 sim_approx_error.py 
+        #   -mf scratch/carPE/largeBuffer-3-512-2021-02-07-01_51
 
 from warnings import simplefilter 
 simplefilter(action='ignore', category=FutureWarning)
@@ -17,11 +26,6 @@ import os
 
 from utils.carPEAnalysis import *
 
-# Example: python3 sim_approx_error.py -nt 10
-# Example: python3 sim_approx_error.py
-# 18k seconds
-# ex: python3 sim_approx_error.py -of val-large-3-512-new
-#       -mf scratch/carPE/largeBuffer-3-512-2021-02-07-01_51
 
 def multi_experiment(env, agent, state, maxLength=40, numPursuerStep=10):
     """
@@ -56,7 +60,9 @@ def multi_experiment(env, agent, state, maxLength=40, numPursuerStep=10):
     return dictTmp
 
 
-def run(args):   
+def run(args):
+    startTime = time.time()
+
     #== ENVIRONMENT ==
     env = loadEnv(args)
     stateNum = env.state.shape[0]
@@ -67,7 +73,7 @@ def run(args):
     #== AGENT ==
     configFile = '{:s}/CONFIG.pkl'.format(args.modelFolder)
     agent = loadAgent(
-        args, configFile, device, stateNum, actionNum, numActionList)
+        args, device, stateNum, actionNum, numActionList)
 
     #== Getting states to be tested ==
     print('\n== Getting states to be tested ==')
@@ -83,6 +89,7 @@ def run(args):
     DDQNSucIndices = np.argwhere(DDQNSucMtx)
     length = DDQNSucIndices.shape[0]
     indices = np.random.randint(low=0, high=length, size=(args.numTest,))
+    print(indices)
     states = np.empty(shape=(args.numTest, 6), dtype=float)
     for cnt, i in enumerate(indices):
         idx = tuple(DDQNSucIndices[i])
@@ -95,7 +102,9 @@ def run(args):
         state[4] = dist * np.sin(phi)
         states[cnt, :] = state
     # print(states)
+
     #== Estimating Approximation Error in Parallel ==
+    print("\n== Approximation Error Information ==")
     from multiprocessing import Pool
     dictList = []
     numThread = args.numWorker
@@ -121,26 +130,31 @@ def run(args):
                 agentList, stateList, maxLengthList, numPursuerStepList))
         dictList = dictList + subDictList
 
+    endTime = time.time()
+    execTime = endTime - startTime
+    print('--> Execution time: {:.1f}'.format(execTime))
+
     finalDict = {}
     finalDict['states'] = states
     finalDict['dictList'] = dictList
     finalDict['maxLength'] = maxLength
     finalDict['numPursuerStep'] = numPursuerStep
+    finalDict['execTime'] = execTime
 
     outFolder = args.modelFolder + '/data/'
     os.makedirs(outFolder, exist_ok=True)
     outFile = outFolder + args.outFile + '.npy'
     np.save('{:s}'.format(outFile), finalDict)
-    print('Save to {:s} ...'.format(outFile))
+    print('--> Save to {:s} ...'.format(outFile))
 
 
 if __name__ == '__main__':
-    np.set_printoptions(precision=2, suppress=True)
+    #== Arguments ==
     parser = argparse.ArgumentParser()
     # Environment Parameters
     parser.add_argument("-cpf", "--cpf", help="consider pursuer failure",
         action="store_true")
-    
+
     # Simulation Parameters
     parser.add_argument("-f", "--forceCPU", help="force CPU",
         action="store_true")
@@ -154,18 +168,21 @@ if __name__ == '__main__':
         default=50, type=int)
     parser.add_argument("-nps", "--numPursuerStep", help="#pursuer steps",
         default=10, type=int)
+    parser.add_argument("-rnd", "--randomSeed", help="random seed",
+        default=0, type=int)
 
     # File Parameters
     parser.add_argument("-of", "--outFile", help="output file",
         default='validationDict', type=str)
     parser.add_argument("-mf", "--modelFolder", help="model folder", 
-        default='scratch/carPE/largeBuffer-2021-02-04-23_02', type=str)
+        default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str)
     parser.add_argument("-rf", "--resultFile", help="result file", 
         default='estError', type=str)
+
     args = parser.parse_args()
     print("\n== Arguments ==")
     print(args)
 
-    start = time.time()
+    #== Execution ==
+    np.random.seed(args.randomSeed)
     run(args)
-    print('Execution time: {:.1f}'.format(time.time()-start))

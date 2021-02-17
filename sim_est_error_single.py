@@ -1,4 +1,26 @@
-# Estimation error: predicted vs. rollout value
+# == ESTIMATION ERROR ==
+# We want to evaluate how well we learned from the data.
+# We compare the DDQN-predicted value vs. the rollout value by DDQN-induced 
+# policies.
+
+# EXECUTION TIME
+    # Setting:
+        # 101 samples per dimension, 6 workers, maxLength = 100
+        # NN: 1-layer with 100 neurons per leayer
+    # Results   
+        # 4000 seconds (toEnd = True)
+        # 1000 seconds (toEnd = False)
+
+# EXAMPLES
+    # toEnd, low turning rate: 
+        # python3 sim_est_error_single.py -te -l -of carOneLow
+        #   -mf models/store_best/car/RA/small/tanh
+    # TF, high turning rate:
+        # python3 sim_est_error_single.py -of carOneHighTF
+        #   -mf models/store_best/car/RA/big/tanh
+    # Array:
+        # python3 sim_est_error_single.py -sf
+        #   -mf scratch/car/highA/highA-0-2021-02-10-21_08
 
 from warnings import simplefilter 
 simplefilter(action='ignore', category=FutureWarning)
@@ -7,38 +29,17 @@ from gym_reachability import gym_reachability  # Custom Gym env.
 import gym
 import numpy as np
 import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import torch
-from collections import namedtuple
 import os
 import time
 import pickle
 from multiprocessing import Pool
-
-from KC_DQN.DDQNSingle import DDQNSingle
-from KC_DQN.config import dqnConfig
-from utils.carOneAnalysis import *
-
 import argparse
 
-# EXECUTION TIME
-# Setting:
-#   - 101 samples per dimension, 6 workers, maxLength = 100
-#   - NN: 1-layer with 100 neurons per leayer
-# Results
-#   - 4000 seconds (toEnd = True)
-#   - 1000 seconds (toEnd = False)
+from utils.carOneAnalysis import *
 
-# EXAMPLES
-# toEnd, low turning rate: 
-#   python3 sim_est_error_single.py -te -l -of carOneLow
-#       -mf models/store_best/car/RA/small/tanh
-# TF, high turning rate:
-#   python3 sim_est_error_single.py -of carOneHighTF
-#       -mf models/store_best/car/RA/big/tanh
-# Array:
-#   python3 sim_est_error_single.py -sf
-#   -mf scratch/car/highA/highA-0-2021-02-10-21_08
 
 def multiExp(env, agent, samples, firstIdx, numSample, maxLength, toEnd):
     freeCoordNum = 2
@@ -79,6 +80,8 @@ def multiExp(env, agent, samples, firstIdx, numSample, maxLength, toEnd):
 
 
 def run(args):
+    startTime = time.time()
+
     #== ENVIRONMENT ==
     env = loadEnv(args)
     stateNum = env.state.shape[0]
@@ -90,7 +93,7 @@ def run(args):
     agent = loadAgent(args, device, stateNum, actionNum, actionList)
 
     #== ROLLOUT RESULTS ==
-    print("\n== Approximate Error Information ==")
+    print("\n== Estimation Error Information ==")
     np.set_printoptions(precision=2, suppress=True)
     numSample = args.numSample
     bounds = np.array([ [-1.1, 1.1],
@@ -136,6 +139,10 @@ def run(args):
         ddqnValue[:, :, i]     = carPESubDict_i['ddqnValue']
         rolloutValue[:, :, i]  = carPESubDict_i['rolloutValue']
 
+    endTime = time.time()
+    execTime = endTime - startTime
+    print('--> Execution time: {:.1f}'.format(execTime))
+
     carOneDict = {}
     carOneDict['numSample']     = numSample
     carOneDict['maxLength']     = maxLength
@@ -145,12 +152,14 @@ def run(args):
     carOneDict['ddqnValue']     = ddqnValue
     carOneDict['rolloutValue']  = rolloutValue
     carOneDict['samples']       = samples
+    carOneDict['execTime']      = execTime
+
 
     outFolder = args.modelFolder + '/data/'
     os.makedirs(outFolder, exist_ok=True)
     outFile = outFolder + args.outFile + '.npy'
     np.save('{:s}'.format(outFile), carOneDict)
-    print('Save to {:s} ...'.format(outFile))
+    print('--> Save to {:s} ...'.format(outFile))
 
     #== Plot RA Set of the analytic solution and approximate value function ==
     if args.plotFigure or args.storeFigure:
@@ -218,6 +227,5 @@ if __name__ == '__main__':
     print("\n== Arguments ==")
     print(args)
 
-    start = time.time()
+    #== Execution ==
     run(args)
-    print('Execution time: {:.1f}'.format(time.time()-start))

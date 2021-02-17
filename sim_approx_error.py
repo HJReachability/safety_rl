@@ -22,7 +22,6 @@ from utils.carPEAnalysis import *
 # 18k seconds
 # ex: python3 sim_approx_error.py -of val-large-3-512-new
 #       -mf scratch/carPE/largeBuffer-3-512-2021-02-07-01_51
-#       -rf data/largeBuffer-2-512-new.npy
 
 def multi_experiment(env, agent, state, maxLength=40, numPursuerStep=10):
     """
@@ -72,8 +71,9 @@ def run(args):
 
     #== Getting states to be tested ==
     print('\n== Getting states to be tested ==')
-    print('Load from {:s} ...'.format(args.resultFile))
-    read_dictionary = np.load(args.resultFile, allow_pickle='TRUE').item()
+    resultFile = args.modelFolder + '/data/' + args.resultFile + '.npy'
+    print('Load from {:s} ...'.format(resultFile))
+    read_dictionary = np.load(resultFile, allow_pickle='TRUE').item()
     print(read_dictionary.keys())
     ddqnValue    = read_dictionary['ddqnValue']
     rolloutValue = read_dictionary['rolloutValue']
@@ -127,19 +127,24 @@ def run(args):
     finalDict['maxLength'] = maxLength
     finalDict['numPursuerStep'] = numPursuerStep
 
-    outFile = 'data/' + args.outFile + '.npy'
+    outFolder = args.modelFolder + '/data/'
+    os.makedirs(outFolder, exist_ok=True)
+    outFile = outFolder + args.outFile + '.npy'
     np.save('{:s}'.format(outFile), finalDict)
+    print('Save to {:s} ...'.format(outFile))
 
 
 if __name__ == '__main__':
     np.set_printoptions(precision=2, suppress=True)
-
     parser = argparse.ArgumentParser()
+    # Environment Parameters
+    parser.add_argument("-cpf", "--cpf", help="consider pursuer failure",
+        action="store_true")
+    
+    # Simulation Parameters
     parser.add_argument("-f", "--forceCPU", help="force CPU",
         action="store_true")
     parser.add_argument("-te", "--toEnd", help="to end",
-        action="store_true")
-    parser.add_argument("-cpf", "--cpf", help="consider pursuer failure",
         action="store_true")
     parser.add_argument("-nt", "--numTest", help="#tests",
         default=100, type=int)
@@ -149,12 +154,14 @@ if __name__ == '__main__':
         default=50, type=int)
     parser.add_argument("-nps", "--numPursuerStep", help="#pursuer steps",
         default=10, type=int)
+
+    # File Parameters
     parser.add_argument("-of", "--outFile", help="output file",
         default='validationDict', type=str)
     parser.add_argument("-mf", "--modelFolder", help="model folder", 
         default='scratch/carPE/largeBuffer-2021-02-04-23_02', type=str)
     parser.add_argument("-rf", "--resultFile", help="result file", 
-        default='data/largeBuffer-2-512-new.npy', type=str)
+        default='estError', type=str)
     args = parser.parse_args()
     print("\n== Arguments ==")
     print(args)

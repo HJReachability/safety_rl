@@ -237,10 +237,11 @@ def loadEnv(args, verbose=True):
     return env
 
 
-def loadAgent(args, configFile, device, stateNum, actionNum, numActionList,
+def loadAgent(args, device, stateNum, actionNum, numActionList,
     verbose=True):
     if verbose:
         print("\n== Agent Information ==")
+    configFile = '{:s}/CONFIG.pkl'.format(args.modelFolder)
     with open(configFile, 'rb') as handle:
         tmpConfig = pickle.load(handle)
     CONFIG = dqnConfig()

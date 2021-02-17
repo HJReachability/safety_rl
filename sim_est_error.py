@@ -20,22 +20,15 @@ import argparse
 # 27554 seconds
 #   11 samples per dimension with 6 workers
 #   NN: 2-layer with 512 neurons per leayer
-# ex: python3 sim_est_error.py -of largeBuffer-3-512-new
-#       -mf scratch/carPE/largeBuffer-3-512-2021-02-07-01_51
-# ex: py3 sim_est_error.py -mf scratch/carPE/largeBuffer-3-512-2021-02-07-01_51
+# default: python3 sim_est_error.py
+# toEnd: python3 sim_est_error.py -te
+# consider pursuer failure set: python3 sim_est_error.py -cpf
+#           -mf scratch/carPE/largeBuffer-3-512-cpf-2021-02-14-23_24
+# test: python3 sim_est_error.py -of tmp -ns 3
+#           -mf scratch/carPE/largeBuffer-3-512-2021-02-07-01_51  
 
-def multi_experiment(env, agent, samples, firstIdx, numSample, maxLength, toEnd):
+def multiExp(env, agent, samples, firstIdx, numSample, maxLength, toEnd):
     print("I'm process", os.getpid())
-    # R = env.evader_constraint_radius
-    # r = env.evader_target_radius
-    # bounds = np.array([ [r, R],
-    #                     [0., 2*np.pi*(1-1/numSample)],
-    #                     [0., 2*np.pi*(1-1/numSample)],
-    #                     [0.01, R],
-    #                     [np.pi*(1/numSample), np.pi*(2-1/numSample)],
-    #                     [0., 2*np.pi*(1-1/numSample)]])
-    # samples = np.linspace(start=bounds[:,0], stop=bounds[:,1], num=numSample)
-
     freeCoordNum = 5
     shapeTmp = np.ones(freeCoordNum, dtype=int)*numSample
     rolloutResult   = np.empty(shape=shapeTmp, dtype=int)
@@ -77,12 +70,12 @@ def multi_experiment(env, agent, samples, firstIdx, numSample, maxLength, toEnd)
     carPEDict['trajLength']    = trajLength
     carPEDict['ddqnValue']     = ddqnValue
     carPEDict['rolloutValue']  = rolloutValue
-    
     print()
     return carPEDict
 
 
 def run(args):
+    startTime = time.time()
     #== ENVIRONMENT ==
     env = loadEnv(args)
     stateNum = env.state.shape[0]
@@ -91,9 +84,7 @@ def run(args):
     device = env.device
 
     #== AGENT ==
-    configFile = '{:s}/CONFIG.pkl'.format(args.modelFolder)
-    agent = loadAgent(
-        args, configFile, device, stateNum, actionNum, numActionList)
+    agent = loadAgent(args, device, stateNum, actionNum, numActionList)
 
     #== ROLLOUT RESULTS ==
     print("\n== Approximate Error Information ==")
@@ -131,7 +122,7 @@ def run(args):
             maxLengthList = [maxLength] * numExp
             toEndList     = [toEnd]     * numExp
 
-            carPESubDict_i = pool.starmap(multi_experiment, zip(
+            carPESubDict_i = pool.starmap(multiExp, zip(
                 envList, agentList, samplesList, firstIdxList, numSampleList, 
                 maxLengthList, toEndList))
         carPESubDictList = carPESubDictList + carPESubDict_i
@@ -149,6 +140,10 @@ def run(args):
         ddqnValue[i, :, :, :, :, :]     = carPESubDict_i['ddqnValue']
         rolloutValue[i, :, :, :, :, :]  = carPESubDict_i['rolloutValue']
 
+    endTime = time.time()
+    execTime = endTime - startTime
+    print('Execution time: {:.1f}'.format(execTime))
+
     carPEDict = {}
     carPEDict['numSample']     = numSample
     carPEDict['maxLength']     = maxLength
@@ -158,20 +153,25 @@ def run(args):
     carPEDict['ddqnValue']     = ddqnValue
     carPEDict['rolloutValue']  = rolloutValue
     carPEDict['samples']       = samples
+    carPEDict['execTime']      = execTime
 
     outFolder = args.modelFolder + '/data/'
     os.makedirs(outFolder, exist_ok=True)
     outFile = outFolder + args.outFile + '.npy'
     np.save('{:s}'.format(outFile), carPEDict)
+    print('Save to {:s} ...'.format(outFile))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f",  "--forceCPU",    help="force CPU",
+    # Environment Parameters
+    parser.add_argument("-cpf", "--cpf",        help="consider pursuer failure",
+        action="store_true")
+
+    # Simulation Parameters
+    parser.add_argument("-f", "--forceCPU",     help="force CPU",
         action="store_true")
     parser.add_argument("-te", "--toEnd",       help="to end",
-        action="store_true")
-    parser.add_argument("-cpf", "--cpf",        help="consider pursuer failure",
         action="store_true")
     parser.add_argument("-ml", "--maxLength",   help="max length",
         default=150, type=int)
@@ -179,6 +179,8 @@ if __name__ == '__main__':
         default=11, type=int)
     parser.add_argument("-nw", "--numWorker",   help="#workers",
         default=6, type=int)
+
+    # File Parameters
     parser.add_argument("-of", "--outFile",     help="output file",
         default='estError', type=str)
     parser.add_argument("-mf", "--modelFolder", help="model folder", 
@@ -187,7 +189,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print("\n== Arguments ==")
     print(args)
-
-    start = time.time()
     run(args)
-    print('Execution time: {:.1f}'.format(time.time()-start))

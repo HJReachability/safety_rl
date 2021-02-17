@@ -158,8 +158,6 @@ if __name__ == '__main__':
     # Simulation Parameters
     parser.add_argument("-f", "--forceCPU", help="force CPU",
         action="store_true")
-    parser.add_argument("-te", "--toEnd", help="to end",
-        action="store_true")
     parser.add_argument("-nt", "--numTest", help="#tests",
         default=100, type=int)
     parser.add_argument("-nw", "--numWorker", help="#workers",

@@ -103,11 +103,11 @@ def run(args):
     elif args.type == 5:
         pickMtx = (ddqnValue <= 0)
         sampleType = 'NEG'
-
+    print('Type of sampled states:', sampleType)
     pickIndices = np.argwhere(pickMtx)
     length = pickIndices.shape[0]
     indices = np.random.randint(low=0, high=length, size=(args.numTest,))
-    print(indices)
+    # print(indices)
     states = np.empty(shape=(args.numTest, 6), dtype=float)
     ddqnList = []
     rollvalList = []
@@ -124,8 +124,8 @@ def run(args):
         state[4] = dist * np.sin(phi)
         states[cnt, :] = state
     # print(states)
-    print(ddqnList)
-    print(rollvalList)
+    # print(ddqnList)
+    # print(rollvalList)
 
     #== Estimating Approximation Error in Parallel ==
     print("\n== Approximation Error Information ==")
@@ -136,7 +136,7 @@ def run(args):
     maxLength = args.maxLength
     numPursuerStep = args.numPursuerStep
     for ith in range(numTurn):
-        print('\n{} / {}: '.format(ith+1, numTurn), end='')
+        print('{} / {}: '.format(ith+1, numTurn), end='')
         with Pool(processes = numThread) as pool:
             startIdx = ith*numThread
             endIdx = min(args.numTest, (ith+1)*numThread)

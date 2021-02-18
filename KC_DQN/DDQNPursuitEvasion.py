@@ -45,7 +45,8 @@ def actionIndexTuple2Int(actionIdxTuple, numActionList):
 
 
 class DDQNPursuitEvasion(DDQN):
-    def __init__(self, CONFIG, numActionList, dimList, mode='RA', actType='Tanh'):
+    def __init__(self, CONFIG, numActionList, dimList, mode='RA',
+        actType='Tanh', verbose=True):
         """
         __init__
 
@@ -72,11 +73,11 @@ class DDQNPursuitEvasion(DDQN):
             "We expect the dim of the last layer to be {:d}, but get {:d}".format(self.numJoinAction, dimList[-1])
         self.dimList = dimList
         self.actType = actType
-        self.build_network(dimList, actType)
+        self.build_network(dimList, actType, verbose)
 
 
-    def build_network(self, dimList, actType='Tanh'):
-        self.Q_network = model(dimList, actType, verbose=True)
+    def build_network(self, dimList, actType='Tanh', verbose=True):
+        self.Q_network = model(dimList, actType, verbose=verbose)
         self.target_network = model(dimList, actType)
 
         if self.device == torch.device('cuda'):

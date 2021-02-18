@@ -251,9 +251,10 @@ def loadAgent(args, device, stateNum, actionNum, numActionList,
     CONFIG.SEED = 0
 
     dimList = [stateNum] + CONFIG.ARCHITECTURE + [actionNum]
-    agent = DDQNPursuitEvasion(CONFIG, numActionList, dimList, CONFIG.ACTIVATION)
+    agent = DDQNPursuitEvasion(CONFIG, numActionList, dimList,
+        CONFIG.ACTIVATION, verbose=verbose)
     modelFile = '{:s}/model-{:d}.pth'.format(args.modelFolder+'/model', 4000000)
-    agent.restore(modelFile)
+    agent.restore(modelFile, verbose)
 
     if verbose:
         print(vars(CONFIG))

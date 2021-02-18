@@ -122,12 +122,13 @@ class DDQN():
         print('  => Save {} after [{}] updates' .format(logs_path, step))
 
 
-    def restore(self, logs_path):
+    def restore(self, logs_path, verbose=True):
         self.Q_network.load_state_dict(
             torch.load(logs_path, map_location=torch.device('cpu')))
         self.target_network.load_state_dict(
             torch.load(logs_path, map_location=torch.device('cpu')))
-        print('  => Restore {}' .format(logs_path))
+        if verbose:
+            print('  => Restore {}' .format(logs_path))
 
 
     # ! Deprecated method, do not use

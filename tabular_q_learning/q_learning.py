@@ -23,11 +23,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-from utils import index_to_state
-from utils import state_to_index
-from utils import sbe_outcome
-from utils import save
-from utils import v_from_q
+from utils.utils import index_to_state
+from utils.utils import state_to_index
+from utils.utils import sbe_outcome
+from utils.utils import save
+from utils.utils import v_from_q
 
 
 def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,

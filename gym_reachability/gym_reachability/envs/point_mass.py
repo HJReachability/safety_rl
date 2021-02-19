@@ -13,12 +13,12 @@ import gym
 import matplotlib
 import matplotlib.pyplot as plt
 
-from utils import nearest_real_grid_point
-from utils import visualize_matrix
-from utils import q_values_from_q_func
-from utils import state_to_index
-from utils import index_to_state
-from utils import v_from_q
+from utils.utils import nearest_real_grid_point
+from utils.utils import visualize_matrix
+from utils.utils import q_values_from_q_func
+from utils.utils import state_to_index
+from utils.utils import index_to_state
+from utils.utils import v_from_q
 
 
 class PointMassEnv(gym.Env):

@@ -14,7 +14,6 @@ import os
 import argparse
 
 from KC_DQN.DDQNSingle import DDQNSingle
-from KC_DQN.DDQN import Transition
 from KC_DQN.config import dqnConfig
 
 import time
@@ -23,10 +22,7 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 #== ARGS ==
 # e.g., python3 sim_car_one.py -te -w (default)
-# e.g., n
 parser = argparse.ArgumentParser()
-# parser.add_argument("-nt",  "--num_test",       help="the number of tests",         default=1,      type=int)
-# parser.add_argument("-nw",  "--num_worker",     help="the number of workers",       default=1,      type=int)
 
 # training scheme
 parser.add_argument("-te",  "--toEnd",          help="stop until reaching boundary",    action="store_true")

@@ -8,7 +8,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import torch
-from collections import namedtuple
 import pickle
 import os
 import argparse
@@ -107,7 +106,8 @@ if args.plotFigure or args.storeFigure:
     axStyle = env.get_axes()
     fig, axes = plt.subplots(1,3, figsize=(12, 4))
     ax = axes[0]
-    f = ax.imshow(l_x.T, interpolation='none', extent=axStyle[0], origin="lower", cmap="seismic")
+    f = ax.imshow(l_x.T, interpolation='none', extent=axStyle[0],
+        origin="lower", cmap="seismic")
     ax.axis(axStyle[0])
     ax.grid(False)
     ax.set_aspect(axStyle[1])  # makes equal aspect ratio
@@ -117,7 +117,8 @@ if args.plotFigure or args.storeFigure:
     env.plot_formatting(ax=ax)
 
     ax = axes[1]
-    f = ax.imshow(g_x.T, interpolation='none', extent=axStyle[0], origin="lower", cmap="seismic")
+    f = ax.imshow(g_x.T, interpolation='none', extent=axStyle[0],
+        origin="lower", cmap="seismic")
     ax.axis(axStyle[0])
     ax.grid(False)
     ax.set_aspect(axStyle[1])  # makes equal aspect ratio
@@ -127,7 +128,8 @@ if args.plotFigure or args.storeFigure:
     env.plot_formatting(ax=ax)
 
     ax = axes[2]
-    f = ax.imshow(v.T, interpolation='none', extent=axStyle[0], origin="lower", cmap="seismic", vmin=-.5, vmax=.5)
+    f = ax.imshow(v.T, interpolation='none', extent=axStyle[0],
+        origin="lower", cmap="seismic", vmin=-.5, vmax=.5)
     ax = plt.gca()
     ax.axis(axStyle[0])
     ax.grid(False)
@@ -159,7 +161,8 @@ with open(picklePath, 'wb') as handle:
 
 #== AGENT ==
 dimList = [stateNum] + CONFIG.ARCHITECTURE + [actionNum]
-agent=DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList, mode='RA', actType='Tanh')
+agent=DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList,
+    mode='RA', actType='Tanh')
 print(device)
 # print(agent.Q_network.moduleList[0].weight.type())
 # print(agent.optimizer, '\n')
@@ -170,7 +173,7 @@ vmin = -1
 vmax = 1
 checkPeriod = updatePeriod
 training_records, trainProgress = agent.learn(env,
-    MAX_UPDATES=maxUpdates, MAX_EP_STEPS=CONFIG.MAX_EP_STEPS, addBias=args.addBias,
+    MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps, addBias=args.addBias,
     warmupQ=args.warmup, warmupIter=args.warmupIter, doneTerminate=True,
     vmin=vmin, vmax=vmax, showBool=False,
     checkPeriod=checkPeriod, outFolder=outFolder,

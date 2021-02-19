@@ -8,7 +8,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import torch
-from collections import namedtuple
 import pickle
 import os
 import argparse
@@ -81,7 +80,8 @@ else:
 stateNum = env.state.shape[0]
 actionNum = env.action_space.n
 action_list = np.arange(actionNum)
-print("State Dimension: {:d}, ActionSpace Dimension: {:d}".format(stateNum, actionNum))
+print("State Dimension: {:d}, ActionSpace Dimension: {:d}".format(
+    stateNum, actionNum))
 
 
 #== Setting in this Environment ==
@@ -113,9 +113,9 @@ if args.plotFigure or args.storeFigure:
     xs = np.linspace(env.bounds[0,0], env.bounds[0,1], nx)
     ys =np.linspace(env.bounds[1,0], env.bounds[1,1], ny)
 
-    xPursuerList=[.1, .3, .5, .7]
-    yPursuerList=[.1, .3, .5, .7]
-    for i, (xPursuer, yPursuer) in enumerate(zip(xPursuerList, yPursuerList)):
+    xList=[.1, .3, .5, .7]
+    yList=[.1, .3, .5, .7]
+    for i, (xPursuer, yPursuer) in enumerate(zip(xList, yList)):
         it = np.nditer(l_x[0], flags=['multi_index'])
 
         while not it.finished:
@@ -132,14 +132,16 @@ if args.plotFigure or args.storeFigure:
 
     axStyle = env.get_axes()
     fig, axes = plt.subplots(1,4, figsize=(16, 4))
-    for i, (ax, xPursuer, yPursuer) in enumerate(zip(axes, xPursuerList, yPursuerList)):
-        f = ax.imshow(v[i].T, interpolation='none', extent=axStyle[0], origin="lower", cmap="seismic", vmin=-1, vmax=1)
+    for i, (ax, xPursuer, yPursuer) in enumerate(zip(axes, xList, yList)):
+        f = ax.imshow(v[i].T, interpolation='none', extent=axStyle[0],
+            origin="lower", cmap="seismic", vmin=-1, vmax=1)
         ax.axis(axStyle[0])
         ax.grid(False)
         ax.set_aspect(axStyle[1])  # makes equal aspect ratio
         env.plot_target_failure_set(ax)
         if i == 3:
-            fig.colorbar(f, ax=ax, pad=0.01, fraction=0.05, shrink=.95, ticks=[-1, 0, 1])
+            fig.colorbar(f, ax=ax, pad=0.01, fraction=0.05, shrink=.95,
+                ticks=[-1, 0, 1])
     plt.tight_layout()
     fig.savefig('{:s}env.png'.format(figureFolder))
     plt.close()
@@ -163,7 +165,8 @@ with open(picklePath, 'wb') as handle:
 
 #== AGENT ==
 dimList = [stateNum] + CONFIG.ARCHITECTURE + [actionNum]
-agent=DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList, mode='RA', actType='Tanh')
+agent=DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList,
+    mode='RA', actType='Tanh')
 print(device)
 # print(agent.Q_network.moduleList[0].weight.type())
 # print(agent.optimizer, '\n')
@@ -174,7 +177,7 @@ vmin = -1
 vmax = 1
 checkPeriod = updatePeriod
 training_records, trainProgress = agent.learn(env,
-    MAX_UPDATES=maxUpdates, MAX_EP_STEPS=CONFIG.MAX_EP_STEPS, addBias=args.addBias,
+    MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps, addBias=args.addBias,
     warmupQ=args.warmup, warmupIter=args.warmupIter, doneTerminate=True,
     vmin=vmin, vmax=vmax, showBool=False,
     checkPeriod=checkPeriod, outFolder=outFolder,

@@ -1,6 +1,6 @@
 # Examples:
     # RA: python3 sim_zermelo.py -te -w -sf
-    # Lagrange: python3 sim_zermelo.py -te -w -sf -m lagrange
+    # Lagrange: python3 sim_zermelo.py -te -w -sf -m lagrange -of scratch
 
 
 from warnings import simplefilter 
@@ -64,12 +64,15 @@ print(args)
 if args.mode == 'lagrange':
     envMode = 'normal'
     agentMode = 'normal'
+    GAMMA_END=0.9
 elif args.mode == 'mayer':
     envMode = 'extend'
     agentMode = 'normal'
+    GAMMA_END=0.9
 elif args.mode == 'RA':
     envMode = 'RA'
     agentMode = 'RA'
+    GAMMA_END=0.999999
 
 toEnd = args.toEnd
 env_name = "zermelo_kc-v0"
@@ -170,7 +173,7 @@ CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
     MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps,
     BATCH_SIZE=100, MEMORY_CAPACITY=args.memoryCapacity,
     ARCHITECTURE=args.architecture, ACTIVATION=args.actType,
-    GAMMA=args.gamma, GAMMA_PERIOD=updatePeriod, GAMMA_END=0.999999,
+    GAMMA=args.gamma, GAMMA_PERIOD=updatePeriod, GAMMA_END=GAMMA_END,
     EPS_PERIOD=updatePeriod, EPS_DECAY=0.6,
     LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
     MAX_MODEL=50)

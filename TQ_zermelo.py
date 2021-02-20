@@ -16,13 +16,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from tabular_q_learning.q_learning import learn
-from utils import make_linear_schedule
-from utils import make_stepped_schedule
-from utils import v_from_q
-from utils import visualize_matrix
-from utils import make_inverse_polynomial_visit_schedule
-from utils import make_stepped_linear_schedule
-from utils import make_inverse_visit_schedule
+from utils.utils import make_linear_schedule, make_stepped_schedule, v_from_q
+from utils.utils import visualize_matrix, make_inverse_polynomial_visit_schedule
+from utils.utils import make_stepped_linear_schedule, make_inverse_visit_schedule
 
 # == Experiment 6 ==
 """
@@ -42,6 +38,61 @@ env = gym.make("point_mass-v0")
 #print(env.observation_space.high, env.observation_space.low)
 #env = PointMassEnv()
 fictitious_terminal_val = 10
+
+nx, ny = 81, 241
+v = np.zeros((nx, ny))
+l_x = np.zeros((nx, ny))
+g_x = np.zeros((nx, ny))
+xs = np.linspace(-4, 4, nx)
+ys =np.linspace(-3, 11, ny)
+
+it = np.nditer(v, flags=['multi_index'])
+
+while not it.finished:
+    idx = it.multi_index
+    x = xs[idx[0]]
+    y = ys[idx[1]]
+    
+    l_x[idx] = env.target_margin(np.array([x, y]))
+    g_x[idx] = env.safety_margin(np.array([x, y]))
+
+    v[idx] = np.maximum(l_x[idx], g_x[idx])
+    it.iternext()
+
+axStyle = [[-4, 4, -3, 11], 8/14]
+fig, axes = plt.subplots(1,3, figsize=(12,6))
+
+ax = axes[0]
+f = ax.imshow(l_x.T, interpolation='none', extent=axStyle[0], origin="lower", cmap="seismic")
+ax.axis(axStyle[0])
+ax.grid(False)
+ax.set_aspect(axStyle[1])  # makes equal aspect ratio
+env.plot_target_failure_set(ax)
+ax.set_title(r'$\ell(x)$')
+cbar = fig.colorbar(f, ax=ax, pad=0.01, fraction=0.05, shrink=.9)
+# env.plot_formatting(ax=ax)
+
+ax = axes[1]
+f = ax.imshow(g_x.T, interpolation='none', extent=axStyle[0], origin="lower", cmap="seismic")
+ax.axis(axStyle[0])
+ax.grid(False)
+ax.set_aspect(axStyle[1])  # makes equal aspect ratio
+env.plot_target_failure_set(ax)
+ax.set_title(r'$g(x)$')
+cbar = fig.colorbar(f, ax=ax, pad=0.01, fraction=0.05, shrink=.9)
+# env.plot_formatting(ax=ax)
+
+ax = axes[2]
+f = ax.imshow(v.T, interpolation='none', extent=axStyle[0], origin="lower", cmap="seismic", vmin=-.5, vmax=.5)
+ax = plt.gca()
+ax.axis(axStyle[0])
+ax.grid(False)
+ax.set_aspect(axStyle[1])  # makes equal aspect ratio
+env.plot_target_failure_set(ax)
+ax.set_title(r'$v(x)$')
+cbar = fig.colorbar(f, ax=ax, pad=0.01, fraction=0.05, shrink=.9)
+# env.plot_formatting(ax=ax)
+# plt.show()
 
 # == Seeding ==
 seed = 1

@@ -160,9 +160,9 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
                 redundant_comp/(total_steps + 1.0)), end="")
             sys.stdout.flush()
         if ((num_rnd_traj is not None or visualization_states is not None)
-                and (episode + 1) % (60*5000) == 0):
+                and (episode + 1) % int(max_episodes/20) == 0):
             np.save('models/TQ/{:d}.npy'.format(episode + 1), q_values)
-            env.visualize_analytic_comparison(v_from_q(q_values), True, labels=["",""], boolPlot=True)
+            env.visualize_analytic_comparison(v_from_q(q_values), True, labels=["",""], boolPlot=False)
             env.plot_reach_avoid_set()
             env.plot_trajectories(q_values, T=vis_T, num_rnd_traj=num_rnd_traj,
                                   states=visualization_states)
@@ -180,8 +180,8 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
 
         time_for_episode = time.time()
         # Execute a single rollout.
-        while not done:
-
+        # while not done:
+        for cnt in range(120):
             # Determine action to use based on epsilon-greedy decision rule.
             action_ix = select_action(q_values, state_ix, env, epsilon)
 
@@ -207,16 +207,20 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
             # Perform Bellman backup.
             if use_sbe:  # Safety Bellman Equation backup.
                 l_x = reward
-                if not done:
-                    min_term = min(l_x, np.amin(q_values[next_state_ix]))
-                    new_q = (
-                        (1.0 - gamma) * max(l_x, g_x) +
-                        gamma * max(min_term, g_x))
-                else:
-                    if fictitious_terminal_val and g_x <= 0.0 and l_x <= 0.0:
-                        new_q = -fictitious_terminal_val
-                    else:
-                        new_q = max(l_x, g_x)
+                min_term = min(l_x, np.amin(q_values[next_state_ix]))
+                new_q = (
+                    (1.0 - gamma) * max(l_x, g_x) +
+                    gamma * max(min_term, g_x))
+                # if not done:
+                #     min_term = min(l_x, np.amin(q_values[next_state_ix]))
+                #     new_q = (
+                #         (1.0 - gamma) * max(l_x, g_x) +
+                #         gamma * max(min_term, g_x))
+                # else:
+                #     if fictitious_terminal_val and g_x <= 0.0 and l_x <= 0.0:
+                #         new_q = -fictitious_terminal_val
+                #     else:
+                #         new_q = max(l_x, g_x)
             else:       # Sum of discounted rewards backup.
                 if not done:
                     new_q = (reward + gamma *

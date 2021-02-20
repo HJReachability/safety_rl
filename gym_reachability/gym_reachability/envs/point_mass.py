@@ -413,8 +413,8 @@ class PointMassEnv(gym.Env):
 
     def visualize_analytic_comparison( self, v, no_show=False,
                                        labels=["x", "y"], 
-                                       vmin=0, vmax=50, boolPlot=False,
-                                       cmap='coolwarm'):
+                                       vmin=-1, vmax=1, boolPlot=False,
+                                       cmap='seismic'):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
@@ -426,7 +426,7 @@ class PointMassEnv(gym.Env):
         
         if boolPlot:
             im = plt.imshow(v.T>vmin, interpolation='none', extent=axes[0], origin="lower",
-                       cmap=cmap)
+                       cmap='coolwarm')
         else:
             im = plt.imshow(v.T, interpolation='none', extent=axes[0], origin="lower",
                        cmap=cmap, vmin=vmin, vmax=vmax)
@@ -516,6 +516,15 @@ class PointMassEnv(gym.Env):
             traj_x, traj_y = traj
             plt.scatter(traj_x[0], traj_y[0], s=48, c='w')
             plt.plot(traj_x, traj_y, color="w", linewidth=2)
+
+    def plot_target_failure_set(self, ax=None, c='m'):
+        # Plot bounadries of constraint set.
+        ax.plot(self.x_box1_pos, self.y_box1_pos, color="black")
+        ax.plot(self.x_box2_pos, self.y_box2_pos, color="black")
+        ax.plot(self.x_box3_pos, self.y_box3_pos, color="black")
+
+        # Plot boundaries of target set.
+        ax.plot(self.x_box4_pos, self.y_box4_pos, color=c)
 
     # def analytic_v(self):
     #     """ Computes the discretized analytic value function.

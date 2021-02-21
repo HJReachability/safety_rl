@@ -16,6 +16,7 @@ from collections import namedtuple
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import time
 
 from .model import model
 from .DDQN import DDQN, Transition
@@ -247,15 +248,20 @@ class DDQNSingle(DDQN):
         """
 
         # == Warmup Buffer ==
+        startInitBuffer = time.time()
         if warmupBuffer:
             self.initBuffer(env)
+        endInitBuffer = time.time()
 
         # == Warmup Q ==
+        startInitQ = time.time()
         if warmupQ:
             self.initQ(env, warmupIter=warmupIter, outFolder=outFolder,
                 plotFigure=plotFigure, storeFigure=storeFigure)
+        endInitQ = time.time()
 
         # == Main Training ==
+        startLearning = time.time()
         TrainingRecord = namedtuple('TrainingRecord', ['ep', 'runningCost', 'cost', 'lossC'])
         trainingRecords = []
         runningCost = 0.
@@ -345,8 +351,13 @@ class DDQNSingle(DDQN):
                     print("\n At Updates[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(self.cntUpdate, runningCost))
                     env.close()
                     break
-        print()
+        endLearning = time.time()
+        timeInitBuffer = endInitBuffer - startInitBuffer
+        timeInitQ = endInitQ - startInitQ
+        timeLearning = endLearning - startLearning
         self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
+        print('\nInitBuffer: {:.1f}, InitQ: {:.1f}, Learning: {:.1f}'.format(
+            timeInitBuffer, timeInitQ, timeLearning))
         return trainingRecords, trainProgress
 
 

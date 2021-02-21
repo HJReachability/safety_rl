@@ -26,6 +26,7 @@ def run(args):
         trajLengthTmp   = read_dictionary['trajLength']
         ddqnValueTmp    = read_dictionary['ddqnValue']
         rolloutValueTmp = read_dictionary['rolloutValue']
+        idx = read_dictionary['idx']
         if i == 0:
             maxLength = read_dictionary['maxLength']
             toEnd = read_dictionary['toEnd']
@@ -34,9 +35,9 @@ def run(args):
             trajLength     = np.empty(shape=shapeTmp, dtype=int)
             ddqnValue      = np.empty(shape=shapeTmp, dtype=float)
             rolloutValue   = np.empty(shape=shapeTmp, dtype=float)
-        trajLength[i] = trajLengthTmp
-        ddqnValue[i] = ddqnValueTmp
-        rolloutValue[i] = rolloutValueTmp
+        trajLength[idx] = trajLengthTmp
+        ddqnValue[idx] = ddqnValueTmp
+        rolloutValue[idx] = rolloutValueTmp
     print()
     print(ddqnValue.shape)
     finalDict = {}

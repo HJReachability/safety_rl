@@ -37,7 +37,7 @@ from multiprocessing import Pool
 from utils.carPEAnalysis import *
 
 
-def multiExp(args, stateAtt, samplesDef, thetas,
+def multiExp(args, posAtt, thetaAttIdx, samplesDef, thetas,
     maxLength, toEnd, verbose=False):
 
     np.set_printoptions(precision=3, suppress=True, floatmode='fixed')
@@ -66,7 +66,8 @@ def multiExp(args, stateAtt, samplesDef, thetas,
         idx = it.multi_index
         print(idx, end='\r')
         state = np.empty(shape=(6,), dtype=float)
-        state[:3] = stateAtt
+        state[:2] = posAtt
+        state[2] = thetas[thetaAttIdx]
         state[3:5] = samplesDef[idx[0], :]
         state[5] = thetas[idx[1]]
         traj, _, result, minV, _ = env.simulate_one_trajectory(
@@ -89,6 +90,7 @@ def multiExp(args, stateAtt, samplesDef, thetas,
     carPEDict['trajLength']    = trajLength
     carPEDict['ddqnValue']     = ddqnValue
     carPEDict['rolloutValue']  = rolloutValue
+    carPEDict['thetaAttIdx']  = thetaAttIdx
     return carPEDict
 
 
@@ -120,14 +122,15 @@ def run(args):
             startIdx = ith*numThread
             endIdx = min(numTest, (ith+1)*numThread)
             print('{:.0f}-{:.0f}'.format(startIdx, endIdx-1))
-            stateAttList = []
-            for j in range(startIdx, endIdx):
-                stateTmp = np.empty(shape=(3,), dtype=float)
-                stateTmp[:2] = posAtt
-                stateTmp[2] = thetas[j]
-                stateAttList.append(stateTmp)
-
-            numExp = len(stateAttList)
+            # stateAttList = []
+            # for j in range(startIdx, endIdx):
+            #     stateTmp = np.empty(shape=(3,), dtype=float)
+            #     stateTmp[:2] = posAtt
+            #     stateTmp[2] = thetas[j]
+            #     stateAttList.append(stateTmp)
+            thetaIdxAttList = [j for j in range(startIdx, endIdx)]
+            numExp = len(thetaIdxAttList)
+            posAttList      = [posAtt]      * numExp
             argsList        = [args]        * numExp
             samplesDefList  = [samplesDef]  * numExp
             thetasList      = [thetas]      * numExp
@@ -136,7 +139,7 @@ def run(args):
             verboseList     = [False]       * numExp
 
             carPESubDict_i = pool.starmap(multiExp, zip( argsList,
-                stateAttList, samplesDefList, thetasList, 
+                posAttList, thetaIdxAttList, samplesDefList, thetasList, 
                 maxLengthList, toEndList, verboseList))
         carPESubDictList = carPESubDictList + carPESubDict_i
 
@@ -147,9 +150,10 @@ def run(args):
     rolloutValue   = np.empty(shape=shapeTmp, dtype=float)
 
     for i, carPESubDict_i in enumerate(carPESubDictList):
-        trajLength[i, :, :]    = carPESubDict_i['trajLength']
-        ddqnValue[i, :, :]     = carPESubDict_i['ddqnValue']
-        rolloutValue[i, :, :]  = carPESubDict_i['rolloutValue']
+        thetaAttIdx = carPESubDict_i['thetaAttIdx']
+        trajLength[thetaAttIdx, :, :]    = carPESubDict_i['trajLength']
+        ddqnValue[thetaAttIdx, :, :]     = carPESubDict_i['ddqnValue']
+        rolloutValue[thetaAttIdx, :, :]  = carPESubDict_i['rolloutValue']
     print(ddqnValue.shape)
 
     endTime = time.time()

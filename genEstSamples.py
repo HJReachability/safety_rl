@@ -33,7 +33,7 @@ def uniformSampleRing(inner, outer, numSample, dim=2):
 
 
 def run(args):
-    outFolder = os.path.join(args.modelFolder + 'data/')
+    outFolder = os.path.join(args.modelFolder, 'data/')
     os.makedirs(outFolder, exist_ok=True)
 
     #== Getting states to be tested ==

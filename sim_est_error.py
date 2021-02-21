@@ -1,16 +1,19 @@
 # == ESTIMATION ERROR ==
-# We want to evaluate how well we learned from the data.
-# We compare the DDQN-predicted value vs. the rollout value by DDQN-induced 
-# policies.
+# 1. We want to evaluate how well we learned from the data.
+# 2. We compare the DDQN-predicted value vs. the rollout value by DDQN-induced
+    # policies.
+# 3. Pre-processing:
+    # we need to run `genEstSamples.py` beforehand to get state samples
 
-# EXECUTION TIME
-    # 27554 seconds
-        # 11 samples per dimension with 6 workers
-        # NN: 2-layer with 512 neurons per leayer
+# EXECUTION TIME: 32.9 seconds for
+    # one attacker position
+    # 10 attacker heading angles
+    # 100 defender simulations
+    # 10 defender heading angles
 
 # EXAMPLES
     # test:
-        # python3 sim_est_error.py -of tmp -ns 3 
+        # python3 sim_est_error.py -of tmp
     # default:
         # python3 sim_est_error.py
     # toEnd:
@@ -34,31 +37,41 @@ from multiprocessing import Pool
 from utils.carPEAnalysis import *
 
 
-def multiExp(env, agent, samples, firstIdx, numSample, maxLength, toEnd):
+def multiExp(args, stateAtt, samplesDef, thetas,
+    maxLength, toEnd, verbose=False):
+
+    np.set_printoptions(precision=3, suppress=True, floatmode='fixed')
+    #== ENVIRONMENT ==
+    env = loadEnv(args, verbose)
+    stateNum = env.state.shape[0]
+    actionNum = env.action_space.n
+    numActionList = env.numActionList
+    device = env.device
+
+    #== AGENT ==
+    configFile = '{:s}/CONFIG.pkl'.format(args.modelFolder)
+    agent = loadAgent(
+        args, device, stateNum, actionNum, numActionList, verbose)
+
     print("I'm process", os.getpid())
-    freeCoordNum = 5
-    shapeTmp = np.ones(freeCoordNum, dtype=int)*numSample
-    rolloutResult   = np.empty(shape=shapeTmp, dtype=int)
-    trajLength      = np.empty(shape=shapeTmp, dtype=int)
-    ddqnValue       = np.empty(shape=shapeTmp, dtype=float)
-    rolloutValue    = np.empty(shape=shapeTmp, dtype=float)
-    it = np.nditer(rolloutResult, flags=['multi_index'])
+    numTheta = thetas.shape[0]
+    numDef = samplesDef.shape[0]
+    shapeTmp = np.array([numDef, numTheta])
+    trajLength   = np.empty(shape=shapeTmp, dtype=int)
+    ddqnValue    = np.empty(shape=shapeTmp, dtype=float)
+    rolloutValue = np.empty(shape=shapeTmp, dtype=float)
+    it = np.nditer(ddqnValue, flags=['multi_index'])
 
     while not it.finished:
         idx = it.multi_index
-        stateIdx = (firstIdx,) + idx
-        print(stateIdx, end='\r')
-        state = samples[stateIdx, np.arange(6)]
-        dist, phi = state[[0, 1]]
-        state[0] = dist * np.cos(phi)
-        state[1] = dist * np.sin(phi)
-        dist, phi = state[[3, 4]]
-        state[3] = dist * np.cos(phi)
-        state[4] = dist * np.sin(phi)
+        print(idx, end='\r')
+        state = np.empty(shape=(6,), dtype=float)
+        state[:3] = stateAtt
+        state[3:5] = samplesDef[idx[0], :]
+        state[5] = thetas[idx[1]]
         traj, _, result, minV, _ = env.simulate_one_trajectory(
             agent.Q_network, T=maxLength, state=state, toEnd=toEnd)
         trajLength[idx] = traj.shape[0]
-        rolloutResult[idx] = result # result \in { 1, -1}
         rolloutValue[idx] = minV
 
         agent.Q_network.eval()
@@ -73,97 +86,87 @@ def multiExp(env, agent, samples, firstIdx, numSample, maxLength, toEnd):
         it.iternext()
 
     carPEDict = {}
-    carPEDict['rolloutResult'] = rolloutResult
     carPEDict['trajLength']    = trajLength
     carPEDict['ddqnValue']     = ddqnValue
     carPEDict['rolloutValue']  = rolloutValue
-    print()
     return carPEDict
 
 
 def run(args):
     startTime = time.time()
-    #== ENVIRONMENT ==
-    env = loadEnv(args)
-    stateNum = env.state.shape[0]
-    actionNum = env.action_space.n
-    numActionList = env.numActionList
-    device = env.device
-
-    #== AGENT ==
-    agent = loadAgent(args, device, stateNum, actionNum, numActionList)
+    dataFolder = os.path.join(args.modelFolder, 'data/')
+    dataFile = os.path.join(dataFolder, 'samplesEst.npy')
+    print('Load from {:s} ...'.format(dataFile))
+    read_dictionary = np.load(dataFile, allow_pickle='TRUE').item()
+    samples = read_dictionary['samples']
+    [samplesAtt, samplesDef, thetas] = samples
+    numTheta = thetas.shape[0]
+    numDef = samplesDef.shape[0]
+    numAtt = samplesAtt.shape[0]
+    posAtt = samplesAtt[args.index, :]
+    print(posAtt, samplesDef[:5, :], thetas[:5])
 
     #== ROLLOUT RESULTS ==
     print("\n== Estimation Error Information ==")
-    np.set_printoptions(precision=2, suppress=True)
-    numSample = args.numSample
-    R = env.evader_constraint_radius - 0.01
-    r = env.evader_target_radius + 0.01
-    bounds = np.array([ [r, R],
-                        [0., 2*np.pi*(1-1/numSample)],
-                        [0., 2*np.pi*(1-1/numSample)],
-                        [0.01, R],
-                        [np.pi*(1/numSample), np.pi*(2-1/numSample)],
-                        [0., 2*np.pi*(1-1/numSample)]])
-    samples = np.linspace(start=bounds[:,0], stop=bounds[:,1], num=numSample)
-    print(samples)
-
     maxLength = args.maxLength
     toEnd = args.toEnd
     carPESubDictList = []
     numThread = args.numWorker
-    numTurn = int(numSample/(numThread+1e-6))+1
+    numTest = thetas.shape[0]
+    numTurn = int(numTest/(numThread+1e-6))+1
     for ith in range(numTurn):
-        print('{} / {}'.format(ith+1, numTurn))
+        print('{} / {}'.format(ith+1, numTurn), end=': ')
         with Pool(processes = numThread) as pool:
             startIdx = ith*numThread
-            endIdx = min(numSample, (ith+1)*numThread)
-            firstIdxList = list(range(startIdx, endIdx))
-            print(firstIdxList)
-            numExp = len(firstIdxList)
-            envList       = [env]       * numExp
-            agentList     = [agent]     * numExp
-            samplesList   = [samples]   * numExp
-            numSampleList = [numSample] * numExp
-            maxLengthList = [maxLength] * numExp
-            toEndList     = [toEnd]     * numExp
+            endIdx = min(numTest, (ith+1)*numThread)
+            print('{:.0f}-{:.0f}'.format(startIdx, endIdx-1))
+            stateAttList = []
+            for j in range(startIdx, endIdx):
+                stateTmp = np.empty(shape=(3,), dtype=float)
+                stateTmp[:2] = posAtt
+                stateTmp[2] = thetas[j]
+                stateAttList.append(stateTmp)
 
-            carPESubDict_i = pool.starmap(multiExp, zip(
-                envList, agentList, samplesList, firstIdxList, numSampleList, 
-                maxLengthList, toEndList))
+            numExp = len(stateAttList)
+            argsList        = [args]        * numExp
+            samplesDefList  = [samplesDef]  * numExp
+            thetasList      = [thetas]      * numExp
+            maxLengthList   = [maxLength]   * numExp
+            toEndList       = [toEnd]       * numExp
+            verboseList     = [False]       * numExp
+
+            carPESubDict_i = pool.starmap(multiExp, zip( argsList,
+                stateAttList, samplesDefList, thetasList, 
+                maxLengthList, toEndList, verboseList))
         carPESubDictList = carPESubDictList + carPESubDict_i
 
     #== COMBINE RESULTS ==
-    shapeTmp = np.ones(6, dtype=int)*numSample
-    rolloutResult  = np.empty(shape=shapeTmp, dtype=int)
+    shapeTmp = np.array([numTheta, numDef, numTheta])
     trajLength     = np.empty(shape=shapeTmp, dtype=int)
     ddqnValue      = np.empty(shape=shapeTmp, dtype=float)
     rolloutValue   = np.empty(shape=shapeTmp, dtype=float)
 
     for i, carPESubDict_i in enumerate(carPESubDictList):
-        rolloutResult[i, :, :, :, :, :] = carPESubDict_i['rolloutResult']
-        trajLength[i, :, :, :, :, :]    = carPESubDict_i['trajLength']
-        ddqnValue[i, :, :, :, :, :]     = carPESubDict_i['ddqnValue']
-        rolloutValue[i, :, :, :, :, :]  = carPESubDict_i['rolloutValue']
+        trajLength[i, :, :]    = carPESubDict_i['trajLength']
+        ddqnValue[i, :, :]     = carPESubDict_i['ddqnValue']
+        rolloutValue[i, :, :]  = carPESubDict_i['rolloutValue']
 
     endTime = time.time()
     execTime = endTime - startTime
     print('--> Execution time: {:.1f}'.format(execTime))
 
     carPEDict = {}
-    carPEDict['numSample']     = numSample
     carPEDict['maxLength']     = maxLength
     carPEDict['toEnd']         = toEnd
-    carPEDict['rolloutResult'] = rolloutResult
+    carPEDict['samples']       = samples
+    carPEDict['idx']           = args.index
     carPEDict['trajLength']    = trajLength
     carPEDict['ddqnValue']     = ddqnValue
     carPEDict['rolloutValue']  = rolloutValue
-    carPEDict['samples']       = samples
-    carPEDict['execTime']      = execTime
 
-    outFolder = args.modelFolder + '/data/'
+    outFolder = os.path.join(args.modelFolder, 'data/', 'est/')
     os.makedirs(outFolder, exist_ok=True)
-    outFile = outFolder + args.outFile + '.npy'
+    outFile = outFolder + args.outFile + str(args.index) + '.npy'
     np.save('{:s}'.format(outFile), carPEDict)
     print('--> Save to {:s} ...'.format(outFile))
 
@@ -181,10 +184,10 @@ if __name__ == '__main__':
         action="store_true")
     parser.add_argument("-ml", "--maxLength",   help="max length",
         default=150, type=int)
-    parser.add_argument("-ns", "--numSample",   help="#samples",
-        default=11, type=int)
     parser.add_argument("-nw", "--numWorker",   help="#workers",
         default=6, type=int)
+    parser.add_argument("-idx", "--index", help="the index of state in samples",
+        default=0, type=int)
 
     # File Parameters
     parser.add_argument("-of", "--outFile",     help="output file",
@@ -197,4 +200,5 @@ if __name__ == '__main__':
     print(args)
 
     #== Execution ==
+    np.set_printoptions(precision=3, suppress=True, floatmode='fixed')
     run(args)

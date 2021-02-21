@@ -38,6 +38,7 @@ def run(args):
         ddqnValue[i] = ddqnValueTmp
         rolloutValue[i] = rolloutValueTmp
     print()
+    print(ddqnValue.shape)
     finalDict = {}
     finalDict['trajLength'] = trajLength
     finalDict['ddqnValue'] = ddqnValue

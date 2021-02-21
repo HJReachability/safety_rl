@@ -1,7 +1,11 @@
 # == APPROXIMATION ERROR ==
+# 1. We collect state samples, their worst results and rollout values for all
+    # action sequences.
+# 2. Each file records state, worst result and rollout values.
 
 # EXAMPLES
-    # py3 colValResult.py -t 3
+    # TN: python3 colValResult.py -t 0 -mf <model path>
+    # FP: python3 colValResult.py -t 3 -mf <model path>
 
 import numpy as np
 import argparse
@@ -39,7 +43,7 @@ def run(args):
 
     outFolder = os.path.join(args.modelFolder, 'data/')
     outFile = os.path.join(outFolder, args.outFile + sampleType + '.npy')
-    print('--> Save to {:s} ...'.format(outFile))
+    print('\n--> Save to {:s} ...'.format(outFile))
     print(finalDict.keys())
     np.save('{:s}'.format(outFile), finalDict)
 

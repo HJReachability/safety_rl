@@ -1,7 +1,7 @@
 # == APPROXIMATION ERROR ==
 # Generate samples to compute approximation error.
 # 1. It supports SIX sample types:
-    # 0-6 corresponds to ['TN', 'TP', 'FN', 'FP', 'POS', 'NEG'].
+    # 0-5 corresponds to ['TN', 'TP', 'FN', 'FP', 'POS', 'NEG'].
 
 # EXAMPLES
     # TN: python3 genValSamples.py -t 0 -mf <model path>

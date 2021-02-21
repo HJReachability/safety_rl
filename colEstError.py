@@ -5,8 +5,7 @@
     # attacker heading angles, defender positions and defender heading angles
 
 # EXAMPLES
-    # TN: python3 colEstError.py -mf <model path>
-    # FP: python3 colEstError.py -mf <model path>
+    # python3 colEstError.py -mf <model path>
 
 import numpy as np
 import argparse

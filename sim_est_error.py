@@ -53,7 +53,7 @@ def multiExp(args, stateAtt, samplesDef, thetas,
     agent = loadAgent(
         args, device, stateNum, actionNum, numActionList, verbose)
 
-    print("I'm process", os.getpid())
+    # print("I'm process", os.getpid())
     numTheta = thetas.shape[0]
     numDef = samplesDef.shape[0]
     shapeTmp = np.array([numDef, numTheta])

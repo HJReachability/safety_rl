@@ -62,7 +62,7 @@ def multiExp(firstIdx, args, state, maxLength, numPursuerStep, verbose=False):
         args, device, stateNum, actionNum, numActionList, verbose)
 
     #== EXPERIMENT ==
-    print("I'm process", os.getpid())
+    # print("I'm process", os.getpid())
     actionSet= np.empty(shape=(env.numActionList[1], numPursuerStep), dtype=int)
     for i in range(numPursuerStep):
         actionSet[:, i] = np.arange(env.numActionList[1])

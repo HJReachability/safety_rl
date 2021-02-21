@@ -104,7 +104,7 @@ def run(args):
     numDef = samplesDef.shape[0]
     numAtt = samplesAtt.shape[0]
     posAtt = samplesAtt[args.index, :]
-    print(posAtt, samplesDef[:5, :], thetas[:5])
+    print(posAtt, numTheta, numDef)
 
     #== ROLLOUT RESULTS ==
     print("\n== Estimation Error Information ==")

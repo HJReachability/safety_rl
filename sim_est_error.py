@@ -150,6 +150,7 @@ def run(args):
         trajLength[i, :, :]    = carPESubDict_i['trajLength']
         ddqnValue[i, :, :]     = carPESubDict_i['ddqnValue']
         rolloutValue[i, :, :]  = carPESubDict_i['rolloutValue']
+    print(ddqnValue.shape)
 
     endTime = time.time()
     execTime = endTime - startTime

@@ -46,7 +46,7 @@ def actionIndexTuple2Int(actionIdxTuple, numActionList):
 
 class DDQNPursuitEvasion(DDQN):
     def __init__(self, CONFIG, numActionList, dimList, mode='RA',
-        actType='Tanh', verbose=True):
+                    actType='Tanh', verbose=True):
         """
         __init__
 

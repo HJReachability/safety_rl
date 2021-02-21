@@ -23,7 +23,7 @@ from .DDQN import DDQN, Transition
 
 class DDQNSingle(DDQN):
     def __init__(self, CONFIG, numAction, actionList, dimList,
-                    mode='normal', actType='Tanh'):
+                    mode='normal', actType='Tanh', verbose=True):
         super(DDQNSingle, self).__init__(CONFIG)
         
         self.mode = mode # 'normal' or 'RA'
@@ -36,11 +36,11 @@ class DDQNSingle(DDQN):
         assert dimList is not None, "Define the architecture"
         self.dimList = dimList
         self.actType = actType
-        self.build_network(dimList, actType)
+        self.build_network(dimList, actType, verbose)
 
 
-    def build_network(self, dimList=None, actType='Tanh'):
-        self.Q_network = model(dimList, actType, verbose=True)
+    def build_network(self, dimList=None, actType='Tanh', verbose=True):
+        self.Q_network = model(dimList, actType, verbose=verbose)
         self.target_network = model(dimList, actType)
 
         if self.device == torch.device('cuda'):

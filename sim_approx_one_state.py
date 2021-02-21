@@ -6,11 +6,16 @@
 #   trajectories, so that we can be confident that our system truly succeeds not 
 #   only against the “oracle adversary” predicted by the Q-network, but also 
 #   against any possible adversary.
-# 3. Pre-requirement: we need to run `sim_est_error.py` before to get dataFile
+# 3. Pre-processing:
+    # we need to run `sim_est_error.py` before to get dataFile
 # 4. Try to construct env, agent within `multiExp` function.
 
 # EXAMPLES
-    # py3 sim_approx_one_state.py -nps 5 -t 0 -idx 0
+    # TN: with specific idx
+        # w/o: python3 sim_approx_one_state.py -idx <idx> -mf <model path>
+        # cpf: python3 sim_approx_one_state.py -cpf -idx <idx> -mf <model path>
+    # FP: add -t 3
+    # TEST: python3 sim_approx_one_state.py -nps 5 -mf <model path>
 
 
 from warnings import simplefilter 

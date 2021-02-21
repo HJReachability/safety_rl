@@ -1,7 +1,11 @@
 # == APPROXIMATION ERROR ==
+# Generate samples to compute approximation error.
+# 1. It supports SIX sample types:
+    # 0-6 corresponds to ['TN', 'TP', 'FN', 'FP', 'POS', 'NEG'].
 
 # EXAMPLES
-    # py3 genValSamples.py
+    # TN: python3 genValSamples.py -t 0 -mf <model path>
+    # FP: python3 genValSamples.py -t 3 -mf <model path>
 
 from warnings import simplefilter 
 simplefilter(action='ignore', category=FutureWarning)
@@ -22,6 +26,8 @@ def run(args):
     ddqnValue    = read_dictionary['ddqnValue']
     rolloutValue = read_dictionary['rolloutValue']
     samples      = read_dictionary['samples']
+    [samplesAtt, samplesDef, thetas] = samples
+    print(rolloutValue.shape)
 
     if args.sampleType == 0:
         pickMtx = np.logical_and((rolloutValue <= 0), (ddqnValue <= 0))
@@ -48,19 +54,16 @@ def run(args):
         idx = tuple(pickIndices[i])
         ddqnList.append(ddqnValue[idx])
         rollvalList.append(rolloutValue[idx])
-        state = samples[idx, np.arange(6)]
-        dist, phi = state[[0, 1]]
-        state[0] = dist * np.cos(phi)
-        state[1] = dist * np.sin(phi)
-        dist, phi = state[[3, 4]]
-        state[3] = dist * np.cos(phi)
-        state[4] = dist * np.sin(phi)
-        states[cnt, :] = state
+        states[cnt, 0:2] = samplesAtt[idx[0]]
+        states[cnt, 2]   = thetas[idx[1]]
+        states[cnt, 3:5] = samplesDef[idx[0]]
+        states[cnt, 5]   = thetas[idx[3]]
+
     print("The first five indices picked: ", end='')
     print(indices[:5])
     print(states[:5, :])
-    # print(ddqnList)
-    # print(rollvalList)
+    print(ddqnList[:5])
+    print(rollvalList[:5])
 
     finalDict = {}
     finalDict['states'] = states

@@ -60,10 +60,11 @@ def run(args):
         states[cnt, 5]   = thetas[idx[3]]
 
     print("The first five indices picked: ", end='')
-    print(indices[:5])
-    print(states[:5, :])
-    print(ddqnList[:5])
-    print(rollvalList[:5])
+    endIdx = 5
+    # print(indices[:endIdx])
+    print(states[:endIdx, :])
+    print(ddqnList[:endIdx])
+    print(rollvalList[:endIdx])
 
     finalDict = {}
     finalDict['states'] = states

@@ -222,6 +222,21 @@ def validateEvaderPolicy(env, agent, state, maxLength=40, numPursuerStep=10):
     return responseDict
 
 
+def checkCapture(env, trajEvader, trajPursuer):
+    numStep = trajEvader.shape[0]
+    captureFlag = False
+    captureInstant = None
+    for t in range(numStep):
+        posEvader = trajEvader[t, :2]
+        posPursuer = trajPursuer[t, :2]
+        dist_evader_pursuer = np.linalg.norm(posEvader-posPursuer, ord=2)
+        capture_g_x = env.capture_range - dist_evader_pursuer
+        if not captureFlag and capture_g_x > 0:
+            captureInstant = t
+            captureFlag = True
+    return captureFlag, captureInstant
+
+
 def loadEnv(args, verbose=True):
     env_name = "dubins_car_pe-v0"
     if args.forceCPU:

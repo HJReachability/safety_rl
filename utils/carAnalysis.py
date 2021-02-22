@@ -85,7 +85,8 @@ def plot_outer_safety(R, R_turn, orientation, ax, extent):
 
 #== Reach-Avoid Set ==
 
-def plot_reach_avoid_type_1(R, R_turn, r, orientation, ax, extent):
+def plot_reach_avoid_type_1(R, R_turn, r, orientation, ax, extent,
+    fig=None, cbarPlot=False):
     nx, ny = 300, 300
     xs = np.linspace(extent[0], extent[1], nx)
     ys = np.linspace(extent[2], extent[3], ny)
@@ -113,7 +114,10 @@ def plot_reach_avoid_type_1(R, R_turn, r, orientation, ax, extent):
 
         v[idx] = not ( (bool0 or bool1) and boolIn )
         it.iternext()
-    ax.imshow(v.T, interpolation='none', extent=extent, origin="lower", cmap="coolwarm", vmin=0)
+    im = ax.imshow(v.T, interpolation='none', extent=extent, origin="lower", cmap="coolwarm", vmin=0)
+    if cbarPlot:
+        cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95, ticks=[0, 1])
+        cbar.ax.set_yticklabels(labels=[0, 1], fontsize=16)
     # plot arc
     tmpY = (r**2 - R**2 + 2*R_turn*R) / (2*R_turn)
     tmpX = np.sqrt(r**2 - tmpY**2)
@@ -130,7 +134,8 @@ def plot_reach_avoid_type_1(R, R_turn, r, orientation, ax, extent):
     
     return 2*(areaY+areaG+areaB) + 0.5 * R**2 * np.pi
 
-def plot_reach_avoid_type_2(R, R_turn, r, orientation, ax, extent):
+def plot_reach_avoid_type_2(R, R_turn, r, orientation, ax, extent,
+    fig=None, cbarPlot=False):
     nx, ny = 300, 300
     xs = np.linspace(extent[0], extent[1], nx)
     ys = np.linspace(extent[2], extent[3], ny)
@@ -159,8 +164,10 @@ def plot_reach_avoid_type_2(R, R_turn, r, orientation, ax, extent):
 
         v[idx] = not ((bool0 or bool1) and boolIn)
         it.iternext()
-    ax.imshow(v.T, interpolation='none', extent=extent, origin="lower", cmap="coolwarm", vmin=0) 
-    
+    im = ax.imshow(v.T, interpolation='none', extent=extent, origin="lower", cmap="coolwarm", vmin=0)
+    if cbarPlot:
+        cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95, ticks=[0, 1])
+        cbar.ax.set_yticklabels(labels=[0, 1], fontsize=16)
     # two sides
     tmpY = (R**2 + 2*R_turn*r - r**2) / (2*R_turn)
     tmpX = np.sqrt(R**2 - tmpY**2)

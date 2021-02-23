@@ -109,8 +109,10 @@ def run(args):
     print('Load from {:s} ...'.format(dataFile))
     read_dictionary = np.load(dataFile, allow_pickle='TRUE').item()
     states = read_dictionary['states']
+    stateIdxList = read_dictionary['idxList']
     state = states[args.index]
-    print(state)
+    stateIdx = stateIdxList[args.index]
+    print(stateIdx, state)
 
     #== Estimating Approximation Error in Parallel ==
     print("\n== Approximation Error Information ==")
@@ -166,11 +168,12 @@ def run(args):
 
     finalDict = {}
     finalDict['state'] = state
+    finalDict['stateIdx'] = stateIdx
     finalDict['dict'] = maxminInfo
     finalDict['rolloutValue'] = rolloutValue
     finalDict['maxLength'] = maxLength
     finalDict['numPursuerStep'] = numPursuerStep
-    finalDict['idx'] = args.index
+    finalDict['testIdx'] = args.index
 
     outFile = os.path.join(dataFolder, \
         args.outFile + sampleType + str(args.index) + '.npy')

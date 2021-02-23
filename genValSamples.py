@@ -41,7 +41,9 @@ def run(args):
         pickMtx = (ddqnValue > 0)
     elif args.sampleType == 5:
         pickMtx = (ddqnValue <= 0)
-    sampleTypeList = ['TN', 'TP', 'FN', 'FP', 'POS', 'NEG']
+    elif args.sampleType == 6:
+        pickMtx = np.full(shape=rolloutValue.shape, fill_value=True)
+    sampleTypeList = ['TN', 'TP', 'FN', 'FP', 'POS', 'NEG', 'ALL']
     sampleType = sampleTypeList[args.sampleType]
     print('Type of sampled states:', sampleType)
     pickIndices = np.argwhere(pickMtx)
@@ -62,15 +64,20 @@ def run(args):
         idxList.append(idx)
 
     print("The first five indices picked: ")
-    endIdx = 5
-    print(idxList[:endIdx])
-    print(states[:endIdx, :])
-    print(np.all(ddqnList[:] <= 0))
-    print(np.all(rollvalList[:] <= 0))
+    endIdx = 10
+    print(idxList[:5])
+    print(states[:5, :])
+    # print(np.all(ddqnList[:] <= 0))
+    # print(np.all(rollvalList[:] <= 0))
+    print(ddqnList[:endIdx])
+    print(rollvalList[:endIdx])
 
     finalDict = {}
     finalDict['states'] = states
     finalDict['idxList'] = idxList
+    finalDict['ddqnList'] = ddqnList
+    finalDict['rollvalList'] = rollvalList
+
     outFolder = os.path.join(dataFolder, sampleType)
     os.makedirs(outFolder, exist_ok=True)
     outFile = os.path.join(outFolder, args.outFile+sampleType+'.npy')

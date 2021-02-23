@@ -57,7 +57,7 @@ def run(args):
         rollvalList[cnt] = rolloutValue[idx]
         states[cnt, 0:2] = samplesAtt[idx[0], :]
         states[cnt, 2]   = thetas[idx[1]]
-        states[cnt, 3:5] = samplesDef[idx[0], :]
+        states[cnt, 3:5] = samplesDef[idx[2], :]
         states[cnt, 5]   = thetas[idx[3]]
         idxList.append(idx)
 
@@ -70,6 +70,7 @@ def run(args):
 
     finalDict = {}
     finalDict['states'] = states
+    finalDict['idxList'] = idxList
     outFolder = os.path.join(dataFolder, sampleType)
     os.makedirs(outFolder, exist_ok=True)
     outFile = os.path.join(outFolder, args.outFile+sampleType+'.npy')

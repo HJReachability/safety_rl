@@ -122,12 +122,6 @@ def run(args):
             startIdx = ith*numThread
             endIdx = min(numTest, (ith+1)*numThread)
             print('{:.0f}-{:.0f}'.format(startIdx, endIdx-1))
-            # stateAttList = []
-            # for j in range(startIdx, endIdx):
-            #     stateTmp = np.empty(shape=(3,), dtype=float)
-            #     stateTmp[:2] = posAtt
-            #     stateTmp[2] = thetas[j]
-            #     stateAttList.append(stateTmp)
             thetaIdxAttList = [j for j in range(startIdx, endIdx)]
             numExp = len(thetaIdxAttList)
             posAttList      = [posAtt]      * numExp

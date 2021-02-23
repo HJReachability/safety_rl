@@ -165,19 +165,12 @@ def run(args):
     print('--> Execution time: {:.1f}'.format(execTime))
 
     finalDict = {}
-    finalDict['execTime'] = execTime
     finalDict['state'] = state
     finalDict['dict'] = maxminInfo
     finalDict['rolloutValue'] = rolloutValue
     finalDict['maxLength'] = maxLength
     finalDict['numPursuerStep'] = numPursuerStep
     finalDict['idx'] = args.index
-
-    # print(finalDict['rolloutValue'])
-    # print(np.argmax(finalDict['rolloutValue']))
-    # print(finalDict['maxminIdx'])
-    # print(np.max(finalDict['rolloutValue']))
-    # print(finalDict['maxminV'])
 
     outFile = os.path.join(dataFolder, \
         args.outFile + sampleType + str(args.index) + '.npy')

@@ -36,6 +36,7 @@ parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates"
 parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",                  default=1e4,    type=int)
 parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",             default=20,     type=int)
 parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",                default=10000,  type=int)
+parser.add_argument("-cp",  "--checkPeriod",    help="check period",                    default=200000, type=int)
 
 # hyper-parameters
 parser.add_argument("-arc", "--architecture",   help="NN architecture",             default=[100],  nargs="*", type=int)
@@ -176,7 +177,7 @@ CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
     GAMMA=args.gamma, GAMMA_PERIOD=updatePeriod, GAMMA_END=GAMMA_END,
     EPS_PERIOD=updatePeriod, EPS_DECAY=0.6,
     LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
-    MAX_MODEL=50)
+    MAX_MODEL=120)
 print(vars(CONFIG))
 picklePath = os.path.join(outFolder, 'CONFIG.pkl')
 with open(picklePath, 'wb') as handle:
@@ -195,7 +196,7 @@ print(device)
 print("\n== Training Information ==")
 vmin = -1
 vmax = 1
-checkPeriod = updatePeriod
+checkPeriod = args.checkPeriod
 training_records, trainProgress = agent.learn(env,
     MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps, addBias=args.addBias,
     warmupQ=args.warmup, warmupIter=args.warmupIter, doneTerminate=True,

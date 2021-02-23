@@ -109,21 +109,29 @@ class DDQNSingle(DDQN):
                 non_terminal = torch.max(min_term, g_x) - terminal
                 expected_state_action_values[non_final_mask] = self.GAMMA * non_terminal[non_final_mask]
                 expected_state_action_values[torch.logical_not(non_final_mask)] = terminal[torch.logical_not(non_final_mask)]
-            else:   # Better version instead of DRABE on the paper (discussed on Nov. 18, 2020)
-                    # V(s) = gamma ( max{ g(s), min{ l(s), V_better(s') } } + (1-gamma) max{ g(s), l(s) },
-                    # where V_better(s') = max{ g(s'), min{ l(s'), V(s') } }
-                #success_mask = torch.logical_and(torch.logical_not(non_final_mask), l_x<=0)
-                #failure_mask = torch.logical_and(torch.logical_not(non_final_mask), g_x>0)
+            else:
+                # Better version instead of DRABE on the paper (discussed on Nov. 18, 2020)
+                # V(s) = gamma ( max{ g(s), min{ l(s), V_better(s') } } + (1-gamma) max{ g(s), l(s) },
+                # where V_better(s') = max{ g(s'), min{ l(s'), V(s') } }
+                # Another version (discussed on Feb. 22, 2021):
+                    # we want Q(s, u) = V( f(s,u) )
                 V_better = torch.max( g_x_nxt, torch.min(l_x_nxt, state_value_nxt))
-                #V_better = state_value_nxt
-                min_term = torch.min(l_x, V_better)
-                non_terminal = torch.max(min_term, g_x)
-                terminal = torch.max(l_x, g_x)
+                non_terminal = V_better
+                terminal = torch.max(l_x_nxt, g_x_nxt)
+                # V_better = state_value_nxt
+                # min_term = torch.min(l_x, V_better)
+                # non_terminal = torch.max(min_term, g_x)
+                # terminal = torch.max(l_x, g_x)
 
-                expected_state_action_values[non_final_mask] = non_terminal[non_final_mask] * self.GAMMA + \
-                                                               terminal[non_final_mask] * (1-self.GAMMA)
+                expected_state_action_values[non_final_mask] = \
+                    non_terminal[non_final_mask] * self.GAMMA + \
+                    terminal[non_final_mask] * (1-self.GAMMA)
                 # if next state is None, we will use g(x) as the expected V(s)
-                expected_state_action_values[torch.logical_not(non_final_mask)] = g_x[torch.logical_not(non_final_mask)]
+                final_mask = torch.logical_not(non_final_mask)
+                # expected_state_action_values[final_mask] = \
+                #     g_x[torch.logical_not(non_final_mask)]
+                expected_state_action_values[final_mask] = \
+                    g_x_nxt[torch.logical_not(non_final_mask)]
         else: # V(s) = c(s, a) + gamma * V(s')
             expected_state_action_values = state_value_nxt * self.GAMMA + reward
 

@@ -43,7 +43,6 @@ def run(args):
     finalDict['trajLength'] = trajLength
     finalDict['ddqnValue'] = ddqnValue
     finalDict['rolloutValue'] = rolloutValue
-
     finalDict['maxLength'] = maxLength
     finalDict['toEnd'] = toEnd
     finalDict['samples'] = samples

@@ -37,7 +37,7 @@ def run(args):
         if i == 0:
             maxLength = read_dictionary['maxLength']
             numPursuerStep = read_dictionary['numPursuerStep']
-    print('\nWe collect {:d} results'.format(i))
+    print('\nWe collect {:d} results'.format(len(dictList)))
     finalDict = {}
     finalDict['states'] = states
     finalDict['dictList'] = dictList

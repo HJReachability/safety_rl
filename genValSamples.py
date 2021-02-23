@@ -48,23 +48,25 @@ def run(args):
     length = pickIndices.shape[0]
     indices = np.random.randint(low=0, high=length, size=(args.numTest,))
     states = np.empty(shape=(args.numTest, 6), dtype=float)
-    ddqnList = []
-    rollvalList = []
+    ddqnList = np.empty(shape=(args.numTest), dtype=float)
+    rollvalList = np.empty(shape=(args.numTest), dtype=float)
+    idxList = []
     for cnt, i in enumerate(indices):
         idx = tuple(pickIndices[i])
-        ddqnList.append(ddqnValue[idx])
-        rollvalList.append(rolloutValue[idx])
-        states[cnt, 0:2] = samplesAtt[idx[0]]
+        ddqnList[cnt] = ddqnValue[idx]
+        rollvalList[cnt] = rolloutValue[idx]
+        states[cnt, 0:2] = samplesAtt[idx[0], :]
         states[cnt, 2]   = thetas[idx[1]]
-        states[cnt, 3:5] = samplesDef[idx[0]]
+        states[cnt, 3:5] = samplesDef[idx[0], :]
         states[cnt, 5]   = thetas[idx[3]]
+        idxList.append(idx)
 
-    print("The first five indices picked: ", end='')
+    print("The first five indices picked: ")
     endIdx = 5
-    # print(indices[:endIdx])
+    print(idxList[:endIdx])
     print(states[:endIdx, :])
-    print(ddqnList[:endIdx])
-    print(rollvalList[:endIdx])
+    print(np.all(ddqnList[:] <= 0))
+    print(np.all(rollvalList[:] <= 0))
 
     finalDict = {}
     finalDict['states'] = states

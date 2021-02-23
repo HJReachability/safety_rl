@@ -24,11 +24,13 @@ def run(args):
     states = np.empty(shape=(numTest, 6), dtype=float)
     dictList = []
     rolloutValueList = []
+    idxList = []
     for i, resultFile in enumerate(results):
         print('Load from {:s} ...'.format(resultFile), end='\r')
         read_dictionary = np.load(resultFile, allow_pickle='TRUE').item()
         states[i, :] = read_dictionary['state']
         dictList.append(read_dictionary['dict'])
+        idxList.append(read_dictionary['idx'])
         rolloutValueList.append(read_dictionary['rolloutValue'])
         if i == 0:
             maxLength = read_dictionary['maxLength']
@@ -37,9 +39,11 @@ def run(args):
     finalDict = {}
     finalDict['states'] = states
     finalDict['dictList'] = dictList
+    finalDict['idxList'] = idxList
     finalDict['maxLength'] = maxLength
     finalDict['numPursuerStep'] = numPursuerStep
     finalDict['rolloutValueList'] = rolloutValueList
+    print(idxList)
 
     outFolder = os.path.join(args.modelFolder, 'data/')
     outFile = os.path.join(outFolder, args.outFile + sampleType + '.npy')

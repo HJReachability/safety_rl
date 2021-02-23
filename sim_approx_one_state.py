@@ -171,6 +171,7 @@ def run(args):
     finalDict['rolloutValue'] = rolloutValue
     finalDict['maxLength'] = maxLength
     finalDict['numPursuerStep'] = numPursuerStep
+    finalDict['idx'] = args.index
 
     # print(finalDict['rolloutValue'])
     # print(np.argmax(finalDict['rolloutValue']))

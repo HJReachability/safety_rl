@@ -16,6 +16,8 @@
         # cpf: python3 sim_approx_one_state.py -cpf -idx <idx> -mf <model path>
     # FP: add -t 3
     # TEST: python3 sim_approx_one_state.py -nps 5 -mf <model path>
+    # unfinished: python3 sim_approx_one_state.py -df unfinished -of unValDict
+        # -mf <model path>
 
 
 from warnings import simplefilter 
@@ -105,7 +107,7 @@ def run(args):
     sampleTypeList = ['TN', 'TP', 'FN', 'FP', 'POS', 'NEG']
     sampleType = sampleTypeList[args.sampleType]
     dataFolder = os.path.join(args.modelFolder, 'data/', sampleType)
-    dataFile = os.path.join(dataFolder, 'samples'+sampleType+'.npy')
+    dataFile = os.path.join(dataFolder, args.dataFile+sampleType+'.npy')
     print('Load from {:s} ...'.format(dataFile))
     read_dictionary = np.load(dataFile, allow_pickle='TRUE').item()
     states = read_dictionary['states']
@@ -208,6 +210,8 @@ if __name__ == '__main__':
         default='valDict', type=str)
     parser.add_argument("-mf", "--modelFolder", help="model folder", 
         default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str)
+    parser.add_argument("-df", "--dataFile", help="samples file", 
+        default='samples', type=str)
 
     args = parser.parse_args()
     print("\n== Arguments ==")

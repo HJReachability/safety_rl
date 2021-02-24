@@ -19,9 +19,9 @@ def run(args):
     #== Getting states to be tested ==
     print('\n== Getting states to be tested ==')
     dataFolder = os.path.join(args.modelFolder, 'data/')
-    estErrorFile = os.path.join(dataFolder, args.estErrorFile+'.npy')
-    print('Load from {:s} ...'.format(estErrorFile))
-    read_dictionary = np.load(estErrorFile, allow_pickle='TRUE').item()
+    dataFile = os.path.join(dataFolder, args.dataFile+'.npy')
+    print('Load from {:s} ...'.format(dataFile))
+    read_dictionary = np.load(dataFile, allow_pickle='TRUE').item()
     print(read_dictionary.keys())
     ddqnValue    = read_dictionary['ddqnValue']
     rolloutValue = read_dictionary['rolloutValue']
@@ -102,7 +102,7 @@ if __name__ == '__main__':
         default='samples', type=str)
     parser.add_argument("-mf", "--modelFolder", help="model folder", 
         default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str)
-    parser.add_argument("-ef", "--estErrorFile", help="estimation error file", 
+    parser.add_argument("-df", "--dataFile", help="estimation error file", 
         default='estError', type=str)
 
     args = parser.parse_args()

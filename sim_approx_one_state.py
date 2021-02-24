@@ -195,7 +195,7 @@ if __name__ == '__main__':
     parser.add_argument("-f", "--forceCPU", help="force CPU",
         action="store_true")
     parser.add_argument("-nw", "--numWorker", help="#workers",
-        default=6,  type=int)
+        default=5,  type=int)
     parser.add_argument("-ml", "--maxLength", help="max length",
         default=50, type=int)
     parser.add_argument("-nps", "--numPursuerStep", help="#pursuer steps",

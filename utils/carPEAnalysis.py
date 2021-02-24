@@ -126,9 +126,9 @@ def pursuerResponse(env, agent, statePursuer, trajEvader):
     return trajPursuer, result, minV, info
 
 
-def evaderResponse(env, agent, state, actionSeq, maxLength=40):
+def exhaustiveDefenderSearch(env, agent, state, actionSeq, maxLength=40):
     numPursuerStep = actionSeq.shape[0]
-    resPeriod = int(np.ceil(maxLength/numPursuerStep))
+    chunkLength = int(np.ceil(maxLength/numPursuerStep))
     stateEvader  = state[:3]
     statePursuer = state[3:]
     trajPursuer = [statePursuer]
@@ -136,10 +136,9 @@ def evaderResponse(env, agent, state, actionSeq, maxLength=40):
     valueList = []
     gxList = []
     lxList = []
-    pursuerActionIdx = 0
+    pursuerActionSeqIdx = 0
 
     for t in range(maxLength):
-        
         state = np.concatenate((stateEvader, statePursuer), axis=0)
         doneEvader = not env.evader.check_within_bounds(stateEvader)
         donePursuer = not env.pursuer.check_within_bounds(statePursuer)
@@ -175,14 +174,14 @@ def evaderResponse(env, agent, state, actionSeq, maxLength=40):
             uEvader = env.evader.discrete_controls[rowIdx]
             stateEvader = env.evader.integrate_forward(stateEvader, uEvader)
         if not donePursuer:
-            actionIdx = actionSeq[pursuerActionIdx]
+            actionIdx = actionSeq[pursuerActionSeqIdx]
             uPursuer = env.pursuer.discrete_controls[actionIdx]
             statePursuer = env.pursuer.integrate_forward(statePursuer, uPursuer)
 
         trajPursuer.append(statePursuer)
         trajEvader.append(stateEvader)
-        if (t+1) % resPeriod == 0:
-            pursuerActionIdx += 1
+        if (t+1) % chunkLength == 0:
+            pursuerActionSeqIdx += 1
 
     trajEvader = np.array(trajEvader)
     trajPursuer = np.array(trajPursuer)
@@ -205,7 +204,7 @@ def validateEvaderPolicy(env, agent, state, maxLength=40, numPursuerStep=10):
         idx = it.multi_index
         actionSeq = actionSet[idx, np.arange(numPursuerStep)]
         print(actionSeq, end='\r')
-        trajEvader, trajPursuer, minV, _ = evaderResponse(
+        trajEvader, trajPursuer, minV, _ = exhaustiveDefenderSearch(
             env, agent, state, actionSeq, maxLength)
         info = {'trajEvader':trajEvader, 'trajPursuer':trajPursuer, 'minV':minV}
         responseDict[idx] = info

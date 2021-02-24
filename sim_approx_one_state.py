@@ -16,7 +16,7 @@
         # cpf: python3 sim_approx_one_state.py -cpf -idx <idx> -mf <model path>
     # FP: add -t 3
     # TEST: python3 sim_approx_one_state.py -nps 5 -mf <model path>
-    # unfinished: python3 sim_approx_one_state.py -df unfinished -of unValDict
+    # unfinished: python3 sim_approx_one_state.py -df unfSamples -of unValDict
         # -mf <model path>
 
 
@@ -79,7 +79,7 @@ def multiExp(firstIdx, args, state, maxLength, numPursuerStep, verbose=False):
         idx = it.multi_index
         actionIdx = firstIdx + idx
         actionSeq = actionSet[actionIdx, np.arange(numPursuerStep)]
-        trajEvader, trajPursuer, minV, _ = evaderResponse(
+        trajEvader, trajPursuer, minV, _ = exhaustiveDefenderSearch(
             env, agent, state, actionSeq, maxLength)
         print(actionSeq, end='\r')
         rolloutValue[idx] = minV
@@ -139,8 +139,6 @@ def run(args):
             maxLengthList      = [maxLength]      * numExp
             numPursuerStepList = [numPursuerStep] * numExp
             verboseList        = [False]          * numExp
-            # if ith == 0:
-            #     verboseList[0] = True
             subDictList = pool.starmap(multiExp, zip(firstIdxList, argsList,
                 stateList, maxLengthList, numPursuerStepList, verboseList))
             print('\n')
@@ -176,6 +174,7 @@ def run(args):
     finalDict['maxLength'] = maxLength
     finalDict['numPursuerStep'] = numPursuerStep
     finalDict['testIdx'] = args.index
+    print(maxminInfo['maxminV'])
 
     outFile = os.path.join(dataFolder, \
         args.outFile + sampleType + str(args.index) + '.npy')

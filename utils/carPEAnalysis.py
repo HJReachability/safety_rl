@@ -237,6 +237,19 @@ def checkCapture(env, trajEvader, trajPursuer):
     return captureFlag, captureInstant
 
 
+def checkCrossConstraint(env, trajEvader, trajPursuer):
+    numStep = trajEvader.shape[0]
+    crossConstraintFlag = False
+    crossConstraintInstant = None
+    for t in range(numStep):
+        posEvader = trajEvader[t, :2]
+        evader_g_x = env.evader.safety_margin(posEvader)
+        if not crossConstraintFlag and evader_g_x > 0:
+            crossConstraintInstant = t
+            crossConstraintFlag = True
+    return crossConstraintFlag, crossConstraintInstant
+
+
 def loadEnv(args, verbose=True):
     env_name = "dubins_car_pe-v0"
     if args.forceCPU:

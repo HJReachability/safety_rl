@@ -170,13 +170,11 @@ def exhaustiveDefenderSearch(env, agent, state, actionSeq, maxLength=40):
         colIdx = colIndices[rowIdx]
 
         # If cars are within the boundary, we update their states according to the controls
-        if not doneEvader:
-            uEvader = env.evader.discrete_controls[rowIdx]
-            stateEvader = env.evader.integrate_forward(stateEvader, uEvader)
-        if not donePursuer:
-            actionIdx = actionSeq[pursuerActionSeqIdx]
-            uPursuer = env.pursuer.discrete_controls[actionIdx]
-            statePursuer = env.pursuer.integrate_forward(statePursuer, uPursuer)
+        uEvader = env.evader.discrete_controls[rowIdx]
+        stateEvader = env.evader.integrate_forward(stateEvader, uEvader)
+        actionIdx = actionSeq[pursuerActionSeqIdx]
+        uPursuer = env.pursuer.discrete_controls[actionIdx]
+        statePursuer = env.pursuer.integrate_forward(statePursuer, uPursuer)
 
         trajPursuer.append(statePursuer)
         trajEvader.append(stateEvader)
@@ -429,8 +427,10 @@ def plotAndObtainValueDictIdx(env, dictList, testIdxList, indices,
             colIdx = i % numCol
             if numRow > 1:
                 ax = axes[rowIdx][colIdx]
-            else:
+            elif numCol > 1:
                 ax = axes[colIdx]
+            else:
+                ax = axes
             trajEvaderTmp = dictTmp['trajEvader']
             trajPursuerTmp = dictTmp['trajPursuer']
 

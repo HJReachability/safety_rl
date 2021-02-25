@@ -127,8 +127,8 @@ def pursuerResponse(env, agent, statePursuer, trajEvader):
 
 
 def exhaustiveDefenderSearch(env, agent, state, actionSeq, maxLength=40):
-    numPursuerStep = actionSeq.shape[0]
-    chunkLength = int(np.ceil(maxLength/numPursuerStep))
+    numChunk = actionSeq.shape[0]
+    chunkLength = int(np.ceil(maxLength/numChunk))
     stateEvader  = state[:3]
     statePursuer = state[3:]
     trajPursuer = [statePursuer]
@@ -189,20 +189,84 @@ def exhaustiveDefenderSearch(env, agent, state, actionSeq, maxLength=40):
     return trajEvader, trajPursuer, minV, info
 
 
-def validateEvaderPolicy(env, agent, state, maxLength=40, numPursuerStep=10):
-    actionSet= np.empty(shape=(env.numActionList[1], numPursuerStep), dtype=int)
-    for i in range(numPursuerStep):
+#! exhaustiveAttackerSearch
+def exhaustiveAttackerSearch(env, agent, state, actionSeq, maxLength=40):
+    numChunk = actionSeq.shape[0]
+    chunkLength = int(np.ceil(maxLength/numChunk))
+    stateEvader  = state[:3]
+    statePursuer = state[3:]
+    trajPursuer = [statePursuer]
+    trajEvader = [stateEvader]
+    valueList = []
+    gxList = []
+    lxList = []
+    pursuerActionSeqIdx = 0
+
+    for t in range(maxLength):
+        state = np.concatenate((stateEvader, statePursuer), axis=0)
+        doneEvader = not env.evader.check_within_bounds(stateEvader)
+        donePursuer = not env.pursuer.check_within_bounds(statePursuer)
+
+        g_x = env.safety_margin(state)
+        l_x = env.target_margin(state)
+
+        #= Rollout Record
+        if t == 0:
+            maxG = g_x
+            current = max(l_x, maxG)
+            minV = current
+        else:
+            maxG = max(maxG, g_x)
+            current = max(l_x, maxG)
+            minV = min(current, minV)
+
+        valueList.append(minV)
+        gxList.append(g_x)
+        lxList.append(l_x)
+
+        #= Dynamics
+        stateTensor = torch.FloatTensor(state).to(env.device)
+        with torch.no_grad():
+            state_action_values = agent.Q_network(stateTensor)
+        Q_mtx = state_action_values.reshape(env.numActionList[0], env.numActionList[1])
+        pursuerValues, colIndices = Q_mtx.max(dim=1)
+        minmaxValue, rowIdx = pursuerValues.min(dim=0)
+        colIdx = colIndices[rowIdx]
+
+        # If cars are within the boundary, we update their states according to the controls
+        if not doneEvader:
+            uEvader = env.evader.discrete_controls[rowIdx]
+            stateEvader = env.evader.integrate_forward(stateEvader, uEvader)
+        if not donePursuer:
+            actionIdx = actionSeq[pursuerActionSeqIdx]
+            uPursuer = env.pursuer.discrete_controls[actionIdx]
+            statePursuer = env.pursuer.integrate_forward(statePursuer, uPursuer)
+
+        trajPursuer.append(statePursuer)
+        trajEvader.append(stateEvader)
+        if (t+1) % chunkLength == 0:
+            pursuerActionSeqIdx += 1
+
+    trajEvader = np.array(trajEvader)
+    trajPursuer = np.array(trajPursuer)
+    info = {'valueList':valueList, 'gxList':gxList, 'lxList':lxList}
+    return trajEvader, trajPursuer, minV, info
+
+
+def validateEvaderPolicy(env, agent, state, maxLength=40, numChunk=10):
+    actionSet= np.empty(shape=(env.numActionList[1], numChunk), dtype=int)
+    for i in range(numChunk):
         actionSet[:, i] = np.arange(env.numActionList[1])
 
-    shapeTmp = np.ones(numPursuerStep, dtype=int)*env.numActionList[1]
+    shapeTmp = np.ones(numChunk, dtype=int)*env.numActionList[1]
     rolloutResult = np.empty(shape=shapeTmp, dtype=int)
     it = np.nditer(rolloutResult, flags=['multi_index'])
     responseDict={'state':state, 'maxLength':maxLength, 
-        'numPursuerStep':numPursuerStep}
+        'numChunk':numChunk}
     flag = True
     while not it.finished:
         idx = it.multi_index
-        actionSeq = actionSet[idx, np.arange(numPursuerStep)]
+        actionSeq = actionSet[idx, np.arange(numChunk)]
         print(actionSeq, end='\r')
         trajEvader, trajPursuer, minV, _ = exhaustiveDefenderSearch(
             env, agent, state, actionSeq, maxLength)
@@ -288,3 +352,174 @@ def loadAgent(args, device, stateNum, actionNum, numActionList,
         print('agent\'s device:', agent.device)
 
     return agent
+
+
+def analyzeValidationResult(validationFile, env):
+    print('Load from {:s} ...'.format(validationFile))
+    valDict = np.load(validationFile, allow_pickle='TRUE').item()
+    print(valDict.keys())
+
+    dictList = valDict['dictList']
+    testIdxList = valDict['testIdxList']
+    failureList = []
+    successList = []
+    for i, dictTmp in enumerate(dictList):
+        maxminV = dictTmp['maxminV']
+        if maxminV > 0:
+            failureList.append(i)
+        else:
+            successList.append(i)
+    print(len(failureList)/len(dictList))
+
+    #== ANALYZE FAILED STATES ==
+    captureList = []
+    captureInstantList = []
+    crossConstraintList = []
+    crossConstraintInstantList = []
+    unfinishedList = []
+    for i, pick in enumerate(failureList):
+        print("{:d}/{:d}".format(i+1, len(failureList)), end='\r')
+        dictTmp = dictList[pick]
+        trajEvaderTmp = dictTmp['trajEvader']
+        trajPursuerTmp = dictTmp['trajPursuer']
+        captureFlag, captureInstant = \
+            checkCapture(env, trajEvaderTmp, trajPursuerTmp)
+        crossConstraintFlag, crossConstraintInstant = \
+            checkCrossConstraint(env, trajEvaderTmp, trajPursuerTmp)
+        if captureFlag:
+            captureList.append(pick)
+            captureInstantList.append(captureInstant)
+        elif crossConstraintFlag:
+            crossConstraintList.append(pick)
+            crossConstraintInstantList.append(crossConstraintInstant)
+        else:
+            unfinishedList.append(pick)
+    print(len(captureList), len(crossConstraintList), len(unfinishedList))
+    return valDict, successList, failureList, captureList, captureInstantList,\
+            crossConstraintList, crossConstraintInstantList, unfinishedList
+
+
+def plotAndObtainValueDictIdx(env, dictList, indices, instantList=None,
+    maxCol=10, maxRow=2, width=2, height=2, showCapture=False):
+    numCol = min(len(indices), maxCol)
+    numRow = min(int(np.ceil(len(indices)/numCol)), maxRow)
+    numAx = int(numRow*numCol)
+
+    figWidth = width*numCol
+    figHeight = height*numRow
+    fig, axes = plt.subplots(numRow, numCol, figsize=(figWidth, figHeight))
+    valueList = np.empty(shape=(len(indices),), dtype=float)
+
+    for i, pick in enumerate(indices):
+        print("{:d}/{:d}".format(i+1, len(indices)), end='\r')
+        if instantList is not None:
+            instant = instantList[i]
+        dictTmp = dictList[pick]
+        maxminV = dictTmp['maxminV']
+        valueList[i] = maxminV
+        
+        #= PLOT =
+        if i < numAx:
+            rowIdx = int(i/numCol)
+            colIdx = i % numCol
+            if numRow > 1:
+                ax = axes[rowIdx][colIdx]
+            else:
+                ax = axes[colIdx]
+            trajEvaderTmp = dictTmp['trajEvader']
+            trajPursuerTmp = dictTmp['trajPursuer']
+
+            traj_x = trajEvaderTmp[:,0]
+            traj_y = trajEvaderTmp[:,1]
+            ax.scatter(traj_x[0], traj_y[0], s=48, c='#0abab5')
+            ax.plot(traj_x, traj_y, color='#0abab5',  linewidth=2)
+            if showCapture and instantList is not None:
+                ax.scatter(traj_x[instant], traj_y[instant],
+                    marker='x', s=48, c='b', zorder=4)
+
+            traj_x = trajPursuerTmp[:,0]
+            traj_y = trajPursuerTmp[:,1]
+            ax.scatter(traj_x[0], traj_y[0], s=48, c='y')
+            ax.plot(traj_x, traj_y, color='y',  linewidth=2)
+            if instantList is not None:
+                if showCapture:
+                    env.plot_target_failure_set(ax=ax, xPursuer=traj_x[instant],
+                        yPursuer=traj_y[instant], lw=1.5)
+                    ax.scatter(traj_x[instant], traj_y[instant],
+                        marker='x', s=48, c='b', zorder=4)
+                else:
+                    env.plot_target_failure_set(ax, showCapture=False, lw=1.5)
+                    ax.scatter(traj_x[instant], traj_y[instant], marker='x',
+                        s=48, c='r', zorder=4)
+            else:
+                env.plot_target_failure_set(ax, showCapture=False, lw=1.5)
+            env.plot_formatting(ax=ax)
+            ax.set_title('[{:d}]: {:.2f}'.format(pick, maxminV), fontsize=14)
+            ax.set_xticklabels([])
+            ax.set_yticklabels([])
+    plt.tight_layout()
+    plt.show()
+
+    return valueList
+
+
+def colUnfinishedSamples(unfinishedList, valDict, valSamplesDict):
+    """
+    colUnfinishedSamples [summary]
+
+    Args:
+        unfinishedList (list): the test indices of unfinished samples.
+        valDict (dict): includes
+            'dictList'
+            'stateIdxList': the index of states by `genEstSamples.py`
+            'testIdxList': the index of states by `genValSamples.py`
+        valSamplesDict (dict): includes
+            'idxList': the index of states by `genEstSamples.py`
+            'rollvalList': the rollout values of states by `genEstSamples.py`
+            'ddqnList': the DDQN values of states by `genEstSamples.py`
+    """    
+    #== add to valSamplesTN ==
+    unfinishedStateIdxList = []
+    unfinishedStateList = np.empty(shape=(len(unfinishedList), 6), dtype=float)
+    newRolloutValueList = np.empty(shape=(len(unfinishedList),), dtype=float)
+    newDdqnValueList    = np.empty(shape=(len(unfinishedList),), dtype=float)
+    unfinishedValueList = np.empty(shape=(len(unfinishedList),), dtype=float)
+    
+    dictList = valDict['dictList']
+    stateIdxList = valDict['stateIdxList']
+    testIdxList = valDict['testIdxList']
+
+    for i, pick in enumerate(unfinishedList):
+        print("{:d}/{:d}".format(i+1, len(unfinishedList)), end='\r')
+
+        testIdx = testIdxList[pick]
+        dictTmp = dictList[pick]
+        stateIdx = stateIdxList[pick]
+        maxminV = dictTmp['maxminV']
+        maxminIdx = dictTmp['maxminIdx']
+        trajEvaderTmp = dictTmp['trajEvader']
+        trajPursuerTmp = dictTmp['trajPursuer']
+
+        state = np.empty(shape=(6,), dtype=float)
+        state[:3] = trajEvaderTmp[-1, :]
+        state[3:] = trajPursuerTmp[-1, :]
+
+        rolloutValue = valSamplesDict['rollvalList'][testIdx]
+        ddqnValue    = valSamplesDict['ddqnList'][testIdx]
+
+        unfinishedValueList[i] = maxminV
+        unfinishedStateIdxList.append(stateIdx)
+        unfinishedStateList[i, :] = state
+        newRolloutValueList[i] = rolloutValue
+        newDdqnValueList[i] = ddqnValue
+
+    #== RECORD ==
+    finalDict = {}
+    finalDict['states'] = unfinishedStateList
+    finalDict['idxList'] = unfinishedStateIdxList
+    finalDict['ddqnList'] = newDdqnValueList
+    finalDict['rollvalList'] = newRolloutValueList
+    finalDict['unfinishedValueList'] = unfinishedValueList
+    finalDict['pickList'] = unfinishedList # indices of validation samples
+
+    return finalDict

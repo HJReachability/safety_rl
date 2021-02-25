@@ -19,7 +19,7 @@ def run(args):
     sampleTypeList = ['TN', 'TP', 'FN', 'FP', 'POS', 'NEG']
     sampleType = sampleTypeList[args.sampleType]
     dataFolder = os.path.join(args.modelFolder, 'data/', sampleType)
-    results = glob.glob(os.path.join(dataFolder, 'valDict'+sampleType+'*'))
+    results = glob.glob(os.path.join(dataFolder, args.dataFile+sampleType+'*'))
     numTest = len(results)
     states = np.empty(shape=(numTest, 6), dtype=float)
     dictList = []
@@ -69,6 +69,8 @@ if __name__ == '__main__':
         default='valDict', type=str)
     parser.add_argument("-mf", "--modelFolder", help="model folder", 
         default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str)
+    parser.add_argument("-df", "--dataFile", help="samples file", 
+        default='valDict', type=str)
 
     args = parser.parse_args()
     print("== Arguments ==")

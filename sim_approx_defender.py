@@ -16,8 +16,8 @@
         # cpf: python3 sim_approx_one_state.py -cpf -idx <idx> -mf <model path>
     # FP: add -t 3
     # TEST: python3 sim_approx_one_state.py -nps 5 -mf <model path>
-    # unfinished: python3 sim_approx_one_state.py -df unfSamples -of unValDict
-        # -mf <model path>
+    # unfinished: python3 sim_approx_one_state.py -df samplesThird
+        # -of valThirdDict -mf <model path>
 
 
 from warnings import simplefilter 

@@ -369,7 +369,8 @@ def analyzeValidationResult(validationFile, env):
             failureList.append(i)
         else:
             successList.append(i)
-    print(len(failureList)/len(dictList))
+    print('Failure Ratio: {:d} / {:d} = {:.2%}.'.format(
+        len(failureList), len(dictList), len(failureList)/len(dictList) ))
 
     #== ANALYZE FAILED STATES ==
     captureList = []
@@ -394,13 +395,16 @@ def analyzeValidationResult(validationFile, env):
             crossConstraintInstantList.append(crossConstraintInstant)
         else:
             unfinishedList.append(pick)
-    print(len(captureList), len(crossConstraintList), len(unfinishedList))
+    print('{:d} captured, {:d} cross, {:d} unfinished.'.format(
+        len(captureList), len(crossConstraintList), len(unfinishedList) ))
     return valDict, successList, failureList, captureList, captureInstantList,\
             crossConstraintList, crossConstraintInstantList, unfinishedList
 
 
-def plotAndObtainValueDictIdx(env, dictList, indices, instantList=None,
-    maxCol=10, maxRow=2, width=2, height=2, showCapture=False):
+def plotAndObtainValueDictIdx(env, dictList, testIdxList, indices,
+    instantList=None, maxCol=10, maxRow=2,
+    width=2, height=2, showCapture=False):
+
     numCol = min(len(indices), maxCol)
     numRow = min(int(np.ceil(len(indices)/numCol)), maxRow)
     numAx = int(numRow*numCol)
@@ -415,6 +419,7 @@ def plotAndObtainValueDictIdx(env, dictList, indices, instantList=None,
         if instantList is not None:
             instant = instantList[i]
         dictTmp = dictList[pick]
+        testIdx = testIdxList[pick]
         maxminV = dictTmp['maxminV']
         valueList[i] = maxminV
         
@@ -454,7 +459,7 @@ def plotAndObtainValueDictIdx(env, dictList, indices, instantList=None,
             else:
                 env.plot_target_failure_set(ax, showCapture=False, lw=1.5)
             env.plot_formatting(ax=ax)
-            ax.set_title('[{:d}]: {:.2f}'.format(pick, maxminV), fontsize=14)
+            ax.set_title('[{:d}]: {:.2f}'.format(testIdx, maxminV), fontsize=14)
             ax.set_xticklabels([])
             ax.set_yticklabels([])
     plt.tight_layout()

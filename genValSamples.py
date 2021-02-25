@@ -1,7 +1,7 @@
 # == APPROXIMATION ERROR ==
 # Generate samples to compute approximation error.
 # 1. It supports SIX sample types:
-    # 0-5 corresponds to ['TN', 'TP', 'FN', 'FP', 'POS', 'NEG'].
+    # 0-6 corresponds to ['TN', 'TP', 'FN', 'FP', 'POS', 'NEG', 'ALL'].
 
 # EXAMPLES
     # TN: python3 genValSamples.py -t 0 -mf <model path>
@@ -38,9 +38,9 @@ def run(args):
     elif args.sampleType == 3:
         pickMtx = np.logical_and((rolloutValue <= 0), (ddqnValue > 0))
     elif args.sampleType == 4:
-        pickMtx = (ddqnValue > 0)
+        pickMtx = (rolloutValue > 0)
     elif args.sampleType == 5:
-        pickMtx = (ddqnValue <= 0)
+        pickMtx = (rolloutValue <= 0)
     elif args.sampleType == 6:
         pickMtx = np.full(shape=rolloutValue.shape, fill_value=True)
     sampleTypeList = ['TN', 'TP', 'FN', 'FP', 'POS', 'NEG', 'ALL']
@@ -65,12 +65,12 @@ def run(args):
 
     print("The first five indices picked: ")
     endIdx = 10
-    print(idxList[:5])
-    print(states[:5, :])
+    print('indices:', idxList[:5])
+    print('states:', states[:5, :])
     # print(np.all(ddqnList[:] <= 0))
     # print(np.all(rollvalList[:] <= 0))
-    print(ddqnList[:endIdx])
-    print(rollvalList[:endIdx])
+    print('DDQN:', ddqnList[:endIdx])
+    print('rollout:', rollvalList[:endIdx])
 
     finalDict = {}
     finalDict['states'] = states

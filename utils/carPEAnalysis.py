@@ -77,6 +77,105 @@ def plotTrajStep(state, env, agent, c=[tiffany, 'y'], lw=2, nx=101, ny=101, toEn
     return valueList, lxList, gxList
 
 
+def plotCM(cm, target_names=['0', '1'], labels=['', ''],
+    fontsize=20, thresh=.5, cmap='viridis'):
+
+    fig, ax = plt.subplots(1, 1, figsize=(4, 4))
+
+    im = ax.imshow(cm, interpolation='none', cmap=cmap, vmin=0, vmax=1.)
+    cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.75,
+        ticks=[0, .5, 1.])
+    cbar.ax.set_yticklabels(labels=[0, .5, 1.], fontsize=fontsize-4)
+
+    if target_names is not None:
+        tick_marks = np.arange(len(target_names))
+        plt.xticks(tick_marks, target_names, rotation=0,  fontsize=fontsize-4)
+        plt.yticks(tick_marks, target_names, rotation=90, fontsize=fontsize-4)
+
+    it = np.nditer(cm, flags=['multi_index'])
+    while not it.finished:
+        i, j = it.multi_index
+
+        plt.text(j, i, "{:0.3f}".format(cm[i, j]),
+                    horizontalalignment="center",
+                    color="k" if cm[i, j] > thresh else "w",
+                    fontsize=fontsize)
+        it.iternext()
+    plt.tight_layout()
+    plt.xlabel(labels[0], fontsize=fontsize)
+    plt.ylabel(labels[1], fontsize=fontsize)
+    plt.show()
+
+
+def plotAndObtainValueDictIdx(env, dictList, testIdxList, indices,
+    instantList=None, showCapture=False,
+    maxCol=10, maxRow=2, width=2, height=2,
+    lw=1.5, s=48):
+
+    numCol = min(len(indices), maxCol)
+    numRow = min(int(np.ceil(len(indices)/numCol)), maxRow)
+    numAx = int(numRow*numCol)
+
+    figWidth = width*numCol
+    figHeight = height*numRow
+    fig, axes = plt.subplots(numRow, numCol, figsize=(figWidth, figHeight))
+    valueList = np.empty(shape=(len(indices),), dtype=float)
+
+    for i, pick in enumerate(indices):
+        print("{:d}/{:d}".format(i+1, len(indices)), end='\r')
+        if instantList is not None:
+            instant = instantList[i]
+        dictTmp = dictList[pick]
+        testIdx = testIdxList[pick]
+        maxminV = dictTmp['maxminV']
+        valueList[i] = maxminV
+        
+        #= PLOT =
+        if i < numAx:
+            rowIdx = int(i/numCol)
+            colIdx = i % numCol
+            if numRow > 1:
+                ax = axes[rowIdx][colIdx]
+            elif numCol > 1:
+                ax = axes[colIdx]
+            else:
+                ax = axes
+            trajEvaderTmp = dictTmp['trajEvader']
+            trajPursuerTmp = dictTmp['trajPursuer']
+
+            traj_x = trajEvaderTmp[:,0]
+            traj_y = trajEvaderTmp[:,1]
+            ax.scatter(traj_x[0], traj_y[0], s=s, c='#0abab5')
+            ax.plot(traj_x, traj_y, color='#0abab5',  linewidth=lw)
+            if instantList is not None:
+                markerColor = 'b' if showCapture else 'r'
+                ax.scatter(traj_x[instant], traj_y[instant], marker='x', s=s,
+                    c=markerColor, zorder=4)
+
+            traj_x = trajPursuerTmp[:,0]
+            traj_y = trajPursuerTmp[:,1]
+            ax.scatter(traj_x[0], traj_y[0], s=s, c='y')
+            ax.plot(traj_x, traj_y, color='y',  linewidth=lw)
+            if instantList is not None:
+                if showCapture:
+                    env.plot_target_failure_set(ax=ax, xPursuer=traj_x[instant],
+                        yPursuer=traj_y[instant], lw=lw)
+                    ax.scatter(traj_x[instant], traj_y[instant],
+                        marker='x', s=s, c='b', zorder=4)
+                else:
+                    env.plot_target_failure_set(ax, showCapture=False, lw=lw)
+            else:
+                env.plot_target_failure_set(ax, showCapture=False, lw=lw)
+            env.plot_formatting(ax=ax)
+            ax.set_title('[{:d}]: {:.2f}'.format(testIdx, maxminV), fontsize=14)
+            ax.set_xticklabels([])
+            ax.set_yticklabels([])
+    plt.tight_layout()
+    plt.show()
+
+    return valueList
+
+
 def pursuerResponse(env, agent, statePursuer, trajEvader):
     trajPursuer = []
     result = 0 # not finished
@@ -386,8 +485,16 @@ def analyzeValidationResult(validationFile, env):
         crossConstraintFlag, crossConstraintInstant = \
             checkCrossConstraint(env, trajEvaderTmp, trajPursuerTmp)
         if captureFlag:
-            captureList.append(pick)
-            captureInstantList.append(captureInstant)
+            if crossConstraintFlag:
+                if captureInstant < crossConstraintInstant:
+                    captureList.append(pick)
+                    captureInstantList.append(captureInstant)
+                else:
+                    crossConstraintList.append(pick)
+                    crossConstraintInstantList.append(crossConstraintInstant)
+            else:
+                captureList.append(pick)
+                captureInstantList.append(captureInstant)
         elif crossConstraintFlag:
             crossConstraintList.append(pick)
             crossConstraintInstantList.append(crossConstraintInstant)
@@ -397,75 +504,6 @@ def analyzeValidationResult(validationFile, env):
         len(captureList), len(crossConstraintList), len(unfinishedList) ))
     return valDict, successList, failureList, captureList, captureInstantList,\
             crossConstraintList, crossConstraintInstantList, unfinishedList
-
-
-def plotAndObtainValueDictIdx(env, dictList, testIdxList, indices,
-    instantList=None, maxCol=10, maxRow=2,
-    width=2, height=2, showCapture=False):
-
-    numCol = min(len(indices), maxCol)
-    numRow = min(int(np.ceil(len(indices)/numCol)), maxRow)
-    numAx = int(numRow*numCol)
-
-    figWidth = width*numCol
-    figHeight = height*numRow
-    fig, axes = plt.subplots(numRow, numCol, figsize=(figWidth, figHeight))
-    valueList = np.empty(shape=(len(indices),), dtype=float)
-
-    for i, pick in enumerate(indices):
-        print("{:d}/{:d}".format(i+1, len(indices)), end='\r')
-        if instantList is not None:
-            instant = instantList[i]
-        dictTmp = dictList[pick]
-        testIdx = testIdxList[pick]
-        maxminV = dictTmp['maxminV']
-        valueList[i] = maxminV
-        
-        #= PLOT =
-        if i < numAx:
-            rowIdx = int(i/numCol)
-            colIdx = i % numCol
-            if numRow > 1:
-                ax = axes[rowIdx][colIdx]
-            elif numCol > 1:
-                ax = axes[colIdx]
-            else:
-                ax = axes
-            trajEvaderTmp = dictTmp['trajEvader']
-            trajPursuerTmp = dictTmp['trajPursuer']
-
-            traj_x = trajEvaderTmp[:,0]
-            traj_y = trajEvaderTmp[:,1]
-            ax.scatter(traj_x[0], traj_y[0], s=48, c='#0abab5')
-            ax.plot(traj_x, traj_y, color='#0abab5',  linewidth=2)
-            if showCapture and instantList is not None:
-                ax.scatter(traj_x[instant], traj_y[instant],
-                    marker='x', s=48, c='b', zorder=4)
-
-            traj_x = trajPursuerTmp[:,0]
-            traj_y = trajPursuerTmp[:,1]
-            ax.scatter(traj_x[0], traj_y[0], s=48, c='y')
-            ax.plot(traj_x, traj_y, color='y',  linewidth=2)
-            if instantList is not None:
-                if showCapture:
-                    env.plot_target_failure_set(ax=ax, xPursuer=traj_x[instant],
-                        yPursuer=traj_y[instant], lw=1.5)
-                    ax.scatter(traj_x[instant], traj_y[instant],
-                        marker='x', s=48, c='b', zorder=4)
-                else:
-                    env.plot_target_failure_set(ax, showCapture=False, lw=1.5)
-                    ax.scatter(traj_x[instant], traj_y[instant], marker='x',
-                        s=48, c='r', zorder=4)
-            else:
-                env.plot_target_failure_set(ax, showCapture=False, lw=1.5)
-            env.plot_formatting(ax=ax)
-            ax.set_title('[{:d}]: {:.2f}'.format(testIdx, maxminV), fontsize=14)
-            ax.set_xticklabels([])
-            ax.set_yticklabels([])
-    plt.tight_layout()
-    plt.show()
-
-    return valueList
 
 
 def colUnfinishedSamples(unfinishedList, valDict, valSamplesDict):

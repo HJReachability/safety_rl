@@ -1,12 +1,11 @@
 # Evaluation Flow for Pursuit-Evasion Game between Two Dubins Cars
-* Here we evaluate two kinds of errors:
-    * Estimation Error
-    * Approximation Error
+Here we evaluate two kinds of errors:
+* Estimation Error
+* Approximation Error
 
 ## Estimation Error
 1. We want to evaluate how well we learned from the data
-2. We compare the DDQN-predicted value vs. the rollout value by DDQN-induced
-policies
+2. We compare the DDQN-predicted value vs. the DDQN rollout value
 
 ### python3 genEstSamples.py -ns `numSample` -mf `modelPath`
 * -rnd `seed`: use random seed
@@ -31,10 +30,12 @@ attacker heading angles, defender positions and defender heading angles based
 on the `samples`
 * create a directory `est` under `modelPath/data` and save `estError{$idx}.npy`
 under this directory
+* 1 hour and 30 minutes to finish $15^6$ initial states.
 
 ### python3 colEstError.py -mf `modelPath`
 * collect estimation error from all files under `modelPath/data/est`
 * save `estError.npy` under `modelPath/data`
+
 
 ## Approximation Error
 1. Validate them by simulating a very large number of pursuer (defender)
@@ -44,7 +45,8 @@ any possible adversary
 
 ### python3 genValSamples.py -nt `numTest` -t `sampleType` -mf `modelPath`
 * -t `sampleType`, SIX sample types:
-    * 0 - 5 corresponds to ['TN', 'TP', 'FN', 'FP', 'POS', 'NEG']
+    * 0 - 6 corresponds to ['TN', 'TP', 'FN', 'FP', 'POS', 'NEG', 'ALL']
+    * 'POS'/'NEG' refer to +/- rollout values.
 * -rnd `seed`: use random seed
 * get `samples`, `rolloutValue` and `ddqnValue` from `modelPath/data/estError.npy`
 * use `rolloutValue` and `ddqnValue` to find the indices belong to the specific
@@ -52,7 +54,7 @@ any possible adversary
 * create a directory `sampleType` (str version) under `modelPath/data` and save
 `samples{$sampleType}.npy`
 
-### python3 sim_approx_one_state.py -t `sampleType` -idx `index` -mf `modelPath`
+### python3 sim_approx_defender.py -t `sampleType` -idx `index` -mf `modelPath`
 * -cpf: if the environment considers the failure set of the defender
 * -ml `maxLength`: the maximum length of the trajectory
 * -nps `numPursuerStep`: the number of chunks in defender's action sequence
@@ -61,6 +63,8 @@ any possible adversary
 * use `index` to pick the state from `states` and simulate under different
 defender action sequences (exhaustive way)
 * save `valDict{$sampleType}{$idx}.npy` under `modelPath/data/{$sampleType}`
+* It takes 30 minutes - 90 minutes to finish one exhaustive search. By submiting
+an array job, 32 jobs in parallel at most, it takes about __ 8 hours to finish.
 
 ### python3 colValResult.py -t `sampleType` -mf `modelPath`
 * collect validation results from all files under `modelPath/data/{$sampleType}`

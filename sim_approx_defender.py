@@ -74,7 +74,9 @@ def multiExp(firstIdx, args, state, maxLength, numPursuerStep, verbose=False):
     rolloutValue = np.empty(shape=shapeTmp, dtype=float)
     it = np.nditer(rolloutValue, flags=['multi_index'])
 
-    flag = True
+    firstFlag = True
+    firstCaptureFlag = True
+    captureFlag = False
     while not it.finished:
         idx = it.multi_index
         actionIdx = firstIdx + idx
@@ -85,17 +87,31 @@ def multiExp(firstIdx, args, state, maxLength, numPursuerStep, verbose=False):
         rolloutValue[idx] = minV
         info = {'trajEvader':trajEvader, 'trajPursuer':trajPursuer,
             'maxminV':minV, 'maxminIdx':actionIdx}
+        captureFlagTmp, _ = checkCapture(
+            env, trajEvader, trajPursuer)
+
+        # being captured is consider to be worse than standing around, even
+        # though standing around may have higher value (far from the target)
+        if firstFlag:
+            maxminV = minV
+            maxminInfo = info
+            firstFlag = False
+        elif captureFlagTmp:
+            captureFlag = True
+            if firstCaptureFlag:
+                firstCaptureFlag = False
+                maxminV = minV
+                maxminInfo = info
+            elif minV >= maxminV:
+                maxminV = minV
+                maxminInfo = info
+        elif minV > maxminV and not captureFlag:
+            maxminV = minV
+            maxminInfo = info
         it.iternext()
 
-        if flag:
-            maxminInfo = info
-            maxminV = minV
-            flag = False
-        elif minV > maxminV:
-            maxminInfo = info
-            maxminV = minV
-
     maxminInfo['rolloutValue'] = rolloutValue
+    maxminInfo['captureFlag'] = captureFlag
     return maxminInfo
 
 
@@ -148,16 +164,28 @@ def run(args):
     shapeTmp = np.ones(numPursuerStep, dtype=int) * 3
     rolloutValue  = np.empty(shape=shapeTmp, dtype=float)
     cnt = 0
+    firstCaptureFlag = True
+    captureFlag = False
     for i in range(3):
         for j in range(3):
             info = dictList[cnt]
             idx = (i, j)
             rolloutValue[i, j] = info['rolloutValue']
             minV = info['maxminV']
+            captureFlagTmp = info['captureFlag']
             if cnt == 0:
                 maxminV = minV
                 maxminInfo = info
-            elif minV > maxminV:
+            elif captureFlagTmp:
+                captureFlag = True
+                if firstCaptureFlag:
+                    firstCaptureFlag = False
+                    maxminV = minV
+                    maxminInfo = info
+                elif minV >= maxminV:
+                    maxminV = minV
+                    maxminInfo = info
+            elif minV > maxminV and not captureFlag:
                 maxminV = minV
                 maxminInfo = info
             cnt += 1
@@ -174,7 +202,7 @@ def run(args):
     finalDict['maxLength'] = maxLength
     finalDict['numPursuerStep'] = numPursuerStep
     finalDict['testIdx'] = args.index
-    print(maxminInfo['maxminV'])
+    print(maxminInfo['maxminIdx'], maxminInfo['maxminV'])
 
     outFile = os.path.join(dataFolder, \
         args.outFile + sampleType + str(args.index) + '.npy')

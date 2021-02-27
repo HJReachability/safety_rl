@@ -157,7 +157,7 @@ CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
     GAMMA=args.gamma, GAMMA_PERIOD=updatePeriod, GAMMA_END=0.999999,
     EPS_PERIOD=int(updatePeriod/10), EPS_DECAY=0.7, EPS_RESET_PERIOD=updatePeriod,
     LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
-    MAX_MODEL=50)
+    MAX_MODEL=100)
 print(CONFIG.EPS_PERIOD, CONFIG.EPS_RESET_PERIOD)
 picklePath = outFolder+'/CONFIG.pkl'
 with open(picklePath, 'wb') as handle:

@@ -64,7 +64,8 @@ any possible adversary
 defender action sequences (exhaustive way)
 * save `valDict{$sampleType}{$idx}.npy` under `modelPath/data/{$sampleType}`
 * It takes 30 minutes - 90 minutes to finish one exhaustive search. By submiting
-an array job, 32 jobs in parallel at most, it takes about __ 8 hours to finish.
+an array job, 32 jobs in parallel at most, it takes about 9 hours and 40 minutes
+to finish.
 
 ### python3 colValResult.py -t `sampleType` -mf `modelPath`
 * collect validation results from all files under `modelPath/data/{$sampleType}`

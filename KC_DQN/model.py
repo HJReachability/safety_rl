@@ -249,3 +249,31 @@ class StepLRMargin(_scheduler):
         if self.endValue is not None and tmpValue >= self.endValue:
             return self.endValue
         return tmpValue
+
+
+class StepResetLR(_scheduler):
+    def __init__(self, initValue, period, resetPeriod, decay=0.1, endValue=None,
+        last_epoch=-1, verbose=False):
+        self.initValue = initValue
+        self.period = period
+        self.decay = decay
+        self.endValue = endValue
+        self.resetPeriod = resetPeriod
+        super(StepResetLR, self).__init__(last_epoch, verbose)
+
+    def get_value(self):
+        if self.cnt == -1:
+            return self.initValue
+
+        numDecay = int(self.cnt/self.period)
+        tmpValue =  self.initValue * (self.decay ** numDecay)
+        if self.endValue is not None and tmpValue <= self.endValue:
+            return self.endValue
+        return tmpValue
+
+    def step(self):
+        self.cnt += 1
+        value = self.get_value()
+        self.variable = value
+        if (self.cnt+1) % self.resetPeriod == 0:
+            self.cnt = -1

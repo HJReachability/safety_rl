@@ -13,7 +13,7 @@ import numpy as np
 import os
 import glob
 
-from .model import StepLR, StepLRMargin
+from .model import StepLR, StepLRMargin, StepResetLR
 from .ReplayMemory import ReplayMemory
 
 
@@ -24,8 +24,11 @@ class DDQN():
 
         #== PARAM ==
         # Exploration
-        self.EpsilonScheduler = StepLR( initValue=CONFIG.EPSILON, period=CONFIG.EPS_PERIOD,
-                                        decay=CONFIG.EPS_DECAY, endValue=CONFIG.EPS_END)
+        # self.EpsilonScheduler = StepLR( initValue=CONFIG.EPSILON, period=CONFIG.EPS_PERIOD,
+        #                                 decay=CONFIG.EPS_DECAY, endValue=CONFIG.EPS_END)
+        self.EpsilonScheduler = StepResetLR( initValue=CONFIG.EPSILON, 
+            period=CONFIG.EPS_PERIOD, decay=CONFIG.EPS_DECAY,
+            endValue=CONFIG.EPS_END, resetPeriod=CONFIG.EPS_RESET_PERIOD)
         self.EPSILON = self.EpsilonScheduler.get_variable()
         # Learning Rate
         self.LR_C = CONFIG.LR_C

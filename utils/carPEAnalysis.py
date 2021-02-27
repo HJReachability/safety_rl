@@ -179,12 +179,12 @@ def plotAndObtainValueDictIdx(env, dictList, testIdxList, indices,
 #== DATA ANALYSIS ==
 def generateCM(labelValue, predictValue):
     FPMtx = np.logical_and((labelValue <= 0), (predictValue > 0))
-    FPNum = np.sum(FPMtx)
     FPIndices = np.argwhere(FPMtx)
+    FPNum = np.sum(FPMtx)
 
     FNMtx = np.logical_and((labelValue > 0), (predictValue <= 0))
-    FNNum = np.sum(FNMtx)
     FNIndices = np.argwhere(FNMtx)
+    FNNum = np.sum(FNMtx)
 
     TPMtx = np.logical_and((labelValue > 0), (predictValue > 0))
     TPIndices = np.argwhere(TPMtx)
@@ -205,7 +205,7 @@ def generateCM(labelValue, predictValue):
     cm = np.array([ [TPrate, FNrate],
                     [FPrate, TNrate] ])
 
-    return cm, accuracy
+    return cm, accuracy, TPIndices, FNIndices, FPIndices, TNIndices
 
 
 #== GENERATE TRAJECTORIES ==
@@ -499,8 +499,9 @@ def analyzeValidationResult(validationFile, env):
             crossConstraintInstantList.append(crossConstraintInstant)
         else:
             unfinishedList.append(pick)
-    print('{:d} captured, {:d} crossing, {:d} unfinished.'.format(
-        len(captureList), len(crossConstraintList), len(unfinishedList) ))
+    print('{:d} captured, {:d} crosses, {:d} unfinished, {:d} succeeds'.format(
+        len(captureList), len(crossConstraintList), len(unfinishedList),
+        len(successList) ))
     return valDict, successList, failureList, captureList, captureInstantList,\
             crossConstraintList, crossConstraintInstantList, unfinishedList
 

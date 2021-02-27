@@ -87,8 +87,7 @@ def multiExp(firstIdx, args, state, maxLength, numPursuerStep, verbose=False):
         rolloutValue[idx] = minV
         info = {'trajEvader':trajEvader, 'trajPursuer':trajPursuer,
             'maxminV':minV, 'maxminIdx':actionIdx}
-        captureFlagTmp, _ = checkCapture(
-            env, trajEvader, trajPursuer)
+        captureFlagTmp, _ = checkCapture(env, trajEvader, trajPursuer)
 
         # being captured is consider to be worse than standing around, even
         # though standing around may have higher value (far from the target)

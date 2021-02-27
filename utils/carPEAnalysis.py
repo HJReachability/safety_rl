@@ -78,20 +78,21 @@ def plotTrajStep(state, env, agent, c=[tiffany, 'y'], lw=2, nx=101, ny=101, toEn
     return valueList, lxList, gxList
 
 
-def plotCM(cm, target_names=['0', '1'], labels=['', ''],
-    fontsize=20, thresh=.5, cmap='viridis'):
-
-    fig, ax = plt.subplots(1, 1, figsize=(4, 4))
+def plotCM(fig, ax, cm, target_names=['0', '1'], labels=['', ''],
+    fontsize=20, thresh=.5, cmap='viridis', cbarPlot=False):
 
     im = ax.imshow(cm, interpolation='none', cmap=cmap, vmin=0, vmax=1.)
-    cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.75,
-        ticks=[0, .5, 1.])
-    cbar.ax.set_yticklabels(labels=[0, .5, 1.], fontsize=fontsize-4)
+    if cbarPlot:
+        cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.75,
+            ticks=[0, .5, 1.])
+        cbar.ax.set_yticklabels(labels=[0, .5, 1.], fontsize=fontsize-4)
 
     if target_names is not None:
         tick_marks = np.arange(len(target_names))
-        ax.set_xticks(tick_marks, target_names, rotation=0,  fontsize=fontsize-4)
-        ax.set_yticks(tick_marks, target_names, rotation=90, fontsize=fontsize-4)
+        ax.set_xticks(tick_marks)
+        ax.set_yticks(tick_marks)
+        ax.set_xticklabels(target_names, rotation=0,  fontsize=fontsize-4)
+        ax.set_yticklabels(target_names, rotation=90, fontsize=fontsize-4)
 
     it = np.nditer(cm, flags=['multi_index'])
     while not it.finished:
@@ -104,7 +105,7 @@ def plotCM(cm, target_names=['0', '1'], labels=['', ''],
         it.iternext()
     ax.set_xlabel(labels[0], fontsize=fontsize)
     ax.set_ylabel(labels[1], fontsize=fontsize)
-    return fig, ax
+
 
 def plotAndObtainValueDictIdx(env, dictList, testIdxList, indices,
     instantList=None, showCapture=False,
@@ -449,47 +450,6 @@ def checkCrossConstraint(env, trajEvader, trajPursuer):
     return crossConstraintFlag, crossConstraintInstant
 
 
-def loadEnv(args, verbose=True):
-    env_name = "dubins_car_pe-v0"
-    if args.forceCPU:
-        device = torch.device("cpu")
-    else:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    env = gym.make(env_name, device=device, mode='RA', doneType='toEnd')
-    env.set_considerPursuerFailure(args.cpf)
-    if verbose:
-        print("\n== Environment Information ==")
-        env.report()
-        print()
-    return env
-
-
-def loadAgent(args, device, stateNum, actionNum, numActionList,
-    verbose=True):
-    if verbose:
-        print("\n== Agent Information ==")
-    configFile = '{:s}/CONFIG.pkl'.format(args.modelFolder)
-    with open(configFile, 'rb') as handle:
-        tmpConfig = pickle.load(handle)
-    CONFIG = dqnConfig()
-    for key, value in tmpConfig.__dict__.items():
-        CONFIG.__dict__[key] = tmpConfig.__dict__[key]
-    CONFIG.DEVICE = device
-    CONFIG.SEED = 0
-
-    dimList = [stateNum] + CONFIG.ARCHITECTURE + [actionNum]
-    agent = DDQNPursuitEvasion(CONFIG, numActionList, dimList,
-        CONFIG.ACTIVATION, verbose=verbose)
-    modelFile = '{:s}/model-{:d}.pth'.format(args.modelFolder+'/model', 4000000)
-    agent.restore(modelFile, verbose)
-
-    if verbose:
-        print(vars(CONFIG))
-        print('agent\'s device:', agent.device)
-
-    return agent
-
-
 def analyzeValidationResult(validationFile, env):
     print('Load from {:s} ...'.format(validationFile))
     valDict = np.load(validationFile, allow_pickle='TRUE').item()
@@ -539,7 +499,7 @@ def analyzeValidationResult(validationFile, env):
             crossConstraintInstantList.append(crossConstraintInstant)
         else:
             unfinishedList.append(pick)
-    print('{:d} captured, {:d} cross, {:d} unfinished.'.format(
+    print('{:d} captured, {:d} crossing, {:d} unfinished.'.format(
         len(captureList), len(crossConstraintList), len(unfinishedList) ))
     return valDict, successList, failureList, captureList, captureInstantList,\
             crossConstraintList, crossConstraintInstantList, unfinishedList
@@ -605,3 +565,45 @@ def colUnfinishedSamples(unfinishedList, valDict, valSamplesDict):
     finalDict['pickList'] = unfinishedList # indices of validation samples
 
     return finalDict
+
+
+#== LOADING ==
+def loadEnv(args, verbose=True):
+    env_name = "dubins_car_pe-v0"
+    if args.forceCPU:
+        device = torch.device("cpu")
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    env = gym.make(env_name, device=device, mode='RA', doneType='toEnd')
+    env.set_considerPursuerFailure(args.cpf)
+    if verbose:
+        print("\n== Environment Information ==")
+        env.report()
+        print()
+    return env
+
+
+def loadAgent(args, device, stateNum, actionNum, numActionList,
+    verbose=True):
+    if verbose:
+        print("\n== Agent Information ==")
+    configFile = '{:s}/CONFIG.pkl'.format(args.modelFolder)
+    with open(configFile, 'rb') as handle:
+        tmpConfig = pickle.load(handle)
+    CONFIG = dqnConfig()
+    for key, value in tmpConfig.__dict__.items():
+        CONFIG.__dict__[key] = tmpConfig.__dict__[key]
+    CONFIG.DEVICE = device
+    CONFIG.SEED = 0
+
+    dimList = [stateNum] + CONFIG.ARCHITECTURE + [actionNum]
+    agent = DDQNPursuitEvasion(CONFIG, numActionList, dimList,
+        CONFIG.ACTIVATION, verbose=verbose)
+    modelFile = '{:s}/model-{:d}.pth'.format(args.modelFolder+'/model', 4000000)
+    agent.restore(modelFile, verbose)
+
+    if verbose:
+        print(vars(CONFIG))
+        print('agent\'s device:', agent.device)
+
+    return agent

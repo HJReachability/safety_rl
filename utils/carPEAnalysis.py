@@ -8,8 +8,9 @@ import gym
 from KC_DQN.config import dqnConfig
 from KC_DQN.DDQNPursuitEvasion import DDQNPursuitEvasion
 
-tiffany = '#0abab5'
 
+#== PLOTTING ==
+tiffany = '#0abab5'
 
 def plotTrajStep(state, env, agent, c=[tiffany, 'y'], lw=2, nx=101, ny=101, toEnd=False, T=100):
     """
@@ -89,23 +90,21 @@ def plotCM(cm, target_names=['0', '1'], labels=['', ''],
 
     if target_names is not None:
         tick_marks = np.arange(len(target_names))
-        plt.xticks(tick_marks, target_names, rotation=0,  fontsize=fontsize-4)
-        plt.yticks(tick_marks, target_names, rotation=90, fontsize=fontsize-4)
+        ax.set_xticks(tick_marks, target_names, rotation=0,  fontsize=fontsize-4)
+        ax.set_yticks(tick_marks, target_names, rotation=90, fontsize=fontsize-4)
 
     it = np.nditer(cm, flags=['multi_index'])
     while not it.finished:
         i, j = it.multi_index
 
-        plt.text(j, i, "{:0.3f}".format(cm[i, j]),
+        ax.text(j, i, "{:0.3f}".format(cm[i, j]),
                     horizontalalignment="center",
                     color="k" if cm[i, j] > thresh else "w",
                     fontsize=fontsize)
         it.iternext()
-    plt.tight_layout()
-    plt.xlabel(labels[0], fontsize=fontsize)
-    plt.ylabel(labels[1], fontsize=fontsize)
-    plt.show()
-
+    ax.set_xlabel(labels[0], fontsize=fontsize)
+    ax.set_ylabel(labels[1], fontsize=fontsize)
+    return fig, ax
 
 def plotAndObtainValueDictIdx(env, dictList, testIdxList, indices,
     instantList=None, showCapture=False,
@@ -176,6 +175,39 @@ def plotAndObtainValueDictIdx(env, dictList, testIdxList, indices,
     return valueList
 
 
+#== DATA ANALYSIS ==
+def generateCM(labelValue, predictValue):
+    FPMtx = np.logical_and((labelValue <= 0), (predictValue > 0))
+    FPNum = np.sum(FPMtx)
+    FPIndices = np.argwhere(FPMtx)
+
+    FNMtx = np.logical_and((labelValue > 0), (predictValue <= 0))
+    FNNum = np.sum(FNMtx)
+    FNIndices = np.argwhere(FNMtx)
+
+    TPMtx = np.logical_and((labelValue > 0), (predictValue > 0))
+    TPIndices = np.argwhere(TPMtx)
+    TPNum = np.sum(TPMtx)
+
+    TNMtx = np.logical_and((labelValue <= 0), (predictValue <= 0))
+    TNIndices = np.argwhere(TNMtx)
+    TNNum = np.sum(TNMtx)
+
+    accuracy = (TPNum+TNNum)/(TPNum+TNNum+FPNum+FNNum)
+    FPrate = FPNum / (FPNum+TNNum)
+    FNrate = FNNum / (TPNum+FNNum)
+    TNrate = TNNum / (FPNum+TNNum)
+    TPrate = TPNum / (TPNum+FNNum)
+
+    print('TP: {:.0f}, FP: {:.0f}, FN: {:.0f}, TN: {:.0f}'.format(
+        TPNum, FPNum, FNNum, TNNum))
+    cm = np.array([ [TPrate, FNrate],
+                    [FPrate, TNrate] ])
+
+    return cm, accuracy
+
+
+#== GENERATE TRAJECTORIES ==
 def pursuerResponse(env, agent, statePursuer, trajEvader):
     trajPursuer = []
     result = 0 # not finished
@@ -391,9 +423,16 @@ def checkCapture(env, trajEvader, trajPursuer):
         posPursuer = trajPursuer[t, :2]
         dist_evader_pursuer = np.linalg.norm(posEvader-posPursuer, ord=2)
         capture_g_x = env.capture_range - dist_evader_pursuer
-        if not captureFlag and capture_g_x > 0:
-            captureInstant = t
-            captureFlag = True
+        # however, the value can be lower than this captureValue because we care
+        # about the minimum value along the trajectory. 
+        if capture_g_x > 0:
+            if not captureFlag:
+                captureInstant = t
+                captureValue = capture_g_x
+                captureFlag = True
+            elif capture_g_x > captureValue:
+                captureInstant = t
+                captureValue = capture_g_x
     return captureFlag, captureInstant
 
 

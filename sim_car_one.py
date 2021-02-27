@@ -67,7 +67,7 @@ updatePeriodHalf = int(updatePeriod/2)
 maxSteps = 100
 
 outFolder = os.path.join(args.outFolder, 'car/' + args.name + timestr)
-figureFolder = '{:s}/figure/'.format(outFolder)
+figureFolder = os.path.join(outFolder, 'figure/')
 os.makedirs(figureFolder, exist_ok=True)
 
 

@@ -32,6 +32,7 @@ parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates"
 parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",                  default=1e4,    type=int)
 parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",             default=20,     type=int)
 parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",                default=10000,  type=int)
+parser.add_argument("-cp",  "--checkPeriod",    help="check period",                    default=200000, type=int)
 
 # hyper-parameters
 parser.add_argument("-arc", "--architecture",   help="NN architecture",     default=[512, 512, 512],  nargs="*", type=int)
@@ -65,7 +66,7 @@ updatePeriod = int(maxUpdates / updateTimes)
 updatePeriodHalf = int(updatePeriod/2)
 maxSteps = 100
 
-outFolder = args.outFolder + 'car/' + args.name + timestr
+outFolder = os.path.join(args.outFolder, 'car/' + args.name + timestr)
 figureFolder = '{:s}/figure/'.format(outFolder)
 os.makedirs(figureFolder, exist_ok=True)
 
@@ -154,10 +155,10 @@ CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
     BATCH_SIZE=100, MEMORY_CAPACITY=args.memoryCapacity,
     ARCHITECTURE=args.architecture, ACTIVATION=args.actType,
     GAMMA=args.gamma, GAMMA_PERIOD=updatePeriod, GAMMA_END=0.999999,
-    EPS_PERIOD=updatePeriod, EPS_DECAY=0.6,
+    EPS_PERIOD=int(updatePeriod/10), EPS_DECAY=0.7, EPS_RESET_PERIOD=updatePeriod,
     LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
     MAX_MODEL=50)
-print(vars(CONFIG))
+print(CONFIG.EPS_PERIOD, CONFIG.EPS_RESET_PERIOD)
 picklePath = outFolder+'/CONFIG.pkl'
 with open(picklePath, 'wb') as handle:
     pickle.dump(CONFIG, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -175,10 +176,9 @@ print(device)
 print("\n== Training Information ==")
 vmin = -1
 vmax = 1
-checkPeriod = updatePeriod
 training_records, trainProgress = agent.learn(env,
     MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps, addBias=args.addBias,
     warmupQ=args.warmup, warmupIter=args.warmupIter, doneTerminate=True,
     vmin=vmin, vmax=vmax, showBool=False,
-    checkPeriod=checkPeriod, outFolder=outFolder,
+    checkPeriod=args.checkPeriod, outFolder=outFolder,
     plotFigure=args.plotFigure, storeFigure=args.storeFigure)

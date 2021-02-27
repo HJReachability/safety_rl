@@ -175,10 +175,10 @@ CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
     BATCH_SIZE=100, MEMORY_CAPACITY=args.memoryCapacity,
     ARCHITECTURE=args.architecture, ACTIVATION=args.actType,
     GAMMA=args.gamma, GAMMA_PERIOD=updatePeriod, GAMMA_END=GAMMA_END,
-    EPS_PERIOD=updatePeriod, EPS_DECAY=0.6,
+    EPS_PERIOD=int(updatePeriod/10), EPS_DECAY=0.7, EPS_RESET_PERIOD=updatePeriod,
     LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
     MAX_MODEL=120)
-print(vars(CONFIG))
+print(CONFIG.EPS_PERIOD, CONFIG.EPS_RESET_PERIOD)
 picklePath = os.path.join(outFolder, 'CONFIG.pkl')
 with open(picklePath, 'wb') as handle:
     pickle.dump(CONFIG, handle, protocol=pickle.HIGHEST_PROTOCOL)

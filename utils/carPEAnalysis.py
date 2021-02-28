@@ -167,7 +167,7 @@ def plotAndObtainValueDictIdx(env, dictList, testIdxList, indices,
             else:
                 env.plot_target_failure_set(ax, showCapture=False, lw=lw)
             env.plot_formatting(ax=ax)
-            ax.set_title('[{:d}]: {:.2f}'.format(testIdx, maxminV), fontsize=14)
+            ax.set_title('[{:d}]: {:.3f}'.format(testIdx, maxminV), fontsize=12)
             ax.set_xticklabels([])
             ax.set_yticklabels([])
     plt.tight_layout()
@@ -200,8 +200,8 @@ def generateCM(labelValue, predictValue):
     TNrate = TNNum / (FPNum+TNNum)
     TPrate = TPNum / (TPNum+FNNum)
 
-    print('TP: {:.0f}, FP: {:.0f}, FN: {:.0f}, TN: {:.0f}'.format(
-        TPNum, FPNum, FNNum, TNNum))
+    print('TP: {:.0f}, FN: {:.0f}, FP: {:.0f}, TN: {:.0f}'.format(
+        TPNum, FNNum, FPNum, TNNum))
     cm = np.array([ [TPrate, FNrate],
                     [FPrate, TNrate] ])
 
@@ -427,13 +427,16 @@ def checkCapture(env, trajEvader, trajPursuer):
         # however, the value can be lower than this captureValue because we care
         # about the minimum value along the trajectory. 
         if capture_g_x > 0:
-            if not captureFlag:
-                captureInstant = t
-                captureValue = capture_g_x
-                captureFlag = True
-            elif capture_g_x > captureValue:
-                captureInstant = t
-                captureValue = capture_g_x
+            captureFlag = True
+            captureInstant = t
+            break
+            # if not captureFlag:
+            #     captureInstant = t
+            #     captureValue = capture_g_x
+            #     captureFlag = True
+            # elif capture_g_x > captureValue:
+            #     captureInstant = t
+            #     captureValue = capture_g_x
     return captureFlag, captureInstant
 
 
@@ -450,10 +453,9 @@ def checkCrossConstraint(env, trajEvader, trajPursuer):
     return crossConstraintFlag, crossConstraintInstant
 
 
-def analyzeValidationResult(validationFile, env):
-    print('Load from {:s} ...'.format(validationFile))
+def analyzeValidationResult(validationFile, env, verbose=True):
+    print('<-- Load from {:s} ...'.format(validationFile))
     valDict = np.load(validationFile, allow_pickle='TRUE').item()
-    print(valDict.keys())
 
     dictList = valDict['dictList']
     testIdxList = valDict['testIdxList']
@@ -465,8 +467,9 @@ def analyzeValidationResult(validationFile, env):
             failureList.append(i)
         else:
             successList.append(i)
-    print('Failure Ratio: {:d} / {:d} = {:.2%}.'.format(
-        len(failureList), len(dictList), len(failureList)/len(dictList) ))
+    if verbose:
+        print('Failure Ratio: {:d} / {:d} = {:.2%}.'.format(
+            len(failureList), len(dictList), len(failureList)/len(dictList) ))
 
     #== ANALYZE FAILED STATES ==
     captureList = []
@@ -475,7 +478,8 @@ def analyzeValidationResult(validationFile, env):
     crossConstraintInstantList = []
     unfinishedList = []
     for i, pick in enumerate(failureList):
-        print("{:d}/{:d}".format(i+1, len(failureList)), end='\r')
+        if verbose:
+            print("{:d}/{:d}".format(i+1, len(failureList)), end='\r')
         dictTmp = dictList[pick]
         trajEvaderTmp = dictTmp['trajEvader']
         trajPursuerTmp = dictTmp['trajPursuer']
@@ -499,9 +503,10 @@ def analyzeValidationResult(validationFile, env):
             crossConstraintInstantList.append(crossConstraintInstant)
         else:
             unfinishedList.append(pick)
-    print('{:d} captured, {:d} crosses, {:d} unfinished, {:d} succeeds'.format(
-        len(captureList), len(crossConstraintList), len(unfinishedList),
-        len(successList) ))
+    if verbose:
+        print('{:d} captured, {:d} crosses, {:d} unfinished, {:d} succeeds'.format(
+            len(captureList), len(crossConstraintList), len(unfinishedList),
+            len(successList) ))
     return valDict, successList, failureList, captureList, captureInstantList,\
             crossConstraintList, crossConstraintInstantList, unfinishedList
 

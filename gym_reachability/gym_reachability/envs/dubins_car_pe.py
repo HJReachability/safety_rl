@@ -503,12 +503,12 @@ class DubinsCarPEEnv(gym.Env):
             colIdx = colIndices[rowIdx]
 
             # If cars are within the boundary, we update their states according to the controls
-            if not doneEvader:
-                uEvader = self.evader.discrete_controls[rowIdx]
-                stateEvader = self.evader.integrate_forward(stateEvader, uEvader)
-            if not donePursuer:
-                uPursuer = self.pursuer.discrete_controls[colIdx]
-                statePursuer = self.pursuer.integrate_forward(statePursuer, uPursuer)
+            # if not doneEvader:
+            uEvader = self.evader.discrete_controls[rowIdx]
+            stateEvader = self.evader.integrate_forward(stateEvader, uEvader)
+            # if not donePursuer:
+            uPursuer = self.pursuer.discrete_controls[colIdx]
+            statePursuer = self.pursuer.integrate_forward(statePursuer, uPursuer)
 
         trajEvader = np.array(trajEvader)
         trajPursuer = np.array(trajPursuer)

@@ -602,17 +602,17 @@ class ZermeloKCEnv(gym.Env):
         return results
 
 
-    def plot_target_failure_set(self, ax=None, c='m'):
+    def plot_target_failure_set(self, ax=None, c='m', c_f='k', lw=1.5):
         # Plot bounadries of constraint set.
-        ax.plot(self.x_box1_pos, self.y_box1_pos, color="black")
-        ax.plot(self.x_box2_pos, self.y_box2_pos, color="black")
-        ax.plot(self.x_box3_pos, self.y_box3_pos, color="black")
+        ax.plot(self.x_box1_pos, self.y_box1_pos, color=c_f, lw=lw)
+        ax.plot(self.x_box2_pos, self.y_box2_pos, color=c_f, lw=lw)
+        ax.plot(self.x_box3_pos, self.y_box3_pos, color=c_f, lw=lw)
 
         # Plot boundaries of target set.
-        ax.plot(self.x_box4_pos, self.y_box4_pos, color=c)
+        ax.plot(self.x_box4_pos, self.y_box4_pos, color=c, lw=lw)
 
 
-    def plot_reach_avoid_set(self, ax=None, c='g'):
+    def plot_reach_avoid_set(self, ax=None, c='g', lw=3):
         slope = self.upward_speed / self.horizontal_rate
 
         def get_line(slope, end_point, x_limit, ns=100):
@@ -627,13 +627,13 @@ class ZermeloKCEnv(gym.Env):
         x = self.box2_x_y_length[0] + self.box2_x_y_length[2]/2.0
         y = self.box2_x_y_length[1] - self.box2_x_y_length[2]/2.0
         xs, ys = get_line(slope, end_point=[x,y], x_limit=-2.)
-        ax.plot(xs, ys, color=c, linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=lw)
 
         # right unsafe set
         x = self.box1_x_y_length[0] - self.box1_x_y_length[2]/2.0
         y = self.box1_x_y_length[1] - self.box1_x_y_length[2]/2.0
         xs, ys = get_line(-slope, end_point=[x,y], x_limit=2.)
-        ax.plot(xs, ys, color=c, linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=lw)
 
         # middle unsafe set
         x1 = self.box3_x_y_length[0] - self.box3_x_y_length[2]/2.0
@@ -641,18 +641,18 @@ class ZermeloKCEnv(gym.Env):
         x3 = self.box3_x_y_length[0]
         y = self.box3_x_y_length[1] - self.box3_x_y_length[2]/2.0
         xs, ys = get_line(-slope, end_point=[x1,y], x_limit=x3)
-        ax.plot(xs, ys, color=c, linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=lw)
         xs, ys = get_line(slope, end_point=[x2,y], x_limit=x3)
-        ax.plot(xs, ys, color=c, linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=lw)
 
         # border unsafe set
         x1 = self.box4_x_y_length[0] - self.box4_x_y_length[2]/2.0
         x2 = self.box4_x_y_length[0] + self.box4_x_y_length[2]/2.0
         y = self.box4_x_y_length[1] + self.box4_x_y_length[2]/2.0
         xs, ys = get_line(slope, end_point=[x1,y], x_limit=-2.)
-        ax.plot(xs, ys, color=c, linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=lw)
         xs, ys = get_line(-slope, end_point=[x2,y], x_limit=2.)
-        ax.plot(xs, ys, color=c, linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=lw)
 
 
     def plot_formatting(self, ax=None, labels=None):

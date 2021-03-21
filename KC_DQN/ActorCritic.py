@@ -77,8 +77,9 @@ class ActorCritic(object):
 
         #== PARAM ==
         # Exploration
-        self.EpsilonScheduler = StepLR( initValue=CONFIG.EPSILON, period=CONFIG.EPS_PERIOD, 
-                                        decay=CONFIG.EPS_DECAY, endValue=CONFIG.EPS_END)
+        self.EpsilonScheduler = StepResetLR( initValue=CONFIG.EPSILON, 
+            period=CONFIG.EPS_PERIOD, decay=CONFIG.EPS_DECAY,
+            endValue=CONFIG.EPS_END, resetPeriod=CONFIG.EPS_RESET_PERIOD)
         self.EPSILON = self.EpsilonScheduler.get_variable()
 
         # Learning Rate
@@ -97,9 +98,9 @@ class ActorCritic(object):
         self.device = CONFIG.DEVICE
 
         # Discount Factor
-        self.GammaScheduler = StepLRMargin( initValue=CONFIG.GAMMA, period=CONFIG.GAMMA_PERIOD, 
-                                            decay=CONFIG.GAMMA_DECAY, endValue=CONFIG.GAMMA_END,
-                                            goalValue=1.)
+        self.GammaScheduler = StepLRMargin( initValue=CONFIG.GAMMA,
+            period=CONFIG.GAMMA_PERIOD, decay=CONFIG.GAMMA_DECAY,
+            endValue=CONFIG.GAMMA_END, goalValue=1.)
         self.GAMMA = self.GammaScheduler.get_variable()
 
         # Target Network Update

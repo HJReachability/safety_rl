@@ -1,9 +1,11 @@
 # Please contact the author(s) of this library if you have any questions.
 # Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
-# ?
-# how to deal with the discrete action space since SAC and TD3 are proposed for
-# continuous action.
+# ? how to deal with the discrete action space since SAC and TD3 are proposed
+# ? for continuous action.
+# Jaime: Just let the agent learn in the continuous action space. We expect
+# that it will automatically catch the fact that it should always adopt the
+# maximal speed.
 
 # TODO
 # * Objects
@@ -13,6 +15,7 @@
 #   - Actor Model
 #       + SAC: GaussianPolicy,      without target, care entropy loss
 #       + TD3: DeterministicPolicy, with target
+#       + select_action() calls self.actor.sample()
 #   - Replay Buffer
 #       + (extension) prioritized experience replay
 #   - Hyper-Parameter Scheduler

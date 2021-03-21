@@ -147,8 +147,11 @@ class GaussianPolicy(nn.Module):
         action = y * self.action_scale + self.action_bias
         log_prob = normalRV.log_prob(x)
 
-        # Get the correct probability: x -> y, y = c tanh(x) + b
-        # followed by: p(y) = p(x) x |det(dy/dx)|^-1
+        # Get the correct probability: x -> a, a = c * y + b, y = tanh x
+        # followed by: p(a) = p(x) x |det(da/dx)|^-1
+        # log p(a) = log p(x) - log |det(da/dx)|
+        # log |det(da/dx)| = sum log (d a_i / d x_i)
+        # d a_i / d x_i = c * ( 1 - y_i^2 )
         log_prob -= torch.log(self.action_scale * (1 - y.pow(2)) + eps)
         log_prob = log_prob.sum(1, keepdim=True)
         mean = torch.tanh(mean) * self.action_scale + self.action_bias

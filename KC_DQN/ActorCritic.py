@@ -38,7 +38,7 @@
 #       + update_critic_hyperParam (o)
 #       + update_actor_hyperParam (o)
 #   - Others
-#       + __init__
+#       + __init__ (o)
 #       + store_transition (o)
 #       + select_action (o)
 #       + save (o)
@@ -108,21 +108,19 @@ class ActorCritic(object):
 
 
     # * BUILD NETWORK BEGINS
-    def build_network(self, dimList, actType=['Tanh', 'Tanh'], device='cpu'):
-        self.build_critic(dimList[0], actType[0], device)
-        self.build_actor(dimList[1], actType[1], device)
+    def build_network(self, dimList, actType=['Tanh', 'Tanh']):
+        self.build_critic(dimList[0], actType[0])
+        self.build_actor(dimList[1], actType[1])
         self.build_optimizer()
 
 
-    def build_actor(self, dimList, actType='Tanh', device='cpu'): # in child class
-        # self.actor = DeterministicPolicy(dimList, actType, device)
-        # self.actorTarget = DeterministicPolicy(dimList, actType, device)
+    def build_actor(self, dimList, actType='Tanh'): # in child class
         raise NotImplementedError
 
 
-    def build_critic(self, dimList, actType='Tanh', device='cpu'):
-        self.critic = TwinnedQNetwork(dimList, actType, device)
-        self.criticTarget = TwinnedQNetwork(dimList, actType, device)
+    def build_critic(self, dimList, actType='Tanh'):
+        self.critic = TwinnedQNetwork(dimList, actType, self.device)
+        self.criticTarget = TwinnedQNetwork(dimList, actType, self.device)
 
 
     def build_optimizer(self):

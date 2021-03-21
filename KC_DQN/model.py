@@ -110,21 +110,21 @@ class GaussianPolicy(nn.Module):
     LOG_STD_MIN = -8
     eps = 1e-8
 
-    def __init__(self, dimList, actType='Tanh', device='cpu', action_space=None):
+    def __init__(self, dimList, actType='Tanh', device='cpu', actionSpace=None):
         super(GaussianPolicy, self).__init__()
         self.device = device
         self.mean = model(dimList, actType, verbose=True).to(device)
         self.log_std = model(dimList, actType, verbose=True).to(device)
 
         # Action Scale and Bias
-        if action_space is None:
-            self.action_scale = torch.tensor(1.)
-            self.action_bias = torch.tensor(0.)
+        if actionSpace is None:
+            self.actionScale = torch.tensor(1.)
+            self.actionBias = torch.tensor(0.)
         else:
-            self.action_scale = torch.FloatTensor(
-                (action_space.high - action_space.low) / 2.).to(device)
-            self.action_bias = torch.FloatTensor(
-                (action_space.high + action_space.low) / 2.).to(device)
+            self.actionScale = torch.FloatTensor(
+                (actionSpace.high - actionSpace.low) / 2.).to(device)
+            self.actionBias = torch.FloatTensor(
+                (actionSpace.high + actionSpace.low) / 2.).to(device)
 
 
     def forward(self, state):
@@ -144,7 +144,7 @@ class GaussianPolicy(nn.Module):
         x = normalRV.rsample()  # reparameterization trick (mean + std * N(0,1))
         y = torch.tanh(x)   # constrain the output to be within [-1, 1]
 
-        action = y * self.action_scale + self.action_bias
+        action = y * self.actionScale + self.actionBias
         log_prob = normalRV.log_prob(x)
 
         # Get the correct probability: x -> a, a = c * y + b, y = tanh x
@@ -152,14 +152,14 @@ class GaussianPolicy(nn.Module):
         # log p(a) = log p(x) - log |det(da/dx)|
         # log |det(da/dx)| = sum log (d a_i / d x_i)
         # d a_i / d x_i = c * ( 1 - y_i^2 )
-        log_prob -= torch.log(self.action_scale * (1 - y.pow(2)) + eps)
+        log_prob -= torch.log(self.actionScale * (1 - y.pow(2)) + eps)
         log_prob = log_prob.sum(1, keepdim=True)
-        mean = torch.tanh(mean) * self.action_scale + self.action_bias
+        mean = torch.tanh(mean) * self.actionScale + self.actionBias
         return action, log_prob, mean
 
 
 class DeterministicPolicy(nn.Module):
-    def __init__(self, dimList, actType='Tanh', device='cpu', action_space=None):
+    def __init__(self, dimList, actType='Tanh', device='cpu', actionSpace=None):
         super(DeterministicPolicy, self).__init__()
         self.device = device
         self.mean = model(dimList, actType, verbose=True).to(device)
@@ -167,14 +167,14 @@ class DeterministicPolicy(nn.Module):
         self.noiseClamp = 0.25
 
         # action rescaling
-        if action_space is None:
-            self.action_scale = 1.
-            self.action_bias = 0.
+        if actionSpace is None:
+            self.actionScale = 1.
+            self.actionBias = 0.
         else:
-            self.action_scale = torch.FloatTensor(
-                (action_space.high - action_space.low) / 2.).to(device)
-            self.action_bias = torch.FloatTensor(
-                (action_space.high + action_space.low) / 2.).to(device)
+            self.actionScale = torch.FloatTensor(
+                (actionSpace.high - actionSpace.low) / 2.).to(device)
+            self.actionBias = torch.FloatTensor(
+                (actionSpace.high + actionSpace.low) / 2.).to(device)
 
 
     def forward(self, state):
@@ -190,8 +190,8 @@ class DeterministicPolicy(nn.Module):
         noise = noise.clamp(-self.noiseClamp, self.noiseClamp)
         action = mean + noise
         action = action.clamp(-1., 1.)
-        action = action * self.action_scale + self.action_bias
-        mean = mean * self.action_scale + self.action_bias
+        action = action * self.actionScale + self.actionBias
+        mean = mean * self.actionScale + self.actionBias
         return action, torch.tensor(0.), mean
 
 

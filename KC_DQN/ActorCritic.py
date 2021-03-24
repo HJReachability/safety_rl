@@ -56,7 +56,7 @@ import numpy as np
 import os
 import glob
 
-from .model import StepLR, StepLRMargin, GaussianPolicy, DeterministicPolicy, TwinnedQNetwork
+from .model import StepLR, StepLRMargin, TwinnedQNetwork
 from .ReplayMemory import ReplayMemory
 from .utils import soft_update, save_model
 
@@ -64,7 +64,7 @@ Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
 
 
 class ActorCritic(object):
-    def __init__(self, actorType, CONFIG):
+    def __init__(self, actorType, CONFIG, actionSpace):
         """
         __init__ : initializes actor-critic model.
 
@@ -74,6 +74,9 @@ class ActorCritic(object):
         """
         self.actorType = actorType
         self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)
+
+        #== ENV PARAM ==
+        self.actionSpace = actionSpace
 
         #== PARAM ==
         # Exploration
@@ -124,12 +127,18 @@ class ActorCritic(object):
 
 
     def build_optimizer(self):
-        self.Q1Optimizer    = AdamW(self.critic.Q1.parameters(), lr=self.LR_C, weight_decay=1e-3)
-        self.Q2Optimizer    = AdamW(self.critic.Q2.parameters(), lr=self.LR_C, weight_decay=1e-3)
-        self.ActorOptimizer = AdamW(self.actor.parameters(),     lr=self.LR_A, weight_decay=1e-3)
-        self.Q1Scheduler    = lr_scheduler.StepLR(self.Q1Optimizer,    step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
-        self.Q2Scheduler    = lr_scheduler.StepLR(self.Q2Optimizer,    step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
-        self.ActorScheduler = lr_scheduler.StepLR(self.ActorOptimizer, step_size=self.LR_A_PERIOD, gamma=self.LR_A_DECAY)
+        self.criticOptimizer = AdamW(self.critic.parameters(), lr=self.LR_C,
+            weight_decay=1e-3)
+        self.ActorOptimizer = AdamW(self.actor.parameters(), lr=self.LR_A,
+            weight_decay=1e-3)
+        self.criticScheduler = lr_scheduler.StepLR(self.criticOptimizer,
+            step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
+        self.ActorScheduler = lr_scheduler.StepLR(self.ActorOptimizer,
+            step_size=self.LR_A_PERIOD, gamma=self.LR_A_DECAY)
+        # self.Q2Optimizer = AdamW(self.critic.Q2.parameters(), lr=self.LR_C,
+        #   weight_decay=1e-3)
+        # self.Q2Scheduler = lr_scheduler.StepLR(self.Q2Optimizer,
+        #   step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
         self.max_grad_norm = 1
         self.cntUpdate = 0
     # * BUILD NETWORK ENDS
@@ -229,4 +238,12 @@ class ActorCritic(object):
         else:
             _, _, action = self.actor.sample(stateTensor)
         return action.detach().cpu().numpy()[0]
+
+
+    def genRandomActions(self, num_actions):
+        UB = self.actionSpace.high
+        LB = self.actionSpace.low
+        dim = UB.shape[0]
+        actions = (UB - LB) * np.random.rand(num_warmup_samples, dim) + LB
+        return actions
     # * OTHERS ENDS

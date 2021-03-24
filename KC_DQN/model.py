@@ -159,12 +159,13 @@ class GaussianPolicy(nn.Module):
 
 
 class DeterministicPolicy(nn.Module):
-    def __init__(self, dimList, actType='Tanh', device='cpu', actionSpace=None):
+    def __init__(self, dimList, actType='Tanh', device='cpu', actionSpace=None,
+        noiseStd=0.1, noiseClamp=0.25):
         super(DeterministicPolicy, self).__init__()
         self.device = device
         self.mean = model(dimList, actType, verbose=True).to(device)
-        self.noise = Normal(0., 0.1)
-        self.noiseClamp = 0.25
+        self.noise = Normal(0., noiseStd)
+        self.noiseClamp = noiseClamp
 
         # action rescaling
         if actionSpace is None:
@@ -188,9 +189,14 @@ class DeterministicPolicy(nn.Module):
         mean = self.forward(stateTensor)
         noise = self.noise.sample().to(self.device)
         noise = noise.clamp(-self.noiseClamp, self.noiseClamp)
+
+        # action
         action = mean + noise
         action = action.clamp(-1., 1.)
         action = action * self.actionScale + self.actionBias
+
+        # mean
+        mean = mean.clamp(-1., 1.)
         mean = mean * self.actionScale + self.actionBias
         return action, torch.tensor(0.), mean
 

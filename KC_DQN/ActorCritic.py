@@ -180,6 +180,11 @@ class ActorCritic(object):
             self.ActorScheduler.step()
 
 
+    def updateHyperParam(self):
+        self.update_critic_hyperParam()
+        self.update_actor_hyperParam()
+
+
     def update_target_network(self):
         soft_update(self.criticTarget.Q1, self.critic.Q1, self.TAU)
         soft_update(self.criticTarget.Q2, self.critic.Q2, self.TAU)
@@ -187,7 +192,7 @@ class ActorCritic(object):
             soft_update(self.actorTarget, self.actor, self.TAU)
 
 
-    def update_critic(self, addBias=False): # in child class
+    def update_critic(self, batch, addBias=False): # in child class
         raise NotImplementedError
 
 
@@ -195,8 +200,196 @@ class ActorCritic(object):
         raise NotImplementedError
 
 
-    def learn(self): # TODO: Not yet implemented
-        raise NotImplemented
+    def update(self, update_period=2):
+        if len(self.memory) < self.BATCH_SIZE*20:
+            return
+
+        #== EXPERIENCE REPLAY ==
+        transitions = self.memory.sample(self.BATCH_SIZE)
+        # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for detailed explanation).
+        # This converts batch-array of Transitions to Transition of batch-arrays.
+        batch = Transition(*zip(*transitions))
+
+        loss_q = self.update_critic(batch)
+        loss_pi = 0.0
+        if self.cntUpdate % update_period == 0:
+            loss_pi = self.update_actor(batch)
+        self.update_target_network()
+
+        return loss_q, loss_pi
+
+
+    def learn(  self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100,
+                warmupBuffer=True, warmupQ=False, warmupIter=10000,
+                addBias=False, doneTerminate=True, runningCostThr=None,
+                curUpdates=None, checkPeriod=50000, 
+                plotFigure=True, storeFigure=False,
+                showBool=False, vmin=-1, vmax=1, numRndTraj=200,
+                storeModel=True, storeBest=False, 
+                outFolder='RA', verbose=True):
+        """
+        learn: Learns the value function.
+
+        Args:
+            env (gym.Env Obj.): environment.
+            MAX_UPDATES (int, optional): the maximal number of gradient 
+                updates. Defaults to 2000000.
+            MAX_EP_STEPS (int, optional): the number of steps in an episode. 
+                Defaults to 100.
+            warmupBuffer (bool, optional): fill the replay buffer if True.
+                Defaults to True.
+            warmupQ (bool, optional): train the Q-network by (l_x, g_x) if 
+                True. Defaults to False.
+            warmupIter (int, optional): the number of iterations in the 
+                Q-network warmup. Defaults to 10000.
+            addBias (bool, optional): use biased version of value function if 
+                True. Defaults to False.
+            doneTerminate (bool, optional): ends the episode when the agent 
+                crosses the boundary if True. Defaults to True.
+            runningCostThr (float, optional): ends the training if the running 
+                cost is smaller than the threshold. Defaults to None.
+            curUpdates (int, optional): set the current number of updates 
+                (usually used when restoring trained models). Defaults to None.
+            checkPeriod (int, optional): the period we check the performance.
+                Defaults to 50000.
+            plotFigure (bool, optional): plot figures if True. Defaults to True.
+            storeFigure (bool, optional): store figures if True. Defaults to 
+                False.
+            showBool (bool, optional): use bool value function if True. 
+                Defaults to False.
+            vmin (float, optional): the minimal value in the colorbar. Defaults 
+                to -1.
+            vmax (float, optional): the maximal value in the colorbar. Defaults 
+                to 1.
+            numRndTraj (int, optional): the number of random trajectories used 
+                to obtain the success ratio. Defaults to 200.
+            storeModel (bool, optional): store models if True. Defaults to True.
+            storeBest (bool, optional): only store the best model if True. 
+                Defaults to False.
+            outFolder (str, optional): the relative folder path with respect to 
+                models/ and figure/. Defaults to 'RA'.
+            verbose (bool, optional): output message if True. Defaults to True.
+
+        Returns:
+            trainingRecords (List): each entry consists of  ['ep', 
+                'runningCost', 'cost', 'lossC'] after every episode.
+            trainProgress (List): each entry consists of the 
+                success/failure/unfinished ratio of random trajectories and is
+                checked periodically.
+        """
+
+        # == Warmup Buffer ==
+        startInitBuffer = time.time()
+        if warmupBuffer:
+            self.initBuffer(env)
+        endInitBuffer = time.time()
+
+        # == Warmup Q ==
+        startInitQ = time.time()
+        if warmupQ:
+            self.initQ(env, warmupIter=warmupIter, outFolder=outFolder,
+                plotFigure=plotFigure, storeFigure=storeFigure)
+        endInitQ = time.time()
+
+        # == Main Training ==
+        startLearning = time.time()
+        TrainingRecord = namedtuple('TrainingRecord', ['ep', 'runningCost', 'cost', 'loss_q', 'loss_pi'])
+        trainingRecords = []
+        runningCost = 0.
+        trainProgress = []
+        checkPointSucc = 0.
+        ep = 0
+        if curUpdates is not None:
+            self.cntUpdate = curUpdates
+            print("starting from {:d} updates".format(self.cntUpdate))
+        while self.cntUpdate <= MAX_UPDATES:
+            s = env.reset()
+            epCost = 0.
+            ep += 1
+            # Rollout
+            for step_num in range(MAX_EP_STEPS):
+                # Select action
+                a, _ = self.actor.sample(s)
+
+                # Interact with env
+                s_, r, done, info = env.step(a)
+                epCost += r
+
+                # Store the transition in memory
+                self.store_transition(s, a, r, s_, info)
+                s = s_
+
+                # Check after fixed number of gradient updates
+                # if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
+                #     results= env.simulate_trajectories(self.Q_network,
+                #         T=MAX_EP_STEPS, num_rnd_traj=numRndTraj,
+                #         keepOutOf=False, toEnd=False)[1]
+                #     success  = np.sum(results==1) / numRndTraj
+                #     failure  = np.sum(results==-1)/ numRndTraj
+                #     unfinish = np.sum(results==0) / numRndTraj
+                #     trainProgress.append([success, failure, unfinish])
+                #     if verbose:
+                #         lr = self.optimizer.state_dict()['param_groups'][0]['lr']
+                #         print('\nAfter [{:d}] updates:'.format(self.cntUpdate))
+                #         print('  - eps={:.2f}, gamma={:.6f}, lr={:.1e}.'.format(
+                #             self.EPSILON, self.GAMMA, lr))
+                #         print('  - success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(
+                #             success, failure, unfinish))
+
+                #     if storeModel:
+                #         if storeBest:
+                #             if success > checkPointSucc:
+                #                 checkPointSucc = success
+                #                 self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
+                #         else:
+                #             self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
+
+                #     if plotFigure or storeFigure:
+                #         self.Q_network.eval()
+                #         if showBool:
+                #             env.visualize(self.Q_network, vmin=0, boolPlot=True, addBias=addBias)
+                #         else:
+                #             env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
+                #         if storeFigure:
+                #             figureFolder = '{:s}/figure/'.format(outFolder)
+                #             os.makedirs(figureFolder, exist_ok=True)
+                #             plt.savefig('{:s}{:d}.png'.format(figureFolder, self.cntUpdate))
+                #         if plotFigure:
+                #             plt.show()
+                #             plt.pause(0.001)
+                #             plt.close()
+
+                # Perform one step of the optimization (on the target network)
+                loss_q, loss_pi = self.update()
+                self.cntUpdate += 1
+                self.updateHyperParam()
+
+                # Terminate early
+                if done and doneTerminate:
+                    break
+
+            # Rollout report
+            runningCost = runningCost * 0.9 + epCost * 0.1
+            trainingRecords.append(TrainingRecord(ep, runningCost, epCost, loss_q, loss_pi))
+            if verbose:
+                print('\r{:3.0f}: This episode gets running/episode cost = ({:3.2f}/{:.2f}) after {:d} steps.'.format(\
+                    ep, runningCost, epCost, step_num+1), end=' ')
+                print('The agent currently updates {:d} times.'.format(self.cntUpdate), end='\t\t')
+
+            # Check stopping criteria
+            if runningCostThr != None:
+                if runningCost <= runningCostThr:
+                    print("\n At Updates[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(self.cntUpdate, runningCost))
+                    env.close()
+                    break
+        endLearning = time.time()
+        timeInitBuffer = endInitBuffer - startInitBuffer
+        timeInitQ = endInitQ - startInitQ
+        timeLearning = endLearning - startLearning
+        self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
+        print('\nInitBuffer: {:.1f}, InitQ: {:.1f}, Learning: {:.1f}'.format(
+            timeInitBuffer, timeInitQ, timeLearning))
+        return trainingRecords, trainProgress
     # * LEARN ENDS
 
 

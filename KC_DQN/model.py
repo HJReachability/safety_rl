@@ -159,23 +159,24 @@ class GaussianPolicy(nn.Module):
 
 
 class DeterministicPolicy(nn.Module):
-    def __init__(self, dimList, actType='Tanh', device='cpu', actionSpace=None,
+    def __init__(self, dimList, actionSpace, actType='Tanh', device='cpu',
         noiseStd=0.1, noiseClamp=0.25):
         super(DeterministicPolicy, self).__init__()
         self.device = device
         self.mean = model(dimList, actType, verbose=True).to(device)
         self.noise = Normal(0., noiseStd)
         self.noiseClamp = noiseClamp
+        self.actionSpace = actionSpace
 
         # action rescaling
-        if actionSpace is None:
-            self.actionScale = 1.
-            self.actionBias = 0.
-        else:
-            self.actionScale = torch.FloatTensor(
-                (actionSpace.high - actionSpace.low) / 2.).to(device)
-            self.actionBias = torch.FloatTensor(
-                (actionSpace.high + actionSpace.low) / 2.).to(device)
+        # if actionSpace is None:
+        #     self.actionScale = 1.
+        #     self.actionBias = 0.
+        # else:
+        #     self.actionScale = torch.FloatTensor(
+        #         (actionSpace.high - actionSpace.low) / 2.).to(device)
+        #     self.actionBias = torch.FloatTensor(
+        #         (actionSpace.high + actionSpace.low) / 2.).to(device)
 
 
     def forward(self, state):
@@ -188,17 +189,16 @@ class DeterministicPolicy(nn.Module):
         stateTensor = state.to(self.device)
         mean = self.forward(stateTensor)
         noise = self.noise.sample().to(self.device)
-        noise = noise.clamp(-self.noiseClamp, self.noiseClamp)
+        noise_clipped = noise.clamp(-self.noiseClamp, self.noiseClamp)
 
-        # action
+        # Action.
         action = mean + noise
-        action = action.clamp(-1., 1.)
-        action = action * self.actionScale + self.actionBias
+        action = action.clamp(self.actionSpace.low, self.actionSpace.high)
 
-        # mean
-        mean = mean.clamp(-1., 1.)
-        mean = mean * self.actionScale + self.actionBias
-        return action, torch.tensor(0.), mean
+        # Target action.
+        action_target = mean + noise_clipped
+        action_target = action_target.clamp(self.actionSpace.low, self.actionSpace.high)
+        return action, action_target
 
 
 #== Scheduler ==

@@ -39,9 +39,11 @@ class TD3(ActorCritic):
         self.build_network(dimLists, actType)
 
 
-    def build_actor(self, dimListActor, actType='Tanh'):
-        self.actor = DeterministicPolicy(dimListActor, self.actionSpace, actType=actType)
-        self.actorTarget = DeterministicPolicy(dimListActor, self.actionSpace, actType=actType)
+    def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.5, noiseClamp=0.1):
+        self.actor = DeterministicPolicy(dimListActor, self.actionSpace, actType=actType,
+                                         noiseStd=noiseStd, noiseClamp=noiseClamp)
+        self.actorTarget = DeterministicPolicy(dimListActor, self.actionSpace, actType=actType,
+                                         noiseStd=noiseStd, noiseClamp=noiseClamp)
 
 
     def initBuffer(self, env, ratio=1.):
@@ -80,21 +82,21 @@ class TD3(ActorCritic):
 
             self.criticOptimizer.zero_grad()
             loss.backward()
-            clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
+            # clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
             self.criticOptimizer.step()
 
         print(" --- Warmup Q Ends")
-        # if plotFigure or storeFigure:
-        #     self.critic.eval()
-        #     env.visualize(self.critic.q1, vmin=vmin, vmax=vmax, cmap='seismic')
-        #     if storeFigure:
-        #         figureFolder = '{:s}/figure/'.format(outFolder)
-        #         os.makedirs(figureFolder, exist_ok=True)
-        #         plt.savefig('{:s}initQ.png'.format(figureFolder))
-        #     if plotFigure:
-        #         plt.show()
-        #         plt.pause(0.001)
-        #         plt.close()
+        if plotFigure or storeFigure:
+            self.critic.eval()
+            env.visualize(self.critic.Q1, self.actor, vmin=vmin, vmax=vmax, cmap='seismic')
+            if storeFigure:
+                figureFolder = '{:s}/figure/'.format(outFolder)
+                os.makedirs(figureFolder, exist_ok=True)
+                plt.savefig('{:s}initQ.png'.format(figureFolder))
+            if plotFigure:
+                plt.show()
+                plt.pause(0.001)
+                plt.close()
 
         # hard replace
         self.criticTarget.load_state_dict(self.critic.state_dict())
@@ -132,7 +134,7 @@ class TD3(ActorCritic):
         #== backpropagation ==
         self.criticOptimizer.zero_grad()
         loss_q.backward()
-        nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
+        # nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
         self.criticOptimizer.step()
 
         return loss_q.item()
@@ -149,7 +151,7 @@ class TD3(ActorCritic):
         loss_pi = q_pi.mean()
         self.actorOptimizer.zero_grad()
         loss_pi.backward()
-        nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
+        # nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
         self.actorOptimizer.step()
 
         return loss_pi.item()

@@ -452,10 +452,11 @@ class ZermeloContEnv(gym.Env):
                 state = torch.FloatTensor([x, y, z]).to(self.device)
             action = policy(state)
 
+            xx = torch.cat([state, action.detach()]).to(self.device)
             if addBias:
-                v[idx] = q_func(state, action).item() + max(l_x, g_x)
+                v[idx] = q_func(xx).item() + max(l_x, g_x)
             else:
-                v[idx] = q_func(state, action).item()
+                v[idx] = q_func(xx).item()
             it.iternext()
         return v
 
@@ -484,7 +485,7 @@ class ZermeloContEnv(gym.Env):
             x, y = xs[i], ys[i]
             l_x = self.target_margin(np.array([x, y]))
             g_x = self.safety_margin(np.array([x, y]))
-            heuristic_v[i,:] = np.maximum(l_x, g_x)
+            heuristic_v[i,:] = g_x # np.maximum(l_x, g_x)
             states[i, :] = x, y
 
         return states, heuristic_v
@@ -518,7 +519,7 @@ class ZermeloContEnv(gym.Env):
                     break
 
             state_tensor = torch.FloatTensor(state).to(self.device)
-            u = policy(state_tensor).item()
+            u = policy(state_tensor).detach()
 
             state, _ = self.integrate_forward(state, u)
             traj_x.append(state[0])
@@ -554,7 +555,7 @@ class ZermeloContEnv(gym.Env):
         return trajectories, results
 
 
-    def visualize(  self, q_func, policy, no_show=False,
+    def visualize(  self, q_func, policy, show=True,
                     vmin=-1, vmax=1, nx=81, ny=241, cmap='seismic',
                     labels=['', ''], boolPlot=False, addBias=False):
         """ Overlays analytic safe set on top of state value function.
@@ -584,8 +585,10 @@ class ZermeloContEnv(gym.Env):
         #== Formatting ==
         self.plot_formatting(ax=ax, labels=labels)
 
-        if not no_show:
-            plt.show()
+        if show:
+            # plt.show()
+            plt.pause(1)
+            plt.close()
 
 
     def plot_v_values(self, q_func, policy, ax=None, fig=None,

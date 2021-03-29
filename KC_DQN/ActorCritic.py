@@ -207,7 +207,7 @@ class ActorCritic(object):
         raise NotImplementedError
 
 
-    def update(self, update_period=2):
+    def update(self, update_period=1):
         if len(self.memory) < self.BATCH_SIZE*20:
             return
 
@@ -311,7 +311,7 @@ class ActorCritic(object):
             print("starting from {:d} updates".format(self.cntUpdate))
         while self.cntUpdate <= MAX_UPDATES:
             s = env.reset()
-            epCost = 0.
+            epCost = np.inf
             ep += 1
             # Rollout
             for step_num in range(MAX_EP_STEPS):
@@ -320,51 +320,51 @@ class ActorCritic(object):
 
                 # Interact with env
                 s_, r, done, info = env.step(a.detach().numpy())
-                epCost += r
+                epCost = max(info["g_x"], min(epCost, info["l_x"]))
 
                 # Store the transition in memory
                 self.store_transition(s, a, r, s_, info)
                 s = s_
 
                 # Check after fixed number of gradient updates
-                # if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
-                #     results= env.simulate_trajectories(self.Q_network,
-                #         T=MAX_EP_STEPS, num_rnd_traj=numRndTraj,
-                #         keepOutOf=False, toEnd=False)[1]
-                #     success  = np.sum(results==1) / numRndTraj
-                #     failure  = np.sum(results==-1)/ numRndTraj
-                #     unfinish = np.sum(results==0) / numRndTraj
-                #     trainProgress.append([success, failure, unfinish])
-                #     if verbose:
-                #         lr = self.optimizer.state_dict()['param_groups'][0]['lr']
-                #         print('\nAfter [{:d}] updates:'.format(self.cntUpdate))
-                #         print('  - eps={:.2f}, gamma={:.6f}, lr={:.1e}.'.format(
-                #             self.EPSILON, self.GAMMA, lr))
-                #         print('  - success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(
-                #             success, failure, unfinish))
+                if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
+                    results= env.simulate_trajectories(self.actor,
+                        T=MAX_EP_STEPS, num_rnd_traj=numRndTraj,
+                        keepOutOf=False, toEnd=False)[1]
+                    success  = np.sum(results==1) / numRndTraj
+                    failure  = np.sum(results==-1)/ numRndTraj
+                    unfinish = np.sum(results==0) / numRndTraj
+                    trainProgress.append([success, failure, unfinish])
+                    if verbose:
+                        lr = self.actorOptimizer.state_dict()['param_groups'][0]['lr']
+                        print('\nAfter [{:d}] updates:'.format(self.cntUpdate))
+                        print('  - eps={:.2f}, gamma={:.6f}, lr={:.1e}.'.format(
+                            self.EPSILON, self.GAMMA, lr))
+                        print('  - success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(
+                            success, failure, unfinish))
 
-                #     if storeModel:
-                #         if storeBest:
-                #             if success > checkPointSucc:
-                #                 checkPointSucc = success
-                #                 self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
-                #         else:
-                #             self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
+                    # if storeModel:
+                    #     if storeBest:
+                    #         if success > checkPointSucc:
+                    #             checkPointSucc = success
+                    #             self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
+                    #     else:
+                    #         self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
 
-                #     if plotFigure or storeFigure:
-                #         self.Q_network.eval()
-                #         if showBool:
-                #             env.visualize(self.Q_network, vmin=0, boolPlot=True, addBias=addBias)
-                #         else:
-                #             env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
-                #         if storeFigure:
-                #             figureFolder = '{:s}/figure/'.format(outFolder)
-                #             os.makedirs(figureFolder, exist_ok=True)
-                #             plt.savefig('{:s}{:d}.png'.format(figureFolder, self.cntUpdate))
-                #         if plotFigure:
-                #             plt.show()
-                #             plt.pause(0.001)
-                #             plt.close()
+                    if plotFigure or storeFigure:
+                        self.critic.eval()
+                        if showBool:
+                            env.visualize(self.critic.Q1, self.actor, vmin=0, boolPlot=True, addBias=addBias)
+                        else:
+                            env.visualize(self.critic.Q1, self.actor, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
+                        # if storeFigure:
+                        #     figureFolder = '{:s}/figure/'.format(outFolder)
+                        #     os.makedirs(figureFolder, exist_ok=True)
+                        #     plt.savefig('{:s}{:d}.png'.format(figureFolder, self.cntUpdate))
+                        # if plotFigure:
+                        #     # plt.show()
+                        #     # plt.pause(0.001)
+                        #     # plt.close()
 
                 # Perform one step of the optimization (on the target network)
                 loss_q, loss_pi = self.update()
@@ -379,8 +379,8 @@ class ActorCritic(object):
             runningCost = runningCost * 0.9 + epCost * 0.1
             trainingRecords.append(TrainingRecord(ep, runningCost, epCost, loss_q, loss_pi))
             if verbose:
-                print('\r{:3.0f}: This episode gets running/episode cost = ({:3.2f}/{:.2f}) after {:d} steps.'.format(\
-                    ep, runningCost, epCost, step_num+1), end=' ')
+                print('\r{:3.0f}: This episode gets running/episode cost = ({:3.2f}/{:.2f}) and losses = ({:3.2f}/{:.2f}) after {:d} steps.'.format(\
+                    ep, runningCost, epCost, loss_q, loss_pi, step_num+1), end=' ')
                 print('The agent currently updates {:d} times.'.format(self.cntUpdate), end='\t\t')
 
             # Check stopping criteria

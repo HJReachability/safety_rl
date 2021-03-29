@@ -19,8 +19,8 @@ import pickle
 import os.path
 import glob
 
-from KC_DQN.DDQNSingle import DDQNSingle
-from KC_DQN.config import dqnConfig
+from KC_DQN.TD3 import TD3
+from KC_DQN.config import actorCriticConfig
 
 import time
 timestr = time.strftime("%Y-%m-%d-%H_%M_%S")
@@ -111,11 +111,10 @@ CONFIG = actorCriticConfig(
             TAU=0.01,
             HARD_UPDATE=1,
             SOFT_UPDATE=True,
-            MEMORY_CAPACITY=150000,   # Number of transitions in replay buffer.
+            MEMORY_CAPACITY=10000,   # Number of transitions in replay buffer.
             BATCH_SIZE=args.batchsize,          # Number of examples to use to update Q.
             RENDER=False,
             MAX_MODEL=10,            # How many models to store while training.
-            DOUBLE=args.double,
             # ADDED by vrubies
             ARCHITECTURE=args.architecture,
             ACTIVATION=args.activation,
@@ -130,23 +129,24 @@ def report_config(CONFIG):
 
 
 # == ENVIRONMENT ==
-env = gym.make(env_name, device=device, mode="RA",
-               obstacle_sampling=True)
+env = gym.make(env_name, device=device, mode="RA")
 env.set_costParam(penalty=CONFIG.PENALTY, reward=CONFIG.REWARD)
 
 # == EXPERIMENT ==
 def multi_experiment(seedNum, args, CONFIG, env, report_period=1000, skip=False):
     # == AGENT ==
     s_dim = env.observation_space.shape[0]
-    numAction = env.action_space.n
+    numAction = env.action_space.shape[0]
     actionList = np.arange(numAction)
-    dimList = [s_dim] + args.architecture + [numAction]
+
+    dimListActor = [s_dim] + args.architecture + [numAction]
+    dimListCritic = [s_dim + numAction] + args.architecture + [1]
+    dimLists = [dimListCritic, dimListActor]
 
     env.set_seed(seedNum)
     np.random.seed(seedNum)
-    agent = DDQNSingle(CONFIG, numAction, actionList, dimList,
-                       mode='RA', actType=args.activation,
-                       skip=skip)
+    agent = TD3(CONFIG, env.action_space, dimLists, actType=['Tanh', 'Tanh'],
+                verbose=True)
 
     # If *true* episode ends when gym environment gives done flag.
     # If *false* end
@@ -158,7 +158,7 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period=1000, skip=False)
         MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
         warmupBuffer=True,
         warmupQ=True,  # Need to implement inside env.
-        warmupIter=10000,
+        warmupIter=100,
         addBias=False,  # args.addBias,
         doneTerminate=True,
         runningCostThr=None,

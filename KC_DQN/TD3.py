@@ -16,7 +16,7 @@ from .model import DeterministicPolicy
 from .ActorCritic import ActorCritic, Transition
 
 class TD3(ActorCritic):
-    def __init__(self, CONFIG, actionSpace, dimList, actType=['Tanh', 'Tanh'],
+    def __init__(self, CONFIG, actionSpace, dimLists, actType=['Tanh', 'Tanh'],
         verbose=True):
         """
         __init__: initialization.
@@ -29,18 +29,19 @@ class TD3(ActorCritic):
                 Defaults to ['Tanh', 'Tanh'].
             verbose (bool, optional): print info or not. Defaults to True.
         """        
-        super(TD3, self).__init__(actorType='TD3', CONFIG, actionSpace)
+        super(TD3, self).__init__('TD3', CONFIG, actionSpace)
 
         #== Build NN for (D)DQN ==
-        assert dimList is not None, "Define the architectures"
-        self.dimList = dimList
+        assert dimLists is not None, "Define the architectures"
+        self.dimListCritic = dimLists[0]
+        self.dimListActor = dimLists[1]
         self.actType = actType
-        self.build_network(dimList, actType, verbose)
+        self.build_network(dimLists, actType)
 
 
-    def build_actor(self, dimList, actType='Tanh'):
-        self.actor = DeterministicPolicy(dimList, actType)
-        self.actorTarget = DeterministicPolicy(dimList, actType)
+    def build_actor(self, dimListActor, actType='Tanh'):
+        self.actor = DeterministicPolicy(dimListActor, self.actionSpace, actType=actType)
+        self.actorTarget = DeterministicPolicy(dimListActor, self.actionSpace, actType=actType)
 
 
     def initBuffer(self, env, ratio=1.):
@@ -51,22 +52,25 @@ class TD3(ActorCritic):
             print('\rWarmup Buffer [{:d}]'.format(cnt), end='')
             a = env.action_space.sample()
             s_, r, done, info = env.step(a)
-            if done:
-                s_ = None
-                s = env.reset()
+            s_ = None if done else s_
             self.store_transition(s, a, r, s_, info)
+            if done:
+                s = env.reset()
+            else:
+                s = s_
         print(" --- Warmup Buffer Ends")
 
 
     def initQ(self, env, warmupIter, outFolder, num_warmup_samples=200,
                 vmin=-1, vmax=1, plotFigure=True, storeFigure=True):
+        loss = 0.0
         for ep_tmp in range(warmupIter):
-            print('\rWarmup Q [{:d}]'.format(ep_tmp+1), end='')
+            print('\rWarmup Q [{:d}]. MSE = {:f}'.format(ep_tmp+1, loss), end='')
             states, value = env.get_warmup_examples(num_warmup_samples)
             actions = self.genRandomActions(num_warmup_samples)
 
             self.critic.train()
-            value = torch.from_numpy(value[:, 0]).float().to(self.device)
+            value = torch.from_numpy(value).float().to(self.device)
             stateTensor = torch.from_numpy(states).float().to(self.device)
             actionTensor = torch.from_numpy(actions).float().to(self.device)
             q1, q2 = self.critic(stateTensor, actionTensor)
@@ -113,10 +117,11 @@ class TD3(ActorCritic):
         with torch.no_grad():
             _, next_actions = self.actorTarget.sample(non_final_state_nxt)  # clip(pi_targ(s')+clip(eps,-c,c),a_low, a_high)
             next_q1, next_q2 = self.criticTarget(non_final_state_nxt, next_actions)
-            q_max = torch.max(next_q1, next_q2)  # max because we are doing reach-avoid.
+            q_max = torch.max(next_q1, next_q2).view(-1)  # max because we are doing reach-avoid.
 
-        target_q[non_final_mask] =  (1.0 - self.GAMMA) * torch.max(l_x_nxt[non_final_mask], g_x_nxt[non_final_mask]) +
-                                    self.GAMMA * torch.max( g_x_nxt[non_final_mask], torch.min(l_x_nxt[non_final_mask], q_max))
+        target_q[non_final_mask] =  (
+            (1.0 - self.GAMMA) * torch.max(l_x_nxt[non_final_mask], g_x_nxt[non_final_mask]) +
+            self.GAMMA * torch.max( g_x_nxt[non_final_mask], torch.min(l_x_nxt[non_final_mask], q_max)))
         target_q[torch.logical_not(non_final_mask)] = g_x_nxt[torch.logical_not(non_final_mask)]
 
         #== MSE update for both Q1 and Q2 ==
@@ -142,10 +147,10 @@ class TD3(ActorCritic):
         q_pi = q_pi_1 if np.random.randint(2) == 0 else q_pi_2
 
         loss_pi = q_pi.mean()
-        self.ActorOptimizer.zero_grad()
+        self.actorOptimizer.zero_grad()
         loss_pi.backward()
         nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
-        self.ActorOptimizer.step()
+        self.actorOptimizer.step()
 
         return loss_pi.item()
 

@@ -237,7 +237,7 @@ class ZermeloContEnv(gym.Env):
             x, y = state
 
         # one step forward
-        x = x + self.time_step * u
+        x = x + self.time_step * u[0]
         y = y + self.time_step * self.upward_speed
 
         l_x = self.target_margin(np.array([x, y]))
@@ -477,7 +477,7 @@ class ZermeloContEnv(gym.Env):
 
         xs = np.random.uniform(x_min, x_max, num_warmup_samples)
         ys = np.random.uniform(y_min, y_max, num_warmup_samples)
-        heuristic_v = np.zeros((num_warmup_samples, self.action_space.n))
+        heuristic_v = np.zeros((num_warmup_samples, self.action_space.shape[0]))
         states = np.zeros((num_warmup_samples, self.observation_space.shape[0]))
 
         for i in range(num_warmup_samples):

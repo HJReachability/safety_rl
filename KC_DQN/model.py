@@ -168,6 +168,9 @@ class DeterministicPolicy(nn.Module):
         self.noiseClamp = noiseClamp
         self.actionSpace = actionSpace
 
+        self.a_max = torch.from_numpy(self.actionSpace.high).float().to(self.device)
+        self.a_min = torch.from_numpy(self.actionSpace.low).float().to(self.device)
+
         # action rescaling
         # if actionSpace is None:
         #     self.actionScale = 1.
@@ -193,11 +196,11 @@ class DeterministicPolicy(nn.Module):
 
         # Action.
         action = mean + noise
-        action = action.clamp(self.actionSpace.low, self.actionSpace.high)
+        action = torch.max(torch.min(action,self.a_max), self.a_min)
 
         # Target action.
         action_target = mean + noise_clipped
-        action_target = action_target.clamp(self.actionSpace.low, self.actionSpace.high)
+        action_target = torch.max(torch.min(action_target,self.a_max), self.a_min)
         return action, action_target
 
 

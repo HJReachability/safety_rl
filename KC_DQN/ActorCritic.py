@@ -54,11 +54,13 @@ from torch.optim import lr_scheduler
 from collections import namedtuple
 import numpy as np
 import os
+import time
 import glob
 
-from .model import StepLR, StepLRMargin, TwinnedQNetwork
+from .model import StepLR, StepLRMargin, TwinnedQNetwork, StepResetLR
 from .ReplayMemory import ReplayMemory
 from .utils import soft_update, save_model
+
 
 Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
 
@@ -111,9 +113,9 @@ class ActorCritic(object):
 
 
     # * BUILD NETWORK BEGINS
-    def build_network(self, dimList, actType=['Tanh', 'Tanh']):
-        self.build_critic(dimList[0], actType[0])
-        self.build_actor(dimList[1], actType[1])
+    def build_network(self, dimLists, actType=['Tanh', 'Tanh']):
+        self.build_critic(dimLists[0], actType[0])
+        self.build_actor(dimLists[1], actType[1])
         self.build_optimizer()
 
 
@@ -129,11 +131,11 @@ class ActorCritic(object):
     def build_optimizer(self):
         self.criticOptimizer = AdamW(self.critic.parameters(), lr=self.LR_C,
             weight_decay=1e-3)
-        self.ActorOptimizer = AdamW(self.actor.parameters(), lr=self.LR_A,
+        self.actorOptimizer = AdamW(self.actor.parameters(), lr=self.LR_A,
             weight_decay=1e-3)
         self.criticScheduler = lr_scheduler.StepLR(self.criticOptimizer,
             step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
-        self.ActorScheduler = lr_scheduler.StepLR(self.ActorOptimizer,
+        self.actorScheduler = lr_scheduler.StepLR(self.actorOptimizer,
             step_size=self.LR_A_PERIOD, gamma=self.LR_A_DECAY)
         # self.Q2Optimizer = AdamW(self.critic.Q2.parameters(), lr=self.LR_C,
         #   weight_decay=1e-3)
@@ -154,17 +156,22 @@ class ActorCritic(object):
 
 
     def update_critic_hyperParam(self):
-        if self.Q1Optimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_C_END:
-            for param_group in self.Q1Optimizer.param_groups:
+        if self.criticOptimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_C_END:
+            for param_group in self.criticOptimizer.param_groups:
                 param_group['lr'] = self.LR_C_END
         else:
-            self.Q1Scheduler.step()
+            self.criticScheduler.step()
+        # if self.Q1Optimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_C_END:
+        #     for param_group in self.Q1Optimizer.param_groups:
+        #         param_group['lr'] = self.LR_C_END
+        # else:
+        #     self.Q1Scheduler.step()
 
-        if self.Q2Optimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_C_END:
-            for param_group in self.Q2Optimizer.param_groups:
-                param_group['lr'] = self.LR_C_END
-        else:
-            self.Q2Scheduler.step()
+        # if self.Q2Optimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_C_END:
+        #     for param_group in self.Q2Optimizer.param_groups:
+        #         param_group['lr'] = self.LR_C_END
+        # else:
+        #     self.Q2Scheduler.step()
 
         self.EpsilonScheduler.step()
         self.EPSILON = self.EpsilonScheduler.get_variable()
@@ -173,11 +180,11 @@ class ActorCritic(object):
 
 
     def update_actor_hyperParam(self):
-        if self.ActorOptimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_A_END:
-            for param_group in self.ActorOptimizer.param_groups:
+        if self.actorOptimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_A_END:
+            for param_group in self.actorOptimizer.param_groups:
                 param_group['lr'] = self.LR_A_END
         else:
-            self.ActorScheduler.step()
+            self.actorScheduler.step()
 
 
     def updateHyperParam(self):
@@ -188,7 +195,7 @@ class ActorCritic(object):
     def update_target_network(self):
         soft_update(self.criticTarget.Q1, self.critic.Q1, self.TAU)
         soft_update(self.criticTarget.Q2, self.critic.Q2, self.TAU)
-        if actorType == 'TD3':
+        if self.actorType == 'TD3':
             soft_update(self.actorTarget, self.actor, self.TAU)
 
 
@@ -309,10 +316,10 @@ class ActorCritic(object):
             # Rollout
             for step_num in range(MAX_EP_STEPS):
                 # Select action
-                a, _ = self.actor.sample(s)
+                a, _ = self.actor.sample(torch.from_numpy(s).float().to(self.device))
 
                 # Interact with env
-                s_, r, done, info = env.step(a)
+                s_, r, done, info = env.step(a.detach().numpy())
                 epCost += r
 
                 # Store the transition in memory
@@ -434,9 +441,11 @@ class ActorCritic(object):
 
 
     def genRandomActions(self, num_actions):
-        UB = self.actionSpace.high
-        LB = self.actionSpace.low
-        dim = UB.shape[0]
-        actions = (UB - LB) * np.random.rand(num_warmup_samples, dim) + LB
+        actions = [self.actionSpace.sample() for _ in range(num_actions)]
+        actions = np.array(actions)
+        # UB = self.actionSpace.high
+        # LB = self.actionSpace.low
+        # dim = UB.shape[0]
+        # actions = (UB - LB) * np.random.rand(num_actions, dim) + LB
         return actions
     # * OTHERS ENDS

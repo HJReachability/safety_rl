@@ -485,7 +485,7 @@ class ZermeloContEnv(gym.Env):
             x, y = xs[i], ys[i]
             l_x = self.target_margin(np.array([x, y]))
             g_x = self.safety_margin(np.array([x, y]))
-            heuristic_v[i,:] = g_x # np.maximum(l_x, g_x)
+            heuristic_v[i,:] = np.maximum(l_x, g_x)
             states[i, :] = x, y
 
         return states, heuristic_v
@@ -563,6 +563,7 @@ class ZermeloContEnv(gym.Env):
         Args:
             v: State value function.
         """
+        plt.close()
         fig, ax = plt.subplots(1, 1, figsize=(4, 4))
         axStyle = self.get_axes()
         cbarPlot = True
@@ -587,8 +588,7 @@ class ZermeloContEnv(gym.Env):
 
         if show:
             # plt.show()
-            plt.pause(1)
-            plt.close()
+            plt.pause(0.1)
 
 
     def plot_v_values(self, q_func, policy, ax=None, fig=None,

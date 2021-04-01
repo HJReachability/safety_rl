@@ -76,8 +76,8 @@ class TD3(ActorCritic):
             stateTensor = torch.from_numpy(states).float().to(self.device)
             actionTensor = torch.from_numpy(actions).float().to(self.device)
             q1, q2 = self.critic(stateTensor, actionTensor)
-            q1Loss = mse_loss(input=q1, target=value)
-            q2Loss = mse_loss(input=q2, target=value)
+            q1Loss = smooth_l1_loss(input=q1, target=value)
+            q2Loss = smooth_l1_loss(input=q2, target=value)
             loss = q1Loss + q2Loss
 
             self.criticOptimizer.zero_grad()
@@ -93,10 +93,10 @@ class TD3(ActorCritic):
                 figureFolder = '{:s}/figure/'.format(outFolder)
                 os.makedirs(figureFolder, exist_ok=True)
                 plt.savefig('{:s}initQ.png'.format(figureFolder))
-            if plotFigure:
-                plt.show()
-                plt.pause(0.001)
-                plt.close()
+            # if plotFigure:
+            #     plt.show()
+            #     plt.pause(0.001)
+            #     plt.close()
 
         # hard replace
         self.criticTarget.load_state_dict(self.critic.state_dict())
@@ -124,11 +124,12 @@ class TD3(ActorCritic):
         target_q[non_final_mask] =  (
             (1.0 - self.GAMMA) * torch.max(l_x_nxt[non_final_mask], g_x_nxt[non_final_mask]) +
             self.GAMMA * torch.max( g_x_nxt[non_final_mask], torch.min(l_x_nxt[non_final_mask], q_max)))
-        target_q[torch.logical_not(non_final_mask)] = g_x_nxt[torch.logical_not(non_final_mask)]
+        target_q[torch.logical_not(non_final_mask)] = torch.max(
+            l_x_nxt[torch.logical_not(non_final_mask)], g_x_nxt[torch.logical_not(non_final_mask)])
 
         #== MSE update for both Q1 and Q2 ==
-        loss_q1 = mse_loss(input=q1, target=target_q.detach())
-        loss_q2 = mse_loss(input=q2, target=target_q.detach())
+        loss_q1 = smooth_l1_loss(input=q1.view(-1), target=target_q.detach())
+        loss_q2 = smooth_l1_loss(input=q2.view(-1), target=target_q.detach())
         loss_q = loss_q1 + loss_q2
 
         #== backpropagation ==

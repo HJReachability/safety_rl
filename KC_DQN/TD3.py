@@ -39,11 +39,12 @@ class TD3(ActorCritic):
         self.build_network(dimLists, actType)
 
 
-    def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.5, noiseClamp=0.1):
+    def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.1, noiseClamp=0.5):
         self.actor = DeterministicPolicy(dimListActor, self.actionSpace, actType=actType,
                                          noiseStd=noiseStd, noiseClamp=noiseClamp)
         self.actorTarget = DeterministicPolicy(dimListActor, self.actionSpace, actType=actType,
                                          noiseStd=noiseStd, noiseClamp=noiseClamp)
+        self.actorTarget.eval()
 
 
     def initBuffer(self, env, ratio=1.):
@@ -116,10 +117,9 @@ class TD3(ActorCritic):
         target_q = torch.zeros(self.BATCH_SIZE).float().to(self.device)
 
         #== compute actorTarget next_actions and feed to criticTarget ==
-        with torch.no_grad():
-            _, next_actions = self.actorTarget.sample(non_final_state_nxt)  # clip(pi_targ(s')+clip(eps,-c,c),a_low, a_high)
-            next_q1, next_q2 = self.criticTarget(non_final_state_nxt, next_actions)
-            q_max = torch.max(next_q1, next_q2).view(-1)  # max because we are doing reach-avoid.
+        _, next_actions = self.actorTarget.sample(non_final_state_nxt)  # clip(pi_targ(s')+clip(eps,-c,c),a_low, a_high)
+        next_q1, next_q2 = self.criticTarget(non_final_state_nxt, next_actions)
+        q_max = torch.max(next_q1, next_q2).view(-1)  # max because we are doing reach-avoid.
 
         target_q[non_final_mask] =  (
             (1.0 - self.GAMMA) * torch.max(l_x_nxt[non_final_mask], g_x_nxt[non_final_mask]) +
@@ -146,6 +146,8 @@ class TD3(ActorCritic):
         (non_final_mask, non_final_state_nxt, state, 
          action, reward, g_x, l_x, g_x_nxt, l_x_nxt) = self.unpack_batch(batch)
 
+        self.critic.eval()
+        self.actor.train()
         q_pi_1, q_pi_2 = self.critic(state, self.actor(state))
         q_pi = q_pi_1 if np.random.randint(2) == 0 else q_pi_2
 
@@ -155,6 +157,7 @@ class TD3(ActorCritic):
         # nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
         self.actorOptimizer.step()
 
+        self.actor.eval()
         return loss_pi.item()
 
 

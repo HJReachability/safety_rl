@@ -205,14 +205,14 @@ class ZermeloContEnv(gym.Env):
                 else:
                     cost = 0.
         # done
-        if self.doneType == 'toEnd':
-            outsideTop   = (self.state[1] >= self.bounds[1,1])
-            outsideLeft  = (self.state[0] <= self.bounds[0,0])
-            outsideRight = (self.state[0] >= self.bounds[0,1])
-            done = outsideTop or outsideLeft or outsideRight
-        else:
-            done = fail or success
-            assert self.doneType == 'TF', 'invalid doneType'
+        # if self.doneType == 'toEnd':
+        #     outsideTop   = (self.state[1] >= self.bounds[1,1])
+        #     outsideLeft  = (self.state[0] <= self.bounds[0,0])
+        #     outsideRight = (self.state[0] >= self.bounds[0,1])
+        #     done = outsideTop or outsideLeft or outsideRight
+        # else:
+        done = fail or success
+        # assert self.doneType == 'TF', 'invalid doneType'
 
         info = {"g_x": g_x_cur, "l_x": l_x_cur, "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
         return np.copy(self.state), cost, done, info

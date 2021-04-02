@@ -3,7 +3,7 @@
 
 import torch
 import torch.nn as nn
-from torch.distributions import Normal
+from torch.distributions import Normal, Uniform
 import sys
 
 class Sin(nn.Module):
@@ -160,13 +160,14 @@ class GaussianPolicy(nn.Module):
 
 class DeterministicPolicy(nn.Module):
     def __init__(self, dimList, actionSpace, actType='Tanh', device='cpu',
-        noiseStd=0.1, noiseClamp=0.25):
+        noiseStd=0.1, noiseClamp=0.5, targetNoise=0.2):
         super(DeterministicPolicy, self).__init__()
         self.device = device
         self.mean = model(dimList, actType, verbose=True).to(device)
         self.noise = Normal(0., noiseStd)
         self.noiseClamp = noiseClamp
         self.actionSpace = actionSpace
+        self.targetNoise = targetNoise
 
         self.a_max = torch.from_numpy(self.actionSpace.high).float().to(self.device)
         self.a_min = torch.from_numpy(self.actionSpace.low).float().to(self.device)
@@ -192,7 +193,8 @@ class DeterministicPolicy(nn.Module):
         stateTensor = state.to(self.device)
         mean = self.forward(stateTensor)
         noise = self.noise.sample().to(self.device)
-        noise_clipped = noise.clamp(-self.noiseClamp, self.noiseClamp)
+        noise_clipped = torch.randn_like(mean) * self.targetNoise
+        noise_clipped = noise_clipped.clamp(-self.noiseClamp, self.noiseClamp)
 
         # Action.
         action = mean + noise

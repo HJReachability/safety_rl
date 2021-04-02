@@ -47,10 +47,10 @@ parser.add_argument("-upl",  "--update_period_lr",     help="update period for l
 parser.add_argument("-r",   "--reward",         help="when entering target set",    default=-1,     type=float)
 parser.add_argument("-p",   "--penalty",        help="when entering failure set",   default=1,      type=float)
 parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",            default=1,      type=float)
-parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=5e-4,   type=float)
+parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",          default=0.9,    type=float)
 parser.add_argument("-e",   "--eps",            help="exploration coeff.",          default=0.5,   type=float)
-parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[20,20],  nargs="*", type=int)
+parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[200],  nargs="*", type=int)
 parser.add_argument("-act", "--activation",     help="activation function",         default='Tanh', type=str)
 parser.add_argument("-skp", "--skip",           help="skip connections",            action="store_true")
 parser.add_argument("-dbl", "--double",         help="double DQN",                  action="store_true")
@@ -161,7 +161,7 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period=1000, skip=False)
         MAX_UPDATES=CONFIG.MAX_UPDATES,  # 6000000 for Dubins
         MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
         warmupBuffer=True,
-        warmupQ=True,  # Need to implement inside env.
+        warmupQ=False,  # Need to implement inside env.
         warmupIter=5000,
         addBias=False,  # args.addBias,
         doneTerminate=True,

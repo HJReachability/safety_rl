@@ -126,6 +126,7 @@ class ActorCritic(object):
     def build_critic(self, dimList, actType='Tanh'):
         self.critic = TwinnedQNetwork(dimList, actType, self.device)
         self.criticTarget = TwinnedQNetwork(dimList, actType, self.device)
+        self.criticTarget.eval()
 
 
     def build_optimizer(self):
@@ -207,7 +208,7 @@ class ActorCritic(object):
         raise NotImplementedError
 
 
-    def update(self, update_period=1):
+    def update(self, update_period=1):  # Kai-Chiech: update_period=2
         if len(self.memory) < self.BATCH_SIZE*20:
             return
 

@@ -56,6 +56,7 @@ import numpy as np
 import os
 import time
 import glob
+from copy import deepcopy
 
 from .model import StepLR, StepLRMargin, TwinnedQNetwork, StepResetLR
 from .ReplayMemory import ReplayMemory
@@ -82,7 +83,7 @@ class ActorCritic(object):
 
         #== PARAM ==
         # Exploration
-        self.EpsilonScheduler = StepResetLR( initValue=CONFIG.EPSILON, 
+        self.EpsilonScheduler = StepResetLR( initValue=CONFIG.EPSILON,
             period=CONFIG.EPS_PERIOD, decay=CONFIG.EPS_DECAY,
             endValue=CONFIG.EPS_END, resetPeriod=CONFIG.EPS_RESET_PERIOD)
         self.EPSILON = self.EpsilonScheduler.get_variable()
@@ -125,8 +126,7 @@ class ActorCritic(object):
 
     def build_critic(self, dimList, actType='Tanh'):
         self.critic = TwinnedQNetwork(dimList, actType, self.device)
-        self.criticTarget = TwinnedQNetwork(dimList, actType, self.device)
-        self.criticTarget.load_state_dict(self.critic.state_dict())
+        self.criticTarget = deepcopy(self.critic)
         for p in self.criticTarget.parameters():
             p.requires_grad = False
 
@@ -196,8 +196,8 @@ class ActorCritic(object):
 
 
     def update_target_networks(self):
-        soft_update(self.criticTarget.Q1, self.critic.Q1, self.TAU)
-        soft_update(self.criticTarget.Q2, self.critic.Q2, self.TAU)
+        soft_update(self.criticTarget, self.critic, self.TAU)
+        # soft_update(self.criticTarget.Q2, self.critic.Q2, self.TAU)
         if self.actorType == 'TD3':
             soft_update(self.actorTarget, self.actor, self.TAU)
 
@@ -233,61 +233,11 @@ class ActorCritic(object):
     def learn(  self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100,
                 warmupBuffer=True, warmupQ=False, warmupIter=10000,
                 addBias=False, doneTerminate=True, runningCostThr=None,
-                curUpdates=None, checkPeriod=50000, 
+                curUpdates=None, checkPeriod=50000,
                 plotFigure=True, storeFigure=False,
                 showBool=False, vmin=-1, vmax=1, numRndTraj=200,
-                storeModel=True, storeBest=False, 
+                storeModel=True, storeBest=False,
                 outFolder='RA', verbose=True):
-        """
-        learn: Learns the value function.
-
-        Args:
-            env (gym.Env Obj.): environment.
-            MAX_UPDATES (int, optional): the maximal number of gradient 
-                updates. Defaults to 2000000.
-            MAX_EP_STEPS (int, optional): the number of steps in an episode. 
-                Defaults to 100.
-            warmupBuffer (bool, optional): fill the replay buffer if True.
-                Defaults to True.
-            warmupQ (bool, optional): train the Q-network by (l_x, g_x) if 
-                True. Defaults to False.
-            warmupIter (int, optional): the number of iterations in the 
-                Q-network warmup. Defaults to 10000.
-            addBias (bool, optional): use biased version of value function if 
-                True. Defaults to False.
-            doneTerminate (bool, optional): ends the episode when the agent 
-                crosses the boundary if True. Defaults to True.
-            runningCostThr (float, optional): ends the training if the running 
-                cost is smaller than the threshold. Defaults to None.
-            curUpdates (int, optional): set the current number of updates 
-                (usually used when restoring trained models). Defaults to None.
-            checkPeriod (int, optional): the period we check the performance.
-                Defaults to 50000.
-            plotFigure (bool, optional): plot figures if True. Defaults to True.
-            storeFigure (bool, optional): store figures if True. Defaults to 
-                False.
-            showBool (bool, optional): use bool value function if True. 
-                Defaults to False.
-            vmin (float, optional): the minimal value in the colorbar. Defaults 
-                to -1.
-            vmax (float, optional): the maximal value in the colorbar. Defaults 
-                to 1.
-            numRndTraj (int, optional): the number of random trajectories used 
-                to obtain the success ratio. Defaults to 200.
-            storeModel (bool, optional): store models if True. Defaults to True.
-            storeBest (bool, optional): only store the best model if True. 
-                Defaults to False.
-            outFolder (str, optional): the relative folder path with respect to 
-                models/ and figure/. Defaults to 'RA'.
-            verbose (bool, optional): output message if True. Defaults to True.
-
-        Returns:
-            trainingRecords (List): each entry consists of  ['ep', 
-                'runningCost', 'cost', 'lossC'] after every episode.
-            trainProgress (List): each entry consists of the 
-                success/failure/unfinished ratio of random trajectories and is
-                checked periodically.
-        """
 
         # == Warmup Buffer ==
         # startInitBuffer = time.time()
@@ -296,11 +246,11 @@ class ActorCritic(object):
         # endInitBuffer = time.time()
 
         # == Warmup Q ==
-        startInitQ = time.time()
-        if warmupQ:
-            self.initQ(env, warmupIter=warmupIter, outFolder=outFolder,
-                plotFigure=plotFigure, storeFigure=storeFigure)
-        endInitQ = time.time()
+        # startInitQ = time.time()
+        # if warmupQ:
+        #     self.initQ(env, warmupIter=warmupIter, outFolder=outFolder,
+        #         plotFigure=plotFigure, storeFigure=storeFigure)
+        # endInitQ = time.time()
 
         # == Main Training ==
         startLearning = time.time()
@@ -326,7 +276,8 @@ class ActorCritic(object):
                 #     a = env.action_space.sample()
                 if self.cntUpdate > 10000:
                     with torch.no_grad():
-                        a, _ = self.actor.sample(torch.from_numpy(s).float().to(self.device))
+                        a, _ = self.actor.sample(
+                            torch.from_numpy(s).float().to(self.device))
                 else:
                     a = env.action_space.sample()
 
@@ -384,28 +335,30 @@ class ActorCritic(object):
                 if self.cntUpdate % update_every == 0:
                     for timer in range(update_every):
                         loss_q, loss_pi = self.update(timer)
+                        print('\r{:3.5f}/{:3.5f}: This episode.'.format(
+                            loss_q, loss_pi), end=' ')
                 self.cntUpdate += 1
                 # Update gamma, lr etc.
-                self.updateHyperParam()
+                # self.updateHyperParam()
 
                 # Terminate early
                 if done:
                     break
 
             # Rollout report
-            runningCost = runningCost * 0.9 + epCost * 0.1
-            trainingRecords.append(TrainingRecord(ep, runningCost, epCost, loss_q, loss_pi))
-            if verbose:
-                print('\r{:3.0f}: This episode gets running/episode cost = ({:3.2f}/{:.2f}) and losses = ({:3.2f}/{:.2f}) after {:d} steps.'.format(\
-                    ep, runningCost, epCost, loss_q, loss_pi, step_num+1), end=' ')
-                print('The agent currently updates {:d} times.'.format(self.cntUpdate), end='\t\t')
+            # runningCost = runningCost * 0.9 + epCost * 0.1
+            # trainingRecords.append(TrainingRecord(ep, runningCost, epCost, loss_q, loss_pi))
+            # if verbose:
+            #     print('\r{:3.0f}: This episode gets running/episode cost = ({:3.2f}/{:.2f}) and losses = ({:3.2f}/{:.2f}) after {:d} steps.'.format(\
+            #         ep, runningCost, epCost, loss_q, loss_pi, step_num+1), end=' ')
+            #     print('The agent currently updates {:d} times.'.format(self.cntUpdate), end='\t\t')
 
-            # Check stopping criteria
-            if runningCostThr != None:
-                if runningCost <= runningCostThr:
-                    print("\n At Updates[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(self.cntUpdate, runningCost))
-                    env.close()
-                    break
+            # # Check stopping criteria
+            # if runningCostThr != None:
+            #     if runningCost <= runningCostThr:
+            #         print("\n At Updates[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(self.cntUpdate, runningCost))
+            #         env.close()
+            #         break
         endLearning = time.time()
         timeInitBuffer = endInitBuffer - startInitBuffer
         timeInitQ = endInitQ - startInitQ
@@ -415,7 +368,6 @@ class ActorCritic(object):
             timeInitBuffer, timeInitQ, timeLearning))
         return trainingRecords, trainProgress
     # * LEARN ENDS
-
 
     # * OTHERS STARTS
     def store_transition(self, *args):
@@ -440,29 +392,10 @@ class ActorCritic(object):
         self.criticTarget.to(self.device)
         self.actor.load_state_dict(
             torch.load(logs_path_actor, map_location=self.device))
-        self.actor.to(self.device)    
+        self.actor.to(self.device)
         if self.actorType == 'TD3':
             self.actorTarget.load_state_dict(
                 torch.load(logs_path_actor, map_location=self.device))
-            self.actorTarget.to(self.device)   
+            self.actorTarget.to(self.device)
         print('  => Restore {}' .format(logs_path))
-
-
-    def select_action(self, state, explore=False):
-        stateTensor = torch.from_numpy(state).float().to(self.device).unsqueeze(0)
-        if explore:
-            action, _, _ = self.actor.sample(stateTensor)
-        else:
-            _, _, action = self.actor.sample(stateTensor)
-        return action.detach().cpu().numpy()[0]
-
-
-    def genRandomActions(self, num_actions):
-        actions = [self.actionSpace.sample() for _ in range(num_actions)]
-        actions = np.array(actions)
-        # UB = self.actionSpace.high
-        # LB = self.actionSpace.low
-        # dim = UB.shape[0]
-        # actions = (UB - LB) * np.random.rand(num_actions, dim) + LB
-        return actions
     # * OTHERS ENDS

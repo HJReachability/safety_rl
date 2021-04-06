@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import time
+from copy import deepcopy
 
 from .model import DeterministicPolicy
 from .ActorCritic import ActorCritic, Transition
@@ -28,7 +29,7 @@ class TD3(ActorCritic):
             actType (list, optional): consists of activation types.
                 Defaults to ['Tanh', 'Tanh'].
             verbose (bool, optional): print info or not. Defaults to True.
-        """        
+        """
         super(TD3, self).__init__('TD3', CONFIG, actionSpace)
 
         #== Build NN for (D)DQN ==
@@ -42,10 +43,11 @@ class TD3(ActorCritic):
     def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.5, noiseClamp=0.5):
         self.actor = DeterministicPolicy(dimListActor, self.actionSpace, actType=actType,
                                          noiseStd=noiseStd, noiseClamp=noiseClamp)
-        self.actorTarget = DeterministicPolicy(dimListActor, self.actionSpace, actType=actType,
-                                         noiseStd=noiseStd, noiseClamp=noiseClamp)
-        self.actorTarget.load_state_dict(self.actor.state_dict())
-        for p in self.criticTarget.parameters():
+        self.actorTarget = deepcopy(self.actor)
+        # self.actorTarget = DeterministicPolicy(dimListActor, self.actionSpace, actType=actType,
+        #                                  noiseStd=noiseStd, noiseClamp=noiseClamp)
+        # self.actorTarget.load_state_dict(self.actor.state_dict())
+        for p in self.actorTarget.parameters():
             p.requires_grad = False
 
 
@@ -106,31 +108,34 @@ class TD3(ActorCritic):
         self.build_optimizer()
 
     def update_critic(self, batch, addBias=False):
-        
-        (non_final_mask, non_final_state_nxt, state, 
+
+        (non_final_mask, non_final_state_nxt, state,
          action, reward, g_x, l_x, g_x_nxt, l_x_nxt) = self.unpack_batch(batch)
 
         #== get Q(s,a) ==
         q1, q2 = self.critic(state, action)  # Used to compute loss (non-target part).
 
-        #== placeholder for target ==
-        target_q = torch.zeros(self.BATCH_SIZE).float().to(self.device)
-
         #== compute actorTarget next_actions and feed to criticTarget ==
         with torch.no_grad():
+        #== placeholder for target ==
+            target_q = torch.zeros(self.BATCH_SIZE).float().to(self.device)
+
             _, next_actions = self.actorTarget.sample(non_final_state_nxt)  # clip(pi_targ(s')+clip(eps,-c,c),a_low, a_high)
             next_q1, next_q2 = self.criticTarget(non_final_state_nxt, next_actions)
             q_max = torch.max(next_q1, next_q2).view(-1)  # max because we are doing reach-avoid.
 
-        target_q[non_final_mask] =  (
-            (1.0 - self.GAMMA) * torch.max(l_x_nxt[non_final_mask], g_x_nxt[non_final_mask]) +
-            self.GAMMA * torch.max( g_x_nxt[non_final_mask], torch.min(l_x_nxt[non_final_mask], q_max)))
-        target_q[torch.logical_not(non_final_mask)] = torch.max(
-            l_x_nxt[torch.logical_not(non_final_mask)], g_x_nxt[torch.logical_not(non_final_mask)])
+            target_q[non_final_mask] =  (
+                (1.0 - self.GAMMA) * torch.max(l_x_nxt[non_final_mask],
+                g_x_nxt[non_final_mask]) +
+                self.GAMMA * torch.max( g_x_nxt[non_final_mask],
+                torch.min(l_x_nxt[non_final_mask], q_max)))
+            target_q[torch.logical_not(non_final_mask)] = torch.max(
+                l_x_nxt[torch.logical_not(non_final_mask)],
+                g_x_nxt[torch.logical_not(non_final_mask)])
 
         #== MSE update for both Q1 and Q2 ==
-        loss_q1 = mse_loss(input=q1.view(-1), target=target_q)
-        loss_q2 = mse_loss(input=q2.view(-1), target=target_q)
+        loss_q1 = ((q1.view(-1) - target_q)**2).mean()  # mse_loss(input=q1.view(-1), target=target_q)
+        loss_q2 = ((q2.view(-1) - target_q)**2).mean()  # mse_loss(input=q2.view(-1), target=target_q)
         loss_q = loss_q1 + loss_q2
 
         #== backpropagation ==
@@ -143,8 +148,8 @@ class TD3(ActorCritic):
 
 
     def update_actor(self, batch):
-        
-        (non_final_mask, non_final_state_nxt, state, 
+
+        (non_final_mask, non_final_state_nxt, state,
          action, reward, g_x, l_x, g_x_nxt, l_x_nxt) = self.unpack_batch(batch)
 
         for p in self.critic.parameters():

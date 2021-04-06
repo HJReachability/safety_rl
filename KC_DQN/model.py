@@ -89,16 +89,18 @@ class TwinnedQNetwork(nn.Module):
     def __init__(self, dimList, actType='Tanh', device='cpu'):
         super(TwinnedQNetwork, self).__init__()
 
-        self.Q1 = model(dimList, actType, verbose=True)
-        self.Q2 = model(dimList, actType, verbose=False)
+        self.Q1 = mlp(dimList, nn.Tanh).to(device)
+        # model(dimList, actType, verbose=True)
+        self.Q2 = mlp(dimList, nn.Tanh).to(device)
+        # model(dimList, actType, verbose=False)
 
         if device == torch.device('cuda'):
             self.Q1.cuda()
             self.Q2.cuda()
-        self.device=device
+        self.device = device
 
     def forward(self, states, actions):
-        x = torch.cat([states, actions], dim=1).to(self.device)
+        x = torch.cat([states, actions], dim=-1).to(self.device)
         q1 = self.Q1(x)
         q2 = self.Q2(x)
         return q1, q2

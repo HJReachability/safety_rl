@@ -48,7 +48,7 @@
 import torch
 import torch.nn as nn
 from torch.nn.functional import mse_loss, smooth_l1_loss
-from torch.optim import AdamW
+from torch.optim import AdamW, Adam
 from torch.optim import lr_scheduler
 
 from collections import namedtuple
@@ -126,14 +126,16 @@ class ActorCritic(object):
     def build_critic(self, dimList, actType='Tanh'):
         self.critic = TwinnedQNetwork(dimList, actType, self.device)
         self.criticTarget = TwinnedQNetwork(dimList, actType, self.device)
-        self.criticTarget.eval()
+        self.criticTarget.load_state_dict(self.critic.state_dict())
+        for p in self.criticTarget.parameters():
+            p.requires_grad = False
 
 
     def build_optimizer(self):
-        self.criticOptimizer = AdamW(self.critic.parameters(), lr=self.LR_C,
-            weight_decay=1e-3)
-        self.actorOptimizer = AdamW(self.actor.parameters(), lr=self.LR_A,
-            weight_decay=1e-3)
+        self.criticOptimizer = Adam(self.critic.parameters(), lr=self.LR_C)#,
+            #weight_decay=1e-3)
+        self.actorOptimizer = Adam(self.actor.parameters(), lr=self.LR_A)#,
+            #weight_decay=1e-3)
         self.criticScheduler = lr_scheduler.StepLR(self.criticOptimizer,
             step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
         self.actorScheduler = lr_scheduler.StepLR(self.actorOptimizer,
@@ -193,7 +195,7 @@ class ActorCritic(object):
         self.update_actor_hyperParam()
 
 
-    def update_target_network(self):
+    def update_target_networks(self):
         soft_update(self.criticTarget.Q1, self.critic.Q1, self.TAU)
         soft_update(self.criticTarget.Q2, self.critic.Q2, self.TAU)
         if self.actorType == 'TD3':
@@ -208,9 +210,9 @@ class ActorCritic(object):
         raise NotImplementedError
 
 
-    def update(self, update_period=1):  # Kai-Chiech: update_period=2
-        if len(self.memory) < self.BATCH_SIZE*20:
-            return
+    def update(self, timer, update_period=2):
+        if len(self.memory) < 1000: # self.BATCH_SIZE*20:
+            return 0.0, 0.0
 
         #== EXPERIENCE REPLAY ==
         transitions = self.memory.sample(self.BATCH_SIZE)
@@ -220,9 +222,10 @@ class ActorCritic(object):
 
         loss_q = self.update_critic(batch)
         loss_pi = 0.0
-        if self.cntUpdate % update_period == 0:
+        if timer % update_period == 0:
             loss_pi = self.update_actor(batch)
-        self.update_target_network()
+
+        self.update_target_networks()
 
         return loss_q, loss_pi
 
@@ -287,10 +290,10 @@ class ActorCritic(object):
         """
 
         # == Warmup Buffer ==
-        startInitBuffer = time.time()
-        if warmupBuffer:
-            self.initBuffer(env)
-        endInitBuffer = time.time()
+        # startInitBuffer = time.time()
+        # if warmupBuffer:
+        #     self.initBuffer(env)
+        # endInitBuffer = time.time()
 
         # == Warmup Q ==
         startInitQ = time.time()
@@ -317,10 +320,18 @@ class ActorCritic(object):
             # Rollout
             for step_num in range(MAX_EP_STEPS):
                 # Select action
-                a, _ = self.actor.sample(torch.from_numpy(s).float().to(self.device))
+                # if t > 10000:
+                #     a, _ = self.actor.sample(torch.from_numpy(s).float().to(self.device))
+                # else:
+                #     a = env.action_space.sample()
+                if self.cntUpdate > 10000:
+                    with torch.no_grad():
+                        a, _ = self.actor.sample(torch.from_numpy(s).float().to(self.device))
+                else:
+                    a = env.action_space.sample()
 
                 # Interact with env
-                s_, r, done, info = env.step(a.detach().numpy())
+                s_, r, done, info = env.step(a)
                 epCost = max(info["g_x"], min(epCost, info["l_x"]))
 
                 # Store the transition in memory
@@ -368,12 +379,17 @@ class ActorCritic(object):
                         #     # plt.close()
 
                 # Perform one step of the optimization (on the target network)
-                loss_q, loss_pi = self.update()
+                loss_q, loss_pi = 0, 0
+                update_every = 50
+                if self.cntUpdate % update_every == 0:
+                    for timer in range(update_every):
+                        loss_q, loss_pi = self.update(timer)
                 self.cntUpdate += 1
+                # Update gamma, lr etc.
                 self.updateHyperParam()
 
                 # Terminate early
-                if done and doneTerminate:
+                if done:
                     break
 
             # Rollout report

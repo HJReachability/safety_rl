@@ -50,7 +50,7 @@ parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",        
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",          default=0.9,    type=float)
 parser.add_argument("-e",   "--eps",            help="exploration coeff.",          default=0.5,   type=float)
-parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[200],  nargs="*", type=int)
+parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[100,100],  nargs="*", type=int)
 parser.add_argument("-act", "--activation",     help="activation function",         default='Tanh', type=str)
 parser.add_argument("-skp", "--skip",           help="skip connections",            action="store_true")
 parser.add_argument("-dbl", "--double",         help="double DQN",                  action="store_true")
@@ -107,12 +107,12 @@ CONFIG = actorCriticConfig(
             LR_A_PERIOD=args.update_period_lr, 
             LR_A_DECAY=0.9,
             # =================== LEARNING RATE .
-            GAMMA=0.9,# args.gamma,         # Inital gamma.
+            GAMMA=0.8,# args.gamma,         # Inital gamma.
             GAMMA_END=0.99,    # Final gamma.
             GAMMA_PERIOD=args.update_period_gamma,  # How often to update gamma.
             GAMMA_DECAY=0.9,         # Rate of decay of gamma.
             # ===================
-            TAU=0.01,
+            TAU=0.05,
             HARD_UPDATE=1,
             SOFT_UPDATE=True,
             MEMORY_CAPACITY=10000,   # Number of transitions in replay buffer.
@@ -149,6 +149,8 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period=1000, skip=False)
 
     env.set_seed(seedNum)
     np.random.seed(seedNum)
+    torch.manual_seed(seedNum)
+
     agent = TD3(CONFIG, env.action_space, dimLists, actType=['Tanh', 'Tanh'],
                 verbose=True)
 

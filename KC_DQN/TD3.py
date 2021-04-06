@@ -39,12 +39,14 @@ class TD3(ActorCritic):
         self.build_network(dimLists, actType)
 
 
-    def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.1, noiseClamp=0.5):
+    def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.5, noiseClamp=0.5):
         self.actor = DeterministicPolicy(dimListActor, self.actionSpace, actType=actType,
                                          noiseStd=noiseStd, noiseClamp=noiseClamp)
         self.actorTarget = DeterministicPolicy(dimListActor, self.actionSpace, actType=actType,
                                          noiseStd=noiseStd, noiseClamp=noiseClamp)
-        self.actorTarget.eval()
+        self.actorTarget.load_state_dict(self.actor.state_dict())
+        for p in self.criticTarget.parameters():
+            p.requires_grad = False
 
 
     def initBuffer(self, env, ratio=1.):
@@ -77,8 +79,8 @@ class TD3(ActorCritic):
             stateTensor = torch.from_numpy(states).float().to(self.device)
             actionTensor = torch.from_numpy(actions).float().to(self.device)
             q1, q2 = self.critic(stateTensor, actionTensor)
-            q1Loss = smooth_l1_loss(input=q1, target=value)
-            q2Loss = smooth_l1_loss(input=q2, target=value)
+            q1Loss = mse_loss(input=q1, target=value)
+            q2Loss = mse_loss(input=q2, target=value)
             loss = q1Loss + q2Loss
 
             self.criticOptimizer.zero_grad()
@@ -88,7 +90,6 @@ class TD3(ActorCritic):
 
         print(" --- Warmup Q Ends")
         if plotFigure or storeFigure:
-            self.critic.eval()
             env.visualize(self.critic.Q1, self.actor, vmin=vmin, vmax=vmax, cmap='seismic')
             if storeFigure:
                 figureFolder = '{:s}/figure/'.format(outFolder)
@@ -110,16 +111,16 @@ class TD3(ActorCritic):
          action, reward, g_x, l_x, g_x_nxt, l_x_nxt) = self.unpack_batch(batch)
 
         #== get Q(s,a) ==
-        self.critic.train()
         q1, q2 = self.critic(state, action)  # Used to compute loss (non-target part).
 
         #== placeholder for target ==
         target_q = torch.zeros(self.BATCH_SIZE).float().to(self.device)
 
         #== compute actorTarget next_actions and feed to criticTarget ==
-        _, next_actions = self.actorTarget.sample(non_final_state_nxt)  # clip(pi_targ(s')+clip(eps,-c,c),a_low, a_high)
-        next_q1, next_q2 = self.criticTarget(non_final_state_nxt, next_actions)
-        q_max = torch.max(next_q1, next_q2).view(-1)  # max because we are doing reach-avoid.
+        with torch.no_grad():
+            _, next_actions = self.actorTarget.sample(non_final_state_nxt)  # clip(pi_targ(s')+clip(eps,-c,c),a_low, a_high)
+            next_q1, next_q2 = self.criticTarget(non_final_state_nxt, next_actions)
+            q_max = torch.max(next_q1, next_q2).view(-1)  # max because we are doing reach-avoid.
 
         target_q[non_final_mask] =  (
             (1.0 - self.GAMMA) * torch.max(l_x_nxt[non_final_mask], g_x_nxt[non_final_mask]) +
@@ -128,8 +129,8 @@ class TD3(ActorCritic):
             l_x_nxt[torch.logical_not(non_final_mask)], g_x_nxt[torch.logical_not(non_final_mask)])
 
         #== MSE update for both Q1 and Q2 ==
-        loss_q1 = smooth_l1_loss(input=q1.view(-1), target=target_q.detach())
-        loss_q2 = smooth_l1_loss(input=q2.view(-1), target=target_q.detach())
+        loss_q1 = mse_loss(input=q1.view(-1), target=target_q)
+        loss_q2 = mse_loss(input=q2.view(-1), target=target_q)
         loss_q = loss_q1 + loss_q2
 
         #== backpropagation ==
@@ -146,10 +147,11 @@ class TD3(ActorCritic):
         (non_final_mask, non_final_state_nxt, state, 
          action, reward, g_x, l_x, g_x_nxt, l_x_nxt) = self.unpack_batch(batch)
 
-        self.critic.eval()
-        self.actor.train()
+        for p in self.critic.parameters():
+            p.requires_grad = False
+
         q_pi_1, q_pi_2 = self.critic(state, self.actor(state))
-        q_pi = q_pi_1 if np.random.randint(2) == 0 else q_pi_2
+        q_pi = q_pi_1 #if np.random.randint(2) == 0 else q_pi_2  # Kai-Chieh: why randomly decide instead of pick 1.
 
         loss_pi = q_pi.mean()
         self.actorOptimizer.zero_grad()
@@ -157,7 +159,9 @@ class TD3(ActorCritic):
         # nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
         self.actorOptimizer.step()
 
-        self.actor.eval()
+        for p in self.critic.parameters():
+            p.requires_grad = True
+
         return loss_pi.item()
 
 

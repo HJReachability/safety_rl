@@ -92,7 +92,8 @@ class ZermeloContEnv(gym.Env):
         self.y_box2_pos, self.y_box3_pos) = self.constraint_set_boundary()
         (self.x_box4_pos, self.y_box4_pos) = self.target_set_boundary()
         self.visual_initial_states = [np.array([ 0,  0]), np.array([-1, -2]),
-            np.array([ 1, -2]), np.array([-1,  4]), np.array([ 1,  4])]
+            np.array([ 1, -2]), np.array([-1,  4]), np.array([ 1,  4]),
+            np.array([-1,  6]), np.array([ 1,  6])]
         if mode == 'extend':
             self.visual_initial_states = self.extend_state(
                 self.visual_initial_states)
@@ -130,18 +131,20 @@ class ZermeloContEnv(gym.Env):
 
 
     def sample_random_state(self, keepOutOf=False):
-        flag = True
-        while flag:
-            rnd_state = np.random.uniform(low=self.low,
+        rnd_state = np.random.uniform(low=self.low,
                                       high=self.high)
-            l_x = self.target_margin(rnd_state)
-            g_x = self.safety_margin(rnd_state)
+        # flag = True
+        # while flag:
+        #     rnd_state = np.random.uniform(low=self.low,
+        #                               high=self.high)
+        #     l_x = self.target_margin(rnd_state)
+        #     g_x = self.safety_margin(rnd_state)
 
-            if self.mode == 'extend':
-                rnd_state = np.append(rnd_state, max(l_x, g_x))
+        #     if self.mode == 'extend':
+        #         rnd_state = np.append(rnd_state, max(l_x, g_x))
 
-            terminal = (g_x > 0) or (l_x <= 0)
-            flag = terminal and keepOutOf
+        #     terminal = (g_x > 0) or (l_x <= 0)
+        #     flag = terminal and keepOutOf
 
         return rnd_state
 
@@ -211,7 +214,7 @@ class ZermeloContEnv(gym.Env):
         #     outsideRight = (self.state[0] >= self.bounds[0,1])
         #     done = outsideTop or outsideLeft or outsideRight
         # else:
-        done = fail or success
+        done = fail # or success
         # assert self.doneType == 'TF', 'invalid doneType'
 
         info = {"g_x": g_x_cur, "l_x": l_x_cur, "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
@@ -280,6 +283,7 @@ class ZermeloContEnv(gym.Env):
                             box2_safety_margin,
                             box3_safety_margin,
                             enclosure_safety_margin)
+        # safety_margin = enclosure_safety_margin
 
         return self.scaling * safety_margin
 
@@ -454,7 +458,7 @@ class ZermeloContEnv(gym.Env):
 
             xx = torch.cat([state, action.detach()]).to(self.device)
             if addBias:
-                v[idx] = q_func(xx).item() + max(l_x, g_x)
+                v[idx] = q_func(state,action).item() #+ max(l_x, g_x)
             else:
                 v[idx] = q_func(xx).item()
             it.iternext()

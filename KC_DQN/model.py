@@ -31,7 +31,7 @@ class model(nn.Module):
     model: Constructs a fully-connected neural network with flexible depth, width
         and activation function choices.
     """
-    def __init__(self, dimList, actType='Tanh', verbose=False):
+    def __init__(self, dimList, actType='Tanh', output_activation=nn.Identity, verbose=False):
         """
         __init__: Initalizes.
 
@@ -53,7 +53,7 @@ class model(nn.Module):
 
             self.moduleList.append(nn.Linear(in_features=i_dim, out_features=o_dim))
             if idx == numLayer-1: # final linear layer, no act.
-                pass
+                self.moduleList.append(output_activation())
             else:
                 if actType == 'Sin':
                     self.moduleList.append(Sin())
@@ -68,7 +68,7 @@ class model(nn.Module):
             print(self.moduleList)
 
         # Initalizes the weight
-        self._initialize_weights()
+        # self._initialize_weights()
 
 
     def forward(self, x):
@@ -77,11 +77,11 @@ class model(nn.Module):
         return x
 
 
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                m.weight.data.normal_(0, 0.1)
-                m.bias.data.zero_()
+    # def _initialize_weights(self):
+    #     for m in self.modules():
+    #         if isinstance(m, nn.Linear):
+    #             m.weight.data.normal_(0, 0.1)
+    #             m.bias.data.zero_()
 
 
 # TODO == Twinned Q-Network ==
@@ -157,20 +157,27 @@ class GaussianPolicy(nn.Module):
         mean = torch.tanh(mean) * self.actionScale + self.actionBias
         return action, log_prob, mean
 
+def mlp(sizes, activation, output_activation=nn.Identity):
+    layers = []
+    for j in range(len(sizes)-1):
+        act = activation if j < len(sizes)-2 else output_activation
+        layers += [nn.Linear(sizes[j], sizes[j+1]), act()]
+    return nn.Sequential(*layers)
 
 class DeterministicPolicy(nn.Module):
     def __init__(self, dimList, actionSpace, actType='Tanh', device='cpu',
-        noiseStd=0.1, noiseClamp=0.5, targetNoise=0.2):
+        noiseStd=0.1, noiseClamp=0.5):
         super(DeterministicPolicy, self).__init__()
         self.device = device
-        self.mean = model(dimList, actType, verbose=True).to(device)
+        self.mean = mlp(dimList, nn.Tanh, output_activation=nn.Tanh).to(device)
+        #model(dimList, actType, output_activation=nn.Tanh, verbose=True).to(device)
         self.noise = Normal(0., noiseStd)
         self.noiseClamp = noiseClamp
         self.actionSpace = actionSpace
-        self.targetNoise = targetNoise
+        self.noiseStd = noiseStd
 
-        self.a_max = torch.from_numpy(self.actionSpace.high).float().to(self.device)
-        self.a_min = torch.from_numpy(self.actionSpace.low).float().to(self.device)
+        self.a_max = self.actionSpace.high[0]  # torch.from_numpy(self.actionSpace.high[0]).float().to(self.device)
+        self.a_min = self.actionSpace.low[0]  # torch.from_numpy(self.actionSpace.low[0]).float().to(self.device)
 
         # action rescaling
         # if actionSpace is None:
@@ -186,24 +193,25 @@ class DeterministicPolicy(nn.Module):
     def forward(self, state):
         stateTensor = state.to(self.device)
         mean = self.mean(stateTensor)
-        return mean
+        return mean * self.a_max
 
 
     def sample(self, state):
         stateTensor = state.to(self.device)
         mean = self.forward(stateTensor)
         noise = self.noise.sample().to(self.device)
-        noise_clipped = torch.randn_like(mean) * self.targetNoise
-        noise_clipped = noise_clipped.clamp(-self.noiseClamp, self.noiseClamp)
+        noise_clipped = torch.randn_like(mean) * self.noiseStd
+        noise_clipped = torch.clamp(noise_clipped, -self.noiseClamp, self.noiseClamp)
 
         # Action.
         action = mean + noise
-        action = torch.max(torch.min(action,self.a_max), self.a_min)
+        action = torch.clamp(action, self.a_min, self.a_max)
 
         # Target action.
         action_target = mean + noise_clipped
-        action_target = torch.max(torch.min(action_target,self.a_max), self.a_min)
-        return action, action_target
+        action_target = torch.clamp(action_target, self.a_min, self.a_max)
+
+        return action.numpy(), action_target
 
 
 #== Scheduler ==

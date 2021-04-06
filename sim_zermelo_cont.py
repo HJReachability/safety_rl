@@ -38,7 +38,7 @@ parser.add_argument("-te",  "--toEnd",          help="stop until reaching bounda
 parser.add_argument("-ab",  "--addBias",        help="add bias term for RA",            action="store_true")
 parser.add_argument("-ma",  "--maxAccess",      help="maximal number of access",        default=4e6,  type=int)
 parser.add_argument("-ms",  "--maxSteps",       help="maximal length of rollouts",      default=100,  type=int)
-parser.add_argument("-cp",  "--check_period",   help="check the success ratio",         default=2000,  type=int)
+parser.add_argument("-cp",  "--check_period",   help="check the success ratio",         default=10000,  type=int)
 parser.add_argument("-upe",  "--update_period_eps",    help="update period for eps scheduler",     default=int(4e6/20),  type=int)
 parser.add_argument("-upg",  "--update_period_gamma",  help="update period for gamma scheduler",   default=int(4e6/20),  type=int)
 parser.add_argument("-upl",  "--update_period_lr",     help="update period for lr cheduler",       default=int(4e6/20),  type=int)
@@ -258,4 +258,4 @@ if args.test:
     test_experiment(args, CONFIG, env, path1,
                     doneType='toThreshold', sim_only=False)
 else:
-    multi_experiment(0, args, CONFIG, env, skip=args.skip)
+    multi_experiment(1, args, CONFIG, env, skip=args.skip)

@@ -89,10 +89,8 @@ class TwinnedQNetwork(nn.Module):
     def __init__(self, dimList, actType='Tanh', device='cpu'):
         super(TwinnedQNetwork, self).__init__()
 
-        self.Q1 = mlp(dimList, nn.Tanh).to(device)
-        # model(dimList, actType, verbose=True)
-        self.Q2 = mlp(dimList, nn.Tanh).to(device)
-        # model(dimList, actType, verbose=False)
+        self.Q1 = model(dimList, actType, verbose=True).to(device)
+        self.Q2 = model(dimList, actType, verbose=False).to(device)
 
         if device == torch.device('cuda'):
             self.Q1.cuda()
@@ -159,20 +157,12 @@ class GaussianPolicy(nn.Module):
         mean = torch.tanh(mean) * self.actionScale + self.actionBias
         return action, log_prob, mean
 
-def mlp(sizes, activation, output_activation=nn.Identity):
-    layers = []
-    for j in range(len(sizes)-1):
-        act = activation if j < len(sizes)-2 else output_activation
-        layers += [nn.Linear(sizes[j], sizes[j+1]), act()]
-    return nn.Sequential(*layers)
-
 class DeterministicPolicy(nn.Module):
     def __init__(self, dimList, actionSpace, actType='Tanh', device='cpu',
         noiseStd=0.1, noiseClamp=0.5):
         super(DeterministicPolicy, self).__init__()
         self.device = device
-        self.mean = mlp(dimList, nn.Tanh, output_activation=nn.Tanh).to(device)
-        #model(dimList, actType, output_activation=nn.Tanh, verbose=True).to(device)
+        self.mean = model(dimList, actType, output_activation=nn.Tanh, verbose=True).to(device)
         self.noise = Normal(0., noiseStd)
         self.noiseClamp = noiseClamp
         self.actionSpace = actionSpace

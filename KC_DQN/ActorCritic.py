@@ -1,5 +1,6 @@
 # Please contact the author(s) of this library if you have any questions.
-# Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
+# Authors: Vicenc Rubies-Royo (vrubies@berkeley.edu)
+#          Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
 # ? how to deal with the discrete action space since SAC and TD3 are proposed
 # ? for continuous action.
@@ -101,7 +102,7 @@ class ActorCritic(object):
 
         # NN: batch size, maximal number of NNs stored
         self.BATCH_SIZE = CONFIG.BATCH_SIZE
-        self.start_updates = self.BATCH_SIZE * 20
+        self.start_updates = 1000
         self.MAX_MODEL = CONFIG.MAX_MODEL
         self.device = CONFIG.DEVICE
 

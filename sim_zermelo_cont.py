@@ -50,7 +50,7 @@ parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",        
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",          default=0.9,    type=float)
 parser.add_argument("-e",   "--eps",            help="exploration coeff.",          default=0.5,   type=float)
-parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[60,60],  nargs="*", type=int)
+parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[80,80],  nargs="*", type=int)
 parser.add_argument("-act", "--activation",     help="activation function",         default='Tanh', type=str)
 parser.add_argument("-skp", "--skip",           help="skip connections",            action="store_true")
 parser.add_argument("-dbl", "--double",         help="double DQN",                  action="store_true")
@@ -176,8 +176,8 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period=1000, skip=False)
         vmin=-1,
         vmax=1,
         checkPeriod=args.check_period,  # How often to compute Safe vs. Unsafe.
-        storeFigure=False,  # Store the figure in an eps file.
-        storeModel=False,
+        storeFigure=True,  # Store the figure in an eps file.
+        storeModel=True,
         # randomPlot=True,  # Plot from random starting points.
         outFolder=args.outFolder,
         verbose=True)

@@ -1,5 +1,6 @@
 # Please contact the author(s) of this library if you have any questions.
-# Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
+# Authors: Vicenc Rubies-Royo (vrubies@berkeley.edu)
+#          Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
 import torch
 import torch.nn as nn

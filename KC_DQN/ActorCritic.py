@@ -48,23 +48,27 @@
 import torch
 import torch.nn as nn
 from torch.nn.functional import mse_loss, smooth_l1_loss
-from torch.optim import AdamW
+from torch.optim import AdamW, Adam
 from torch.optim import lr_scheduler
 
 from collections import namedtuple
 import numpy as np
 import os
+import time
 import glob
+from copy import deepcopy
+import matplotlib.pyplot as plt
 
-from .model import StepLR, StepLRMargin, GaussianPolicy, DeterministicPolicy, TwinnedQNetwork
+from .model import StepLR, StepLRMargin, TwinnedQNetwork, StepResetLR
 from .ReplayMemory import ReplayMemory
 from .utils import soft_update, save_model
+
 
 Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
 
 
 class ActorCritic(object):
-    def __init__(self, actorType, CONFIG):
+    def __init__(self, actorType, CONFIG, actionSpace):
         """
         __init__ : initializes actor-critic model.
 
@@ -75,9 +79,12 @@ class ActorCritic(object):
         self.actorType = actorType
         self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)
 
+        #== ENV PARAM ==
+        self.actionSpace = actionSpace
+
         #== PARAM ==
         # Exploration
-        self.EpsilonScheduler = StepResetLR( initValue=CONFIG.EPSILON, 
+        self.EpsilonScheduler = StepResetLR( initValue=CONFIG.EPSILON,
             period=CONFIG.EPS_PERIOD, decay=CONFIG.EPS_DECAY,
             endValue=CONFIG.EPS_END, resetPeriod=CONFIG.EPS_RESET_PERIOD)
         self.EPSILON = self.EpsilonScheduler.get_variable()
@@ -94,6 +101,7 @@ class ActorCritic(object):
 
         # NN: batch size, maximal number of NNs stored
         self.BATCH_SIZE = CONFIG.BATCH_SIZE
+        self.start_updates = self.BATCH_SIZE * 20
         self.MAX_MODEL = CONFIG.MAX_MODEL
         self.device = CONFIG.DEVICE
 
@@ -108,28 +116,30 @@ class ActorCritic(object):
 
 
     # * BUILD NETWORK BEGINS
-    def build_network(self, dimList, actType=['Tanh', 'Tanh']):
-        self.build_critic(dimList[0], actType[0])
-        self.build_actor(dimList[1], actType[1])
+    def build_network(self, dimLists, actType={'critic':'Tanh', 'actor':'Tanh'}):
+        self.build_critic(dimLists[0], actType['critic'])
+        self.build_actor(dimLists[1], actType['actor'])
         self.build_optimizer()
 
 
-    def build_actor(self, dimList, actType='Tanh'): # in child class
+    def build_actor(self, dimList, actType='Tanh'):
         raise NotImplementedError
 
 
     def build_critic(self, dimList, actType='Tanh'):
         self.critic = TwinnedQNetwork(dimList, actType, self.device)
-        self.criticTarget = TwinnedQNetwork(dimList, actType, self.device)
+        self.criticTarget = deepcopy(self.critic)
+        for p in self.criticTarget.parameters():
+            p.requires_grad = False
 
 
     def build_optimizer(self):
-        self.Q1Optimizer    = AdamW(self.critic.Q1.parameters(), lr=self.LR_C, weight_decay=1e-3)
-        self.Q2Optimizer    = AdamW(self.critic.Q2.parameters(), lr=self.LR_C, weight_decay=1e-3)
-        self.ActorOptimizer = AdamW(self.actor.parameters(),     lr=self.LR_A, weight_decay=1e-3)
-        self.Q1Scheduler    = lr_scheduler.StepLR(self.Q1Optimizer,    step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
-        self.Q2Scheduler    = lr_scheduler.StepLR(self.Q2Optimizer,    step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
-        self.ActorScheduler = lr_scheduler.StepLR(self.ActorOptimizer, step_size=self.LR_A_PERIOD, gamma=self.LR_A_DECAY)
+        self.criticOptimizer = Adam(self.critic.parameters(), lr=self.LR_C)
+        self.actorOptimizer = Adam(self.actor.parameters(), lr=self.LR_A)
+        self.criticScheduler = lr_scheduler.StepLR(self.criticOptimizer,
+            step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
+        self.actorScheduler = lr_scheduler.StepLR(self.actorOptimizer,
+            step_size=self.LR_A_PERIOD, gamma=self.LR_A_DECAY)
         self.max_grad_norm = 1
         self.cntUpdate = 0
     # * BUILD NETWORK ENDS
@@ -145,17 +155,11 @@ class ActorCritic(object):
 
 
     def update_critic_hyperParam(self):
-        if self.Q1Optimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_C_END:
-            for param_group in self.Q1Optimizer.param_groups:
+        if self.criticOptimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_C_END:
+            for param_group in self.criticOptimizer.param_groups:
                 param_group['lr'] = self.LR_C_END
         else:
-            self.Q1Scheduler.step()
-
-        if self.Q2Optimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_C_END:
-            for param_group in self.Q2Optimizer.param_groups:
-                param_group['lr'] = self.LR_C_END
-        else:
-            self.Q2Scheduler.step()
+            self.criticScheduler.step()
 
         self.EpsilonScheduler.step()
         self.EPSILON = self.EpsilonScheduler.get_variable()
@@ -164,21 +168,25 @@ class ActorCritic(object):
 
 
     def update_actor_hyperParam(self):
-        if self.ActorOptimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_A_END:
-            for param_group in self.ActorOptimizer.param_groups:
+        if self.actorOptimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_A_END:
+            for param_group in self.actorOptimizer.param_groups:
                 param_group['lr'] = self.LR_A_END
         else:
-            self.ActorScheduler.step()
+            self.actorScheduler.step()
 
 
-    def update_target_network(self):
-        soft_update(self.criticTarget.Q1, self.critic.Q1, self.TAU)
-        soft_update(self.criticTarget.Q2, self.critic.Q2, self.TAU)
-        if actorType == 'TD3':
+    def updateHyperParam(self):
+        self.update_critic_hyperParam()
+        self.update_actor_hyperParam()
+
+
+    def update_target_networks(self):
+        soft_update(self.criticTarget, self.critic, self.TAU)
+        if self.actorType == 'TD3':
             soft_update(self.actorTarget, self.actor, self.TAU)
 
 
-    def update_critic(self, addBias=False): # in child class
+    def update_critic(self, batch, addBias=False): # in child class
         raise NotImplementedError
 
 
@@ -186,10 +194,144 @@ class ActorCritic(object):
         raise NotImplementedError
 
 
-    def learn(self): # TODO: Not yet implemented
-        raise NotImplemented
-    # * LEARN ENDS
+    def update(self, timer, update_period=2):
+        if len(self.memory) < self.start_updates:
+            return 0.0, 0.0
 
+        #== EXPERIENCE REPLAY ==
+        transitions = self.memory.sample(self.BATCH_SIZE)
+        # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for detailed explanation).
+        # This converts batch-array of Transitions to Transition of batch-arrays.
+        batch = Transition(*zip(*transitions))
+
+        loss_q = self.update_critic(batch)
+        loss_pi = 0.0
+        if timer % update_period == 0:
+            loss_pi = self.update_actor(batch)
+            print('\r{:d}: ({:3.5f}/{:3.5f}): This episode.'.format(
+                self.cntUpdate, loss_q, loss_pi), end=' ')
+
+        self.update_target_networks()
+
+        return loss_q, loss_pi
+
+
+    def learn(  self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100,
+                warmupBuffer=True, warmupQ=False, warmupIter=10000,
+                addBias=False, doneTerminate=True, runningCostThr=None,
+                curUpdates=None, checkPeriod=50000,
+                plotFigure=True, storeFigure=False,
+                showBool=False, vmin=-1, vmax=1, numRndTraj=200,
+                storeModel=True, outFolder='RA', verbose=True):
+
+        # == Main Training ==
+        startLearning = time.time()
+        TrainingRecord = namedtuple('TrainingRecord', ['ep', 'runningCost', 'cost', 'loss_q', 'loss_pi'])
+        trainingRecords = []
+        runningCost = 0.
+        trainProgress = []
+        checkPointSucc = 0.
+        ep = 0
+        if curUpdates is not None:
+            self.cntUpdate = curUpdates
+            print("starting from {:d} updates".format(self.cntUpdate))
+
+        while self.cntUpdate <= MAX_UPDATES:
+            s = env.reset()
+            epCost = np.inf
+            ep += 1
+
+            # Rollout
+            for step_num in range(MAX_EP_STEPS):
+                # Select action
+                if self.cntUpdate > max(warmupIter, self.start_updates):
+                    with torch.no_grad():
+                        a, _ = self.actor.sample(
+                            torch.from_numpy(s).float().to(self.device))
+                else:
+                    a = env.action_space.sample()
+
+                # Interact with env
+                s_, r, done, info = env.step(a)
+                epCost = max(info["g_x"], min(epCost, info["l_x"]))
+
+                # Store the transition in memory
+                self.store_transition(s, a, r, s_, info)
+                s = s_
+
+                # Check after fixed number of gradient updates
+                if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
+                    results= env.simulate_trajectories(self.actor,
+                        T=MAX_EP_STEPS, num_rnd_traj=numRndTraj,
+                        keepOutOf=False, toEnd=False)[1]
+                    success  = np.sum(results==1) / numRndTraj
+                    failure  = np.sum(results==-1)/ numRndTraj
+                    unfinish = np.sum(results==0) / numRndTraj
+                    trainProgress.append([success, failure, unfinish])
+                    if verbose:
+                        lr = self.actorOptimizer.state_dict()['param_groups'][0]['lr']
+                        print('\nAfter [{:d}] updates:'.format(self.cntUpdate))
+                        print('  - eps={:.2f}, gamma={:.6f}, lr={:.1e}.'.format(
+                            self.EPSILON, self.GAMMA, lr))
+                        print('  - success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(
+                            success, failure, unfinish))
+
+                    if storeModel:
+                        if success > checkPointSucc:
+                            checkPointSucc = success
+                            self.save(self.cntUpdate, 'models/{:s}/model/'.format(outFolder))
+
+                    if plotFigure or storeFigure:
+                        if showBool:
+                            env.visualize(self.critic.Q1, self.actor, vmin=0, boolPlot=True, addBias=addBias)
+                        else:
+                            env.visualize(self.critic.Q1, self.actor, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
+                        if storeFigure:
+                            figureFolder = 'models/{:s}/figure/'.format(outFolder)
+                            os.makedirs(figureFolder, exist_ok=True)
+                            plt.savefig('{:s}{:d}.png'.format(figureFolder, self.cntUpdate))
+                        # if plotFigure:
+                        #     # plt.show()
+                        #     # plt.pause(0.001)
+                        #     # plt.close()
+
+                # Perform one step of the optimization (on the target network)
+                loss_q, loss_pi = 0, 0
+                update_every = 50
+                if self.cntUpdate % update_every == 0:
+                    for timer in range(update_every):
+                        loss_q, loss_pi = self.update(timer)
+                self.cntUpdate += 1
+                # Update gamma, lr etc.
+                self.updateHyperParam()
+
+                # Terminate early
+                if done:
+                    break
+
+            # Rollout report
+            # runningCost = runningCost * 0.9 + epCost * 0.1
+            # trainingRecords.append(TrainingRecord(ep, runningCost, epCost, loss_q, loss_pi))
+            # if verbose:
+            #     print('\r{:3.0f}: This episode gets running/episode cost = ({:3.2f}/{:.2f}) and losses = ({:3.2f}/{:.2f}) after {:d} steps.'.format(\
+            #         ep, runningCost, epCost, loss_q, loss_pi, step_num+1), end=' ')
+            #     print('The agent currently updates {:d} times.'.format(self.cntUpdate), end='\t\t')
+
+            # # Check stopping criteria
+            # if runningCostThr != None:
+            #     if runningCost <= runningCostThr:
+            #         print("\n At Updates[{:3.0f}] Solved! Running cost is now {:3.2f}!".format(self.cntUpdate, runningCost))
+            #         env.close()
+            #         break
+        endLearning = time.time()
+        timeInitBuffer = endInitBuffer - startInitBuffer
+        timeInitQ = endInitQ - startInitQ
+        timeLearning = endLearning - startLearning
+        self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
+        print('\nInitBuffer: {:.1f}, InitQ: {:.1f}, Learning: {:.1f}'.format(
+            timeInitBuffer, timeInitQ, timeLearning))
+        return trainingRecords, trainProgress
+    # * LEARN ENDS
 
     # * OTHERS STARTS
     def store_transition(self, *args):
@@ -214,19 +356,10 @@ class ActorCritic(object):
         self.criticTarget.to(self.device)
         self.actor.load_state_dict(
             torch.load(logs_path_actor, map_location=self.device))
-        self.actor.to(self.device)    
+        self.actor.to(self.device)
         if self.actorType == 'TD3':
             self.actorTarget.load_state_dict(
                 torch.load(logs_path_actor, map_location=self.device))
-            self.actorTarget.to(self.device)   
+            self.actorTarget.to(self.device)
         print('  => Restore {}' .format(logs_path))
-
-
-    def select_action(self, state, explore=False):
-        stateTensor = torch.from_numpy(state).float().to(self.device).unsqueeze(0)
-        if explore:
-            action, _, _ = self.actor.sample(stateTensor)
-        else:
-            _, _, action = self.actor.sample(stateTensor)
-        return action.detach().cpu().numpy()[0]
     # * OTHERS ENDS

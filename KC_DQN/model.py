@@ -3,7 +3,7 @@
 
 import torch
 import torch.nn as nn
-from torch.distributions import Normal
+from torch.distributions import Normal, Uniform
 import sys
 
 class Sin(nn.Module):
@@ -31,7 +31,7 @@ class model(nn.Module):
     model: Constructs a fully-connected neural network with flexible depth, width
         and activation function choices.
     """
-    def __init__(self, dimList, actType='Tanh', verbose=False):
+    def __init__(self, dimList, actType='Tanh', output_activation=nn.Identity, verbose=False):
         """
         __init__: Initalizes.
 
@@ -53,7 +53,7 @@ class model(nn.Module):
 
             self.moduleList.append(nn.Linear(in_features=i_dim, out_features=o_dim))
             if idx == numLayer-1: # final linear layer, no act.
-                pass
+                self.moduleList.append(output_activation())
             else:
                 if actType == 'Sin':
                     self.moduleList.append(Sin())
@@ -68,7 +68,7 @@ class model(nn.Module):
             print(self.moduleList)
 
         # Initalizes the weight
-        self._initialize_weights()
+        # self._initialize_weights()
 
 
     def forward(self, x):
@@ -77,11 +77,11 @@ class model(nn.Module):
         return x
 
 
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                m.weight.data.normal_(0, 0.1)
-                m.bias.data.zero_()
+    # def _initialize_weights(self):
+    #     for m in self.modules():
+    #         if isinstance(m, nn.Linear):
+    #             m.weight.data.normal_(0, 0.1)
+    #             m.bias.data.zero_()
 
 
 # TODO == Twinned Q-Network ==
@@ -89,16 +89,16 @@ class TwinnedQNetwork(nn.Module):
     def __init__(self, dimList, actType='Tanh', device='cpu'):
         super(TwinnedQNetwork, self).__init__()
 
-        self.Q1 = model(dimList, actType, verbose=True)
-        self.Q2 = model(dimList, actType, verbose=False)
+        self.Q1 = model(dimList, actType, verbose=True).to(device)
+        self.Q2 = model(dimList, actType, verbose=False).to(device)
 
         if device == torch.device('cuda'):
             self.Q1.cuda()
             self.Q2.cuda()
-        self.device=device
+        self.device = device
 
     def forward(self, states, actions):
-        x = torch.cat([states, actions], dim=1).to(self.device)
+        x = torch.cat([states, actions], dim=-1).to(self.device)
         q1 = self.Q1(x)
         q2 = self.Q2(x)
         return q1, q2
@@ -157,42 +157,53 @@ class GaussianPolicy(nn.Module):
         mean = torch.tanh(mean) * self.actionScale + self.actionBias
         return action, log_prob, mean
 
-
 class DeterministicPolicy(nn.Module):
-    def __init__(self, dimList, actType='Tanh', device='cpu', actionSpace=None):
+    def __init__(self, dimList, actionSpace, actType='Tanh', device='cpu',
+        noiseStd=0.1, noiseClamp=0.5):
         super(DeterministicPolicy, self).__init__()
         self.device = device
-        self.mean = model(dimList, actType, verbose=True).to(device)
-        self.noise = Normal(0., 0.1)
-        self.noiseClamp = 0.25
+        self.mean = model(dimList, actType, output_activation=nn.Tanh, verbose=True).to(device)
+        self.noise = Normal(0., noiseStd)
+        self.noiseClamp = noiseClamp
+        self.actionSpace = actionSpace
+        self.noiseStd = noiseStd
+
+        self.a_max = self.actionSpace.high[0]  # torch.from_numpy(self.actionSpace.high[0]).float().to(self.device)
+        self.a_min = self.actionSpace.low[0]  # torch.from_numpy(self.actionSpace.low[0]).float().to(self.device)
 
         # action rescaling
-        if actionSpace is None:
-            self.actionScale = 1.
-            self.actionBias = 0.
-        else:
-            self.actionScale = torch.FloatTensor(
-                (actionSpace.high - actionSpace.low) / 2.).to(device)
-            self.actionBias = torch.FloatTensor(
-                (actionSpace.high + actionSpace.low) / 2.).to(device)
+        # if actionSpace is None:
+        #     self.actionScale = 1.
+        #     self.actionBias = 0.
+        # else:
+        #     self.actionScale = torch.FloatTensor(
+        #         (actionSpace.high - actionSpace.low) / 2.).to(device)
+        #     self.actionBias = torch.FloatTensor(
+        #         (actionSpace.high + actionSpace.low) / 2.).to(device)
 
 
     def forward(self, state):
         stateTensor = state.to(self.device)
         mean = self.mean(stateTensor)
-        return mean
+        return mean * self.a_max
 
 
     def sample(self, state):
         stateTensor = state.to(self.device)
         mean = self.forward(stateTensor)
         noise = self.noise.sample().to(self.device)
-        noise = noise.clamp(-self.noiseClamp, self.noiseClamp)
+        noise_clipped = torch.randn_like(mean) * self.noiseStd
+        noise_clipped = torch.clamp(noise_clipped, -self.noiseClamp, self.noiseClamp)
+
+        # Action.
         action = mean + noise
-        action = action.clamp(-1., 1.)
-        action = action * self.actionScale + self.actionBias
-        mean = mean * self.actionScale + self.actionBias
-        return action, torch.tensor(0.), mean
+        action = torch.clamp(action, self.a_min, self.a_max)
+
+        # Target action.
+        action_target = mean + noise_clipped
+        action_target = torch.clamp(action_target, self.a_min, self.a_max)
+
+        return action.numpy(), action_target
 
 
 #== Scheduler ==

@@ -67,6 +67,11 @@ register(
 )
 
 register(
+    id="zermelo_cont-v0",
+    entry_point="gym_reachability.gym_reachability.envs:ZermeloContEnv"
+)
+
+register(
     id="zermelo_show-v0",
     entry_point="gym_reachability.gym_reachability.envs:ZermeloShowEnv"
 )

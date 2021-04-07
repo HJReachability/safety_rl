@@ -30,6 +30,8 @@ from gym_reachability.gym_reachability.envs.dubins_car_pe import DubinsCarPEEnv
 
 from gym_reachability.gym_reachability.envs.zermelo_kc import ZermeloKCEnv
 
+from gym_reachability.gym_reachability.envs.zermelo_cont import ZermeloContEnv
+
 from gym_reachability.gym_reachability.envs.zermelo_show import ZermeloShowEnv
 
 #from gym_reachability.gym_reachability.envs.cheetah_balance import CheetahBalanceEnv

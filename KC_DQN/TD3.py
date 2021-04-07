@@ -17,7 +17,7 @@ from .model import DeterministicPolicy
 from .ActorCritic import ActorCritic, Transition
 
 class TD3(ActorCritic):
-    def __init__(self, CONFIG, actionSpace, dimLists, actType=['Tanh', 'Tanh'],
+    def __init__(self, CONFIG, actionSpace, dimLists, actType={'critic':'Tanh', 'actor':'Tanh'},
         verbose=True):
         """
         __init__: initialization.
@@ -40,7 +40,7 @@ class TD3(ActorCritic):
         self.build_network(dimLists, actType)
 
 
-    def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.5, noiseClamp=0.5):
+    def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.1, noiseClamp=0.5):
         self.actor = DeterministicPolicy(dimListActor, self.actionSpace, actType=actType,
                                          noiseStd=noiseStd, noiseClamp=noiseClamp)
         self.actorTarget = deepcopy(self.actor)

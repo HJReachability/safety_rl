@@ -50,7 +50,7 @@ parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",        
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",          default=0.9,    type=float)
 parser.add_argument("-e",   "--eps",            help="exploration coeff.",          default=0.5,   type=float)
-parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[100,100],  nargs="*", type=int)
+parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[60,60],  nargs="*", type=int)
 parser.add_argument("-act", "--activation",     help="activation function",         default='Tanh', type=str)
 parser.add_argument("-skp", "--skip",           help="skip connections",            action="store_true")
 parser.add_argument("-dbl", "--double",         help="double DQN",                  action="store_true")
@@ -81,7 +81,7 @@ def save_frames_as_gif(frames, path='./', filename='gym_animation.gif'):
 
 # == CONFIGURATION ==
 env_name = "zermelo_cont-v0"
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = "cpu" #torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 reward = -1
 penalty = 0.1
@@ -151,7 +151,7 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period=1000, skip=False)
     np.random.seed(seedNum)
     torch.manual_seed(seedNum)
 
-    agent = TD3(CONFIG, env.action_space, dimLists, actType=['Tanh', 'Tanh'],
+    agent = TD3(CONFIG, env.action_space, dimLists, actType={'critic':'Sin', 'actor':'ReLU'},
                 verbose=True)
 
     # If *true* episode ends when gym environment gives done flag.
@@ -177,8 +177,7 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period=1000, skip=False)
         vmax=1,
         checkPeriod=args.check_period,  # How often to compute Safe vs. Unsafe.
         storeFigure=False,  # Store the figure in an eps file.
-        storeModel=True,
-        storeBest=False,
+        storeModel=False,
         # randomPlot=True,  # Plot from random starting points.
         outFolder=args.outFolder,
         verbose=True)

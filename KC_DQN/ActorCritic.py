@@ -57,6 +57,7 @@ import os
 import time
 import glob
 from copy import deepcopy
+import matplotlib.pyplot as plt
 
 from .model import StepLR, StepLRMargin, TwinnedQNetwork, StepResetLR
 from .ReplayMemory import ReplayMemory
@@ -100,6 +101,7 @@ class ActorCritic(object):
 
         # NN: batch size, maximal number of NNs stored
         self.BATCH_SIZE = CONFIG.BATCH_SIZE
+        self.start_updates = self.BATCH_SIZE * 20
         self.MAX_MODEL = CONFIG.MAX_MODEL
         self.device = CONFIG.DEVICE
 
@@ -114,13 +116,13 @@ class ActorCritic(object):
 
 
     # * BUILD NETWORK BEGINS
-    def build_network(self, dimLists, actType=['Tanh', 'Tanh']):
-        self.build_critic(dimLists[0], actType[0])
-        self.build_actor(dimLists[1], actType[1])
+    def build_network(self, dimLists, actType={'critic':'Tanh', 'actor':'Tanh'}):
+        self.build_critic(dimLists[0], actType['critic'])
+        self.build_actor(dimLists[1], actType['actor'])
         self.build_optimizer()
 
 
-    def build_actor(self, dimList, actType='Tanh'): # in child class
+    def build_actor(self, dimList, actType='Tanh'):
         raise NotImplementedError
 
 
@@ -132,18 +134,12 @@ class ActorCritic(object):
 
 
     def build_optimizer(self):
-        self.criticOptimizer = Adam(self.critic.parameters(), lr=self.LR_C)#,
-            #weight_decay=1e-3)
-        self.actorOptimizer = Adam(self.actor.parameters(), lr=self.LR_A)#,
-            #weight_decay=1e-3)
+        self.criticOptimizer = Adam(self.critic.parameters(), lr=self.LR_C)
+        self.actorOptimizer = Adam(self.actor.parameters(), lr=self.LR_A)
         self.criticScheduler = lr_scheduler.StepLR(self.criticOptimizer,
             step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
         self.actorScheduler = lr_scheduler.StepLR(self.actorOptimizer,
             step_size=self.LR_A_PERIOD, gamma=self.LR_A_DECAY)
-        # self.Q2Optimizer = AdamW(self.critic.Q2.parameters(), lr=self.LR_C,
-        #   weight_decay=1e-3)
-        # self.Q2Scheduler = lr_scheduler.StepLR(self.Q2Optimizer,
-        #   step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
         self.max_grad_norm = 1
         self.cntUpdate = 0
     # * BUILD NETWORK ENDS
@@ -164,17 +160,6 @@ class ActorCritic(object):
                 param_group['lr'] = self.LR_C_END
         else:
             self.criticScheduler.step()
-        # if self.Q1Optimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_C_END:
-        #     for param_group in self.Q1Optimizer.param_groups:
-        #         param_group['lr'] = self.LR_C_END
-        # else:
-        #     self.Q1Scheduler.step()
-
-        # if self.Q2Optimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_C_END:
-        #     for param_group in self.Q2Optimizer.param_groups:
-        #         param_group['lr'] = self.LR_C_END
-        # else:
-        #     self.Q2Scheduler.step()
 
         self.EpsilonScheduler.step()
         self.EPSILON = self.EpsilonScheduler.get_variable()
@@ -197,7 +182,6 @@ class ActorCritic(object):
 
     def update_target_networks(self):
         soft_update(self.criticTarget, self.critic, self.TAU)
-        # soft_update(self.criticTarget.Q2, self.critic.Q2, self.TAU)
         if self.actorType == 'TD3':
             soft_update(self.actorTarget, self.actor, self.TAU)
 
@@ -211,7 +195,7 @@ class ActorCritic(object):
 
 
     def update(self, timer, update_period=2):
-        if len(self.memory) < 1000: # self.BATCH_SIZE*20:
+        if len(self.memory) < self.start_updates:
             return 0.0, 0.0
 
         #== EXPERIENCE REPLAY ==
@@ -224,6 +208,8 @@ class ActorCritic(object):
         loss_pi = 0.0
         if timer % update_period == 0:
             loss_pi = self.update_actor(batch)
+            print('\r{:d}: ({:3.5f}/{:3.5f}): This episode.'.format(
+                self.cntUpdate, loss_q, loss_pi), end=' ')
 
         self.update_target_networks()
 
@@ -236,21 +222,7 @@ class ActorCritic(object):
                 curUpdates=None, checkPeriod=50000,
                 plotFigure=True, storeFigure=False,
                 showBool=False, vmin=-1, vmax=1, numRndTraj=200,
-                storeModel=True, storeBest=False,
-                outFolder='RA', verbose=True):
-
-        # == Warmup Buffer ==
-        # startInitBuffer = time.time()
-        # if warmupBuffer:
-        #     self.initBuffer(env)
-        # endInitBuffer = time.time()
-
-        # == Warmup Q ==
-        # startInitQ = time.time()
-        # if warmupQ:
-        #     self.initQ(env, warmupIter=warmupIter, outFolder=outFolder,
-        #         plotFigure=plotFigure, storeFigure=storeFigure)
-        # endInitQ = time.time()
+                storeModel=True, outFolder='RA', verbose=True):
 
         # == Main Training ==
         startLearning = time.time()
@@ -263,18 +235,16 @@ class ActorCritic(object):
         if curUpdates is not None:
             self.cntUpdate = curUpdates
             print("starting from {:d} updates".format(self.cntUpdate))
+
         while self.cntUpdate <= MAX_UPDATES:
             s = env.reset()
             epCost = np.inf
             ep += 1
+
             # Rollout
             for step_num in range(MAX_EP_STEPS):
                 # Select action
-                # if t > 10000:
-                #     a, _ = self.actor.sample(torch.from_numpy(s).float().to(self.device))
-                # else:
-                #     a = env.action_space.sample()
-                if self.cntUpdate > 10000:
+                if self.cntUpdate > max(warmupIter, self.start_updates):
                     with torch.no_grad():
                         a, _ = self.actor.sample(
                             torch.from_numpy(s).float().to(self.device))
@@ -306,24 +276,20 @@ class ActorCritic(object):
                         print('  - success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(
                             success, failure, unfinish))
 
-                    # if storeModel:
-                    #     if storeBest:
-                    #         if success > checkPointSucc:
-                    #             checkPointSucc = success
-                    #             self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
-                    #     else:
-                    #         self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
+                    if storeModel:
+                        if success > checkPointSucc:
+                            checkPointSucc = success
+                            self.save(self.cntUpdate, 'models/{:s}/model/'.format(outFolder))
 
                     if plotFigure or storeFigure:
-                        self.critic.eval()
                         if showBool:
                             env.visualize(self.critic.Q1, self.actor, vmin=0, boolPlot=True, addBias=addBias)
                         else:
                             env.visualize(self.critic.Q1, self.actor, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
-                        # if storeFigure:
-                        #     figureFolder = '{:s}/figure/'.format(outFolder)
-                        #     os.makedirs(figureFolder, exist_ok=True)
-                        #     plt.savefig('{:s}{:d}.png'.format(figureFolder, self.cntUpdate))
+                        if storeFigure:
+                            figureFolder = 'models/{:s}/figure/'.format(outFolder)
+                            os.makedirs(figureFolder, exist_ok=True)
+                            plt.savefig('{:s}{:d}.png'.format(figureFolder, self.cntUpdate))
                         # if plotFigure:
                         #     # plt.show()
                         #     # plt.pause(0.001)
@@ -335,11 +301,9 @@ class ActorCritic(object):
                 if self.cntUpdate % update_every == 0:
                     for timer in range(update_every):
                         loss_q, loss_pi = self.update(timer)
-                        print('\r{:3.5f}/{:3.5f}: This episode.'.format(
-                            loss_q, loss_pi), end=' ')
                 self.cntUpdate += 1
                 # Update gamma, lr etc.
-                # self.updateHyperParam()
+                self.updateHyperParam()
 
                 # Terminate early
                 if done:

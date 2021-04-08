@@ -41,7 +41,7 @@ class TD3(ActorCritic):
         self.build_network(dimLists, actType)
 
 
-    def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.1, noiseClamp=0.5):
+    def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.2, noiseClamp=0.5):
         self.actor = DeterministicPolicy(dimListActor, self.actionSpace, actType=actType,
                                          noiseStd=noiseStd, noiseClamp=noiseClamp)
         self.actorTarget = deepcopy(self.actor)
@@ -151,7 +151,7 @@ class TD3(ActorCritic):
             p.requires_grad = False
 
         q_pi_1, q_pi_2 = self.critic(state, self.actor(state))
-        q_pi = q_pi_1 if np.random.randint(2) == 0 else q_pi_2  # Kai-Chieh: why randomly decide instead of pick 1.
+        q_pi = torch.max(q_pi_1, q_pi_2)#q_pi_1 if np.random.randint(2) == 0 else q_pi_2  # Kai-Chieh: why randomly decide instead of pick 1.
 
         loss_pi = q_pi.mean()
         self.actorOptimizer.zero_grad()

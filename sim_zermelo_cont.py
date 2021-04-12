@@ -112,6 +112,7 @@ CONFIG = actorCriticConfig(
             GAMMA_PERIOD=args.update_period_gamma,  # How often to update gamma.
             GAMMA_DECAY=0.9,         # Rate of decay of gamma.
             # ===================
+            ALPHA=0.2,
             TAU=0.05,
             HARD_UPDATE=1,
             SOFT_UPDATE=True,
@@ -172,7 +173,7 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period=1000, skip=False)
         # toEnd=args.toEnd,
         # reportPeriod=report_period,  # How often to report Value function figs.
         plotFigure=True,  # Display value function while learning.
-        showBool=False,  # Show boolean reach avoid set 0/1.
+        showBool=True,  # Show boolean reach avoid set 0/1.
         vmin=-1,
         vmax=1,
         checkPeriod=args.check_period,  # How often to compute Safe vs. Unsafe.
@@ -257,4 +258,4 @@ if args.test:
     test_experiment(args, CONFIG, env, path1,
                     doneType='toThreshold', sim_only=False)
 else:
-    multi_experiment(1, args, CONFIG, env, skip=args.skip)
+    multi_experiment(2, args, CONFIG, env, skip=args.skip)

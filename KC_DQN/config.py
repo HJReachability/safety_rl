@@ -169,6 +169,7 @@ class actorCriticConfig(config):
                         LR_C=1e-3, LR_C_END=1e-4, LR_C_PERIOD=1, LR_C_DECAY=0.5,
                         LR_A=1e-3, LR_A_END=1e-4, LR_A_PERIOD=1, LR_A_DECAY=0.5,
                         GAMMA=0.9, GAMMA_END=0.99999999, GAMMA_PERIOD=200, GAMMA_DECAY=0.5,
+                        ALPHA=0.2,
                         TAU=0.01, HARD_UPDATE=1, SOFT_UPDATE=True,
                         MEMORY_CAPACITY=10000,
                         BATCH_SIZE=32,
@@ -212,6 +213,8 @@ class actorCriticConfig(config):
         self.LR_A_END = LR_A_END
         self.LR_A_PERIOD = LR_A_PERIOD
         self.LR_A_DECAY = LR_A_DECAY
+
+        self.ALPHA=ALPHA
 
         self.TAU = TAU
 

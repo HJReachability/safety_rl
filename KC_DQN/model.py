@@ -106,25 +106,31 @@ class TwinnedQNetwork(nn.Module):
 
 # TODO == Policy (Actor) Model ==
 class GaussianPolicy(nn.Module):
-    LOG_STD_MAX = 1
-    LOG_STD_MIN = -8
+    LOG_STD_MAX = 2
+    LOG_STD_MIN = -20
     eps = 1e-8
 
-    def __init__(self, dimList, actType='Tanh', device='cpu', actionSpace=None):
+    def __init__(self, dimList, actType='Tanh', device='cpu', actionSpace=None,
+                 shared_net=False):
         super(GaussianPolicy, self).__init__()
         self.device = device
         self.mean = model(dimList, actType, verbose=True).to(device)
         self.log_std = model(dimList, actType, verbose=True).to(device)
 
+
+        self.a_max = self.actionSpace.high[0]
+        self.a_min = self.actionSpace.low[0]  
+        self.scale = (self.a_max - self.a_min) / 2.0
+        self.bias = (self.a_max + self.a_min) / 2.0
         # Action Scale and Bias
-        if actionSpace is None:
-            self.actionScale = torch.tensor(1.)
-            self.actionBias = torch.tensor(0.)
-        else:
-            self.actionScale = torch.FloatTensor(
-                (actionSpace.high - actionSpace.low) / 2.).to(device)
-            self.actionBias = torch.FloatTensor(
-                (actionSpace.high + actionSpace.low) / 2.).to(device)
+        # if actionSpace is None:
+        #     self.actionScale = torch.tensor(1.)
+        #     self.actionBias = torch.tensor(0.)
+        # else:
+        #     self.actionScale = torch.FloatTensor(
+        #         (actionSpace.high - actionSpace.low) / 2.).to(device)
+        #     self.actionBias = torch.FloatTensor(
+        #         (actionSpace.high + actionSpace.low) / 2.).to(device)
 
 
     def forward(self, state):
@@ -144,7 +150,7 @@ class GaussianPolicy(nn.Module):
         x = normalRV.rsample()  # reparameterization trick (mean + std * N(0,1))
         y = torch.tanh(x)   # constrain the output to be within [-1, 1]
 
-        action = y * self.actionScale + self.actionBias
+        action = y * self.scale + self.bias
         log_prob = normalRV.log_prob(x)
 
         # Get the correct probability: x -> a, a = c * y + b, y = tanh x
@@ -152,9 +158,10 @@ class GaussianPolicy(nn.Module):
         # log p(a) = log p(x) - log |det(da/dx)|
         # log |det(da/dx)| = sum log (d a_i / d x_i)
         # d a_i / d x_i = c * ( 1 - y_i^2 )
+        # TODO(vrubies): Understand this!
         log_prob -= torch.log(self.actionScale * (1 - y.pow(2)) + eps)
         log_prob = log_prob.sum(1, keepdim=True)
-        mean = torch.tanh(mean) * self.actionScale + self.actionBias
+        mean = torch.tanh(mean) * self.scale + self.bias
         return action, log_prob, mean
 
 class DeterministicPolicy(nn.Module):

@@ -168,9 +168,10 @@ class DeterministicPolicy(nn.Module):
         self.actionSpace = actionSpace
         self.noiseStd = noiseStd
 
-        self.a_max = self.actionSpace.high[0]  # torch.from_numpy(self.actionSpace.high[0]).float().to(self.device)
-        self.a_min = self.actionSpace.low[0]  # torch.from_numpy(self.actionSpace.low[0]).float().to(self.device)
-
+        self.a_max = self.actionSpace.high[0]
+        self.a_min = self.actionSpace.low[0]  
+        self.scale = (self.a_max - self.a_min) / 2.0
+        self.bias = (self.a_max + self.a_min) / 2.0
         # action rescaling
         # if actionSpace is None:
         #     self.actionScale = 1.
@@ -185,7 +186,7 @@ class DeterministicPolicy(nn.Module):
     def forward(self, state):
         stateTensor = state.to(self.device)
         mean = self.mean(stateTensor)
-        return mean * self.a_max
+        return mean * self.scale + self.bias
 
 
     def sample(self, state):

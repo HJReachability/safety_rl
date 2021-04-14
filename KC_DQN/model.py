@@ -3,10 +3,8 @@
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.distributions import Normal, Uniform
 import sys
-import numpy as np
 
 class Sin(nn.Module):
     """
@@ -121,8 +119,10 @@ class GaussianPolicy(nn.Module):
         self.scale = (self.a_max - self.a_min) / 2.0
         self.bias = (self.a_max + self.a_min) / 2.0
 
-        self.LOG_STD_MAX = 1
+        self.LOG_STD_MAX = -1
         self.LOG_STD_MIN = -10
+        self.log_scale = (self.LOG_STD_MAX - self.LOG_STD_MIN) / 2.0
+        self.log_bias = (self.LOG_STD_MAX + self.LOG_STD_MIN) / 2.0
         self.eps = 1e-8
         # Action Scale and Bias
         # if actionSpace is None:
@@ -139,13 +139,16 @@ class GaussianPolicy(nn.Module):
         stateTensor = state.to(self.device)
         mean = self.mean(stateTensor)
         log_std = self.log_std(stateTensor)
-        log_std = torch.clamp(log_std, min=self.LOG_STD_MIN, max=self.LOG_STD_MAX)
+        # log_std = torch.clamp(log_std, min=self.LOG_STD_MIN, max=self.LOG_STD_MAX)
+        log_std = torch.tanh(log_std) * self.log_scale + self.log_bias
         return mean, log_std
 
 
-    def sample(self, state):
+    def sample(self, state, deterministic=False):
         stateTensor = state.to(self.device)
         mean, log_std = self.forward(stateTensor)
+        if deterministic:
+            return torch.tanh(mean) * self.scale + self.bias
         std = torch.exp(log_std)
         normalRV = Normal(mean, std)
 
@@ -161,13 +164,13 @@ class GaussianPolicy(nn.Module):
         # log |det(da/dx)| = sum log (d a_i / d x_i)
         # d a_i / d x_i = c * ( 1 - y_i^2 )
         # TODO(vrubies): Understand this!
-        log_prob -= torch.log(self.scale * (1 - y.pow(2)) + self.eps)
+        log_prob -= torch.log(self.scale * (1 - y.pow(2)) + self.eps).sum(-1, keepdim=True)
         # log_prob -= (2*(np.log(2) - x - F.softplus(-2*x)))
-        if log_prob.dim() > 1:
-            log_prob = log_prob.sum(1, keepdim=True)
-        else:
-            log_prob = log_prob.sum()
-        mean = torch.tanh(mean) * self.scale + self.bias
+        # if log_prob.dim() > 1:
+        #     log_prob = log_prob.sum(1, keepdim=True)
+        # else:
+        #     log_prob = log_prob.sum()
+        # mean = torch.tanh(mean) * self.scale + self.bias
         return action, log_prob
 
 class DeterministicPolicy(nn.Module):
@@ -181,9 +184,10 @@ class DeterministicPolicy(nn.Module):
         self.actionSpace = actionSpace
         self.noiseStd = noiseStd
 
-        self.a_max = self.actionSpace.high[0]  # torch.from_numpy(self.actionSpace.high[0]).float().to(self.device)
-        self.a_min = self.actionSpace.low[0]  # torch.from_numpy(self.actionSpace.low[0]).float().to(self.device)
-
+        self.a_max = self.actionSpace.high[0]
+        self.a_min = self.actionSpace.low[0]  
+        self.scale = (self.a_max - self.a_min) / 2.0
+        self.bias = (self.a_max + self.a_min) / 2.0
         # action rescaling
         # if actionSpace is None:
         #     self.actionScale = 1.
@@ -198,7 +202,7 @@ class DeterministicPolicy(nn.Module):
     def forward(self, state):
         stateTensor = state.to(self.device)
         mean = self.mean(stateTensor)
-        return mean * self.a_max
+        return mean * self.scale + self.bias
 
 
     def sample(self, state):

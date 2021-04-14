@@ -112,6 +112,7 @@ CONFIG = actorCriticConfig(
             GAMMA_PERIOD=args.update_period_gamma,  # How often to update gamma.
             GAMMA_DECAY=0.9,         # Rate of decay of gamma.
             # ===================
+            ALPHA=0.001,
             TAU=0.05,
             HARD_UPDATE=1,
             SOFT_UPDATE=True,

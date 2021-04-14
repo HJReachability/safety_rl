@@ -264,7 +264,7 @@ class ActorCritic(object):
                 if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
                     actor_sim = self.actor
                     if self.actorType == 'SAC':
-                        actor_sim = lambda x: torch.tanh(self.actor(x)[0])
+                        actor_sim = lambda x: self.actor.sample(x,deterministic=True)
                     results= env.simulate_trajectories(actor_sim,
                         T=MAX_EP_STEPS, num_rnd_traj=numRndTraj,
                         keepOutOf=False, toEnd=False)[1]

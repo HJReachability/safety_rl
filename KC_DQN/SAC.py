@@ -121,9 +121,10 @@ class SAC(ActorCritic):
             next_q1, next_q2 = self.criticTarget(non_final_state_nxt, next_actions)
             q_max = torch.max(next_q1, next_q2).view(-1)  # max because we are doing reach-avoid.
 
-        final_q = torch.max(g_x_nxt[non_final_mask], l_x_nxt[non_final_mask])
-        contd_q = torch.max(g_x_nxt[non_final_mask], torch.min(l_x_nxt[non_final_mask], q_max))
-        target_q[non_final_mask] =  (1.0 - self.GAMMA) * final_q + self.GAMMA * contd_q
+        entropy = 0 #-self.alpha * log_prob.view(-1)
+        target_q[non_final_mask] =  (
+            (1.0 - self.GAMMA) * torch.max(l_x_nxt[non_final_mask], g_x_nxt[non_final_mask]) +
+            self.GAMMA * torch.max( g_x_nxt[non_final_mask], torch.min(l_x_nxt[non_final_mask], q_max)))
         target_q[torch.logical_not(non_final_mask)] = torch.max(
             l_x_nxt[torch.logical_not(non_final_mask)], g_x_nxt[torch.logical_not(non_final_mask)])
 
@@ -149,11 +150,12 @@ class SAC(ActorCritic):
         for p in self.critic.parameters():
             p.requires_grad = False
 
-        action, log_prob = self.actor.sample(non_final_state_nxt)
-        q_pi_1, q_pi_2 = self.critic(state, action)
+        action_next, log_prob = self.actor.sample(non_final_state_nxt)
+        q_pi_1, q_pi_2 = self.critic(state, action_next)
         q_pi = torch.max(q_pi_1, q_pi_2)#q_pi_1 if np.random.randint(2) == 0 else q_pi_2  # Kai-Chieh: why randomly decide instead of pick 1.
 
-        loss_pi = (q_pi - self.alpha * log_prob).mean()
+        entropy = -self.alpha * log_prob.view(-1)
+        loss_pi = (q_pi + entropy).mean() # This performs gradient descent.
         self.actorOptimizer.zero_grad()
         loss_pi.backward()
         # nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)

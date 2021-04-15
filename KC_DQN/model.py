@@ -119,8 +119,8 @@ class GaussianPolicy(nn.Module):
         self.scale = (self.a_max - self.a_min) / 2.0
         self.bias = (self.a_max + self.a_min) / 2.0
 
-        self.LOG_STD_MAX = -1
-        self.LOG_STD_MIN = -10
+        self.LOG_STD_MAX = 1
+        self.LOG_STD_MIN = -5
         self.log_scale = (self.LOG_STD_MAX - self.LOG_STD_MIN) / 2.0
         self.log_bias = (self.LOG_STD_MAX + self.LOG_STD_MIN) / 2.0
         self.eps = 1e-8

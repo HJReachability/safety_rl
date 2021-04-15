@@ -107,12 +107,12 @@ CONFIG = actorCriticConfig(
             LR_A_PERIOD=args.update_period_lr,
             LR_A_DECAY=0.9,
             # =================== LEARNING RATE .
-            GAMMA=0.999,# args.gamma,         # Inital gamma.
-            GAMMA_END=0.999,    # Final gamma.
+            GAMMA=args.gamma,         # Inital gamma.
+            GAMMA_END=0.9999,    # Final gamma.
             GAMMA_PERIOD=args.update_period_gamma,  # How often to update gamma.
             GAMMA_DECAY=0.9,         # Rate of decay of gamma.
             # ===================
-            ALPHA=0.001,
+            ALPHA=0.1,
             TAU=0.05,
             HARD_UPDATE=1,
             SOFT_UPDATE=True,

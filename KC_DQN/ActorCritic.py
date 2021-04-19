@@ -227,7 +227,8 @@ class ActorCritic(object):
 
         # == Main Training ==
         startLearning = time.time()
-        TrainingRecord = namedtuple('TrainingRecord', ['ep', 'runningCost', 'cost', 'loss_q', 'loss_pi'])
+        TrainingRecord = namedtuple('TrainingRecord',
+            ['ep', 'runningCost', 'cost', 'loss_q', 'loss_pi'])
         trainingRecords = []
         runningCost = 0.
         trainProgress = []
@@ -280,21 +281,27 @@ class ActorCritic(object):
                     if storeModel:
                         if success > checkPointSucc:
                             checkPointSucc = success
-                            self.save(self.cntUpdate, 'models/{:s}/model/'.format(outFolder))
+                            modelFolder = os.path.join(outFolder, 'model')
+                            os.makedirs(modelFolder, exist_ok=True)
+                            self.save(self.cntUpdate, modelFolder)
 
                     if plotFigure or storeFigure:
                         if showBool:
-                            env.visualize(self.critic.Q1, self.actor, vmin=0, boolPlot=True, addBias=addBias)
+                            env.visualize(self.critic.Q1, self.actor, vmin=0,
+                                boolPlot=True, addBias=addBias)
                         else:
-                            env.visualize(self.critic.Q1, self.actor, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
+                            env.visualize(self.critic.Q1, self.actor, vmin=vmin,
+                                vmax=vmax, cmap='seismic', addBias=addBias)
                         if storeFigure:
-                            figureFolder = 'models/{:s}/figure/'.format(outFolder)
+                            figureFolder = os.path.join(outFolder, 'figure')
                             os.makedirs(figureFolder, exist_ok=True)
-                            plt.savefig('{:s}{:d}.png'.format(figureFolder, self.cntUpdate))
-                        # if plotFigure:
-                        #     # plt.show()
-                        #     # plt.pause(0.001)
-                        #     # plt.close()
+                            figurePath = os.path.join(figureFolder,
+                                '{:d}.png'.format(self.cntUpdate))
+                            plt.savefig(figurePath)
+                        if plotFigure:
+                            plt.show()
+                            plt.pause(0.001)
+                            plt.close()
 
                 # Perform one step of the optimization (on the target network)
                 loss_q, loss_pi = 0, 0
@@ -334,6 +341,7 @@ class ActorCritic(object):
         return trainingRecords, trainProgress
     # * LEARN ENDS
 
+
     # * OTHERS STARTS
     def store_transition(self, *args):
         self.memory.update(Transition(*args))
@@ -362,5 +370,22 @@ class ActorCritic(object):
             self.actorTarget.load_state_dict(
                 torch.load(logs_path_actor, map_location=self.device))
             self.actorTarget.to(self.device)
-        print('  => Restore {}' .format(logs_path))
+        print('  <= Restore {}' .format(logs_path))
+
+
+    # def select_action(self, state, explore=False):
+    #     stateTensor = torch.from_numpy(state).float().to(self.device).unsqueeze(0)
+    #     if explore:
+    #         action, _, _ = self.actor.sample(stateTensor)
+    #     else:
+    #         _, _, action = self.actor.sample(stateTensor)
+    #     return action.detach().cpu().numpy()[0]
+
+
+    def genRandomActions(self, num_actions):
+        UB = self.actionSpace.high
+        LB = self.actionSpace.low
+        dim = UB.shape[0]
+        actions = (UB - LB) * np.random.rand(num_actions, dim) + LB
+        return actions
     # * OTHERS ENDS

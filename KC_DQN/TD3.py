@@ -27,7 +27,7 @@ class TD3(ActorCritic):
             CONFIG (Class object): hyper-parameter configuration.
             actionSpace (Class object): consists of `high` and `low` attributes.
             dimList (list): consists of dimension lists
-            actType (list, optional): consists of activation types.
+            actType (dict, optional): consists of activation types.
                 Defaults to ['Tanh', 'Tanh'].
             verbose (bool, optional): print info or not. Defaults to True.
         """
@@ -41,9 +41,10 @@ class TD3(ActorCritic):
         self.build_network(dimLists, actType)
 
 
-    def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.2, noiseClamp=0.5):
-        self.actor = DeterministicPolicy(dimListActor, self.actionSpace, actType=actType,
-                                         noiseStd=noiseStd, noiseClamp=noiseClamp)
+    def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.2,
+        noiseClamp=0.5):
+        self.actor = DeterministicPolicy(dimListActor, self.actionSpace,
+            actType=actType, noiseStd=noiseStd, noiseClamp=noiseClamp)
         self.actorTarget = deepcopy(self.actor)
         for p in self.actorTarget.parameters():
             p.requires_grad = False
@@ -70,7 +71,7 @@ class TD3(ActorCritic):
                 vmin=-1, vmax=1, plotFigure=True, storeFigure=True):
         loss = 0.0
         for ep_tmp in range(warmupIter):
-            print('\rWarmup Q [{:d}]. MSE = {:f}'.format(ep_tmp+1, loss), end='')
+            print('\rWarmup Q [{:d}]. MSE = {:f}'.format(ep_tmp+1, loss),end='')
             states, value = env.get_warmup_examples(num_warmup_samples)
             actions = self.genRandomActions(num_warmup_samples)
 
@@ -90,20 +91,22 @@ class TD3(ActorCritic):
 
         print(" --- Warmup Q Ends")
         if plotFigure or storeFigure:
-            env.visualize(self.critic.Q1, self.actor, vmin=vmin, vmax=vmax, cmap='seismic')
+            env.visualize(self.critic.Q1, self.actor, vmin=vmin, vmax=vmax)
             if storeFigure:
-                figureFolder = '{:s}/figure/'.format(outFolder)
+                figureFolder = os.path.join(outFolder, 'figure')
                 os.makedirs(figureFolder, exist_ok=True)
-                plt.savefig('{:s}initQ.png'.format(figureFolder))
-            # if plotFigure:
-            #     plt.show()
-            #     plt.pause(0.001)
-            #     plt.close()
+                figurePath = os.path.join(figureFolder, 'initQ.png')
+                plt.savefig(figurePath)
+            if plotFigure:
+                plt.show()
+                plt.pause(0.001)
+                plt.close()
 
         # hard replace
         self.criticTarget.load_state_dict(self.critic.state_dict())
         del self.criticOptimizer
         self.build_optimizer()
+
 
     def update_critic(self, batch, addBias=False):
 

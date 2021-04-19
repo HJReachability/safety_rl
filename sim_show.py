@@ -42,6 +42,7 @@ parser.add_argument("-cp",  "--checkPeriod",    help="check period",            
 parser.add_argument("-arc", "--architecture",   help="NN architecture",             default=[100],  nargs="*", type=int)
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",          default=0.9,    type=float)
+parser.add_argument("-t",   "--thickness",      help="thickness of the obstacle",   default=-1,     type=float)
 parser.add_argument("-r",   "--reward",         help="when entering target set",    default=-1,     type=float)
 parser.add_argument("-p",   "--penalty",        help="when entering failure set",   default=1,      type=float)
 parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",            default=1,      type=float)
@@ -73,7 +74,7 @@ elif args.mode == 'mayer':
 elif args.mode == 'RA':
     envMode = 'RA'
     agentMode = 'RA'
-    GAMMA_END = 0.999999
+    GAMMA_END = 0.9999
 
 toEnd = args.toEnd
 env_name = "zermelo_show-v0"
@@ -91,9 +92,11 @@ os.makedirs(figureFolder, exist_ok=True)
 #== Environment ==
 print("\n== Environment Information ==")
 if toEnd:
-    env = gym.make(env_name, device=device, mode=envMode, doneType='toEnd')
+    env = gym.make(env_name, device=device, mode=envMode, doneType='toEnd',
+        thickness=args.thickness)
 else:
-    env = gym.make(env_name, device=device, mode=envMode, doneType='TF')
+    env = gym.make(env_name, device=device, mode=envMode, doneType='TF',
+        thickness=args.thickness)
 
 stateNum = env.state.shape[0]
 actionNum = env.action_space.n

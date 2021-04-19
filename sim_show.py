@@ -63,19 +63,6 @@ print(args)
 
 
 #== CONFIGURATION ==
-if args.mode == 'lagrange':
-    envMode = 'normal'
-    agentMode = 'normal'
-    GAMMA_END = args.gamma
-elif args.mode == 'mayer':
-    envMode = 'extend'
-    agentMode = 'normal'
-    GAMMA_END = args.gamma
-elif args.mode == 'RA':
-    envMode = 'RA'
-    agentMode = 'RA'
-    GAMMA_END = 0.9999
-
 toEnd = args.toEnd
 env_name = "zermelo_show-v0"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -84,7 +71,26 @@ updateTimes = args.updateTimes
 updatePeriod = int(maxUpdates / updateTimes)
 maxSteps = 120
 
-outFolder = os.path.join(args.outFolder, 'naive/' + args.name + timestr)
+if args.mode == 'lagrange':
+    envMode = 'normal'
+    agentMode = 'normal'
+    GAMMA_END = args.gamma
+    EPS_PERIOD = updatePeriod
+    EPS_RESET_PERIOD = 1e8
+elif args.mode == 'mayer':
+    envMode = 'extend'
+    agentMode = 'normal'
+    GAMMA_END = args.gamma
+    EPS_PERIOD = updatePeriod
+    EPS_RESET_PERIOD = 1e8
+elif args.mode == 'RA':
+    envMode = 'RA'
+    agentMode = 'RA'
+    GAMMA_END = 0.9999
+    EPS_PERIOD = int(updatePeriod/10)
+    EPS_RESET_PERIOD = updatePeriod
+
+outFolder = os.path.join(args.outFolder, 'show/' + args.name + timestr)
 figureFolder = os.path.join(outFolder, 'figure/')
 os.makedirs(figureFolder, exist_ok=True)
 
@@ -116,7 +122,7 @@ CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
     BATCH_SIZE=100, MEMORY_CAPACITY=args.memoryCapacity,
     ARCHITECTURE=args.architecture, ACTIVATION=args.actType,
     GAMMA=args.gamma, GAMMA_PERIOD=updatePeriod, GAMMA_END=GAMMA_END,
-    EPS_PERIOD=int(updatePeriod/10), EPS_DECAY=0.7, EPS_RESET_PERIOD=updatePeriod,
+    EPS_PERIOD=EPS_PERIOD, EPS_DECAY=0.7, EPS_RESET_PERIOD=EPS_RESET_PERIOD,
     LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
     MAX_MODEL=50)
 

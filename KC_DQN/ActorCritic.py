@@ -225,6 +225,20 @@ class ActorCritic(object):
                 showBool=False, vmin=-1, vmax=1, numRndTraj=200,
                 storeModel=True, outFolder='RA', verbose=True):
 
+        # == Warmup Buffer ==
+        startInitBuffer = time.time()
+        if warmupBuffer:
+            self.initBuffer(env)
+        endInitBuffer = time.time()
+
+        # == Warmup Q ==
+        startInitQ = time.time()
+        if warmupQ:
+            self.initQ(env, warmupIter=warmupIter, outFolder=outFolder,
+                vmin=vmin, vmax=vmax, plotFigure=plotFigure,
+                storeFigure=storeFigure)
+        endInitQ = time.time()
+
         # == Main Training ==
         startLearning = time.time()
         TrainingRecord = namedtuple('TrainingRecord',

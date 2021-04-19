@@ -263,7 +263,10 @@ class ActorCritic(object):
 
                 # Check after fixed number of gradient updates
                 if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
-                    results= env.simulate_trajectories(self.actor,
+                    actor_sim = self.actor
+                    if self.actorType == 'SAC':
+                        actor_sim = lambda x: self.actor.sample(x,deterministic=True)
+                    results= env.simulate_trajectories(actor_sim,
                         T=MAX_EP_STEPS, num_rnd_traj=numRndTraj,
                         keepOutOf=False, toEnd=False)[1]
                     success  = np.sum(results==1) / numRndTraj
@@ -287,11 +290,10 @@ class ActorCritic(object):
 
                     if plotFigure or storeFigure:
                         if showBool:
-                            env.visualize(self.critic.Q1, self.actor, vmin=0,
-                                boolPlot=True, addBias=addBias)
+                            env.visualize(self.critic.Q1, actor_sim, vmin=0, boolPlot=True, addBias=addBias)
                         else:
-                            env.visualize(self.critic.Q1, self.actor, vmin=vmin,
-                                vmax=vmax, cmap='seismic', addBias=addBias)
+                            env.visualize(self.critic.Q1, actor_sim, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
+
                         if storeFigure:
                             figureFolder = os.path.join(outFolder, 'figure')
                             os.makedirs(figureFolder, exist_ok=True)

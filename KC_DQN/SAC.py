@@ -14,7 +14,7 @@ import os
 import time
 from copy import deepcopy
 
-from .model import DeterministicPolicy
+from .model import GaussianPolicy
 from .ActorCritic import ActorCritic, Transition
 
 class SAC(ActorCritic):
@@ -32,6 +32,7 @@ class SAC(ActorCritic):
             verbose (bool, optional): print info or not. Defaults to True.
         """
         super(SAC, self).__init__('SAC', CONFIG, actionSpace)
+        self.alpha = CONFIG.ALPHA
 
         #== Build NN for (D)DQN ==
         assert dimLists is not None, "Define the architectures"
@@ -40,10 +41,8 @@ class SAC(ActorCritic):
         self.actType = actType
         self.build_network(dimLists, actType)
 
-
-    def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.2, noiseClamp=0.5):
-        self.actor = GaussianPolicy(dimListActor, self.actionSpace, actType=actType,
-                                         noiseStd=noiseStd, noiseClamp=noiseClamp)
+    def build_actor(self, dimListActor, actType='Tanh'):
+        self.actor = GaussianPolicy(dimListActor, self.actionSpace, actType=actType)
         self.actorTarget = deepcopy(self.actor)
         for p in self.actorTarget.parameters():
             p.requires_grad = False
@@ -118,15 +117,16 @@ class SAC(ActorCritic):
 
         #== compute actorTarget next_actions and feed to criticTarget ==
         with torch.no_grad():
-            _, next_actions = self.actor.sample(non_final_state_nxt)  # clip(pi_targ(s')+clip(eps,-c,c),a_low, a_high)
+            next_actions, log_prob = self.actor.sample(non_final_state_nxt)
             next_q1, next_q2 = self.criticTarget(non_final_state_nxt, next_actions)
             q_max = torch.max(next_q1, next_q2).view(-1)  # max because we are doing reach-avoid.
+            entropy = -self.alpha * log_prob.view(-1)
 
         target_q[non_final_mask] =  (
-            (1.0 - self.GAMMA) * torch.max(l_x_nxt[non_final_mask], g_x_nxt[non_final_mask]) +
-            self.GAMMA * torch.max( g_x_nxt[non_final_mask], torch.min(l_x_nxt[non_final_mask], q_max)))
+            (1.0 - self.GAMMA) * torch.max(l_x_nxt[non_final_mask] - entropy[non_final_mask], g_x_nxt[non_final_mask]) +
+            self.GAMMA * torch.max( g_x_nxt[non_final_mask], torch.min(l_x_nxt[non_final_mask] - entropy[non_final_mask], q_max)))
         target_q[torch.logical_not(non_final_mask)] = torch.max(
-            l_x_nxt[torch.logical_not(non_final_mask)], g_x_nxt[torch.logical_not(non_final_mask)])
+            l_x_nxt[torch.logical_not(non_final_mask)] - entropy[torch.logical_not(non_final_mask)], g_x_nxt[torch.logical_not(non_final_mask)])
 
         #== MSE update for both Q1 and Q2 ==
         loss_q1 = mse_loss(input=q1.view(-1), target=target_q)
@@ -150,10 +150,12 @@ class SAC(ActorCritic):
         for p in self.critic.parameters():
             p.requires_grad = False
 
-        q_pi_1, q_pi_2 = self.critic(state, self.actor(state))
+        action_next, log_prob = self.actor.sample(non_final_state_nxt)
+        q_pi_1, q_pi_2 = self.critic(state, action_next)
         q_pi = torch.max(q_pi_1, q_pi_2)#q_pi_1 if np.random.randint(2) == 0 else q_pi_2  # Kai-Chieh: why randomly decide instead of pick 1.
 
-        loss_pi = q_pi.mean()
+        # entropy = -self.alpha * log_prob.view(-1)
+        loss_pi = (q_pi - self.alpha * log_prob.view(-1)).mean() # This performs gradient descent.
         self.actorOptimizer.zero_grad()
         loss_pi.backward()
         # nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)

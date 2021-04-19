@@ -19,7 +19,7 @@ import pickle
 import os.path
 import glob
 
-from KC_DQN.TD3 import TD3
+from KC_DQN.SAC import SAC
 from KC_DQN.config import actorCriticConfig
 
 import time
@@ -107,11 +107,12 @@ CONFIG = actorCriticConfig(
             LR_A_PERIOD=args.update_period_lr,
             LR_A_DECAY=0.9,
             # =================== LEARNING RATE .
-            GAMMA=0.999,# args.gamma,         # Inital gamma.
-            GAMMA_END=0.999,    # Final gamma.
+            GAMMA=args.gamma,         # Inital gamma.
+            GAMMA_END=0.9999,    # Final gamma.
             GAMMA_PERIOD=args.update_period_gamma,  # How often to update gamma.
             GAMMA_DECAY=0.9,         # Rate of decay of gamma.
             # ===================
+            ALPHA=0.1,
             TAU=0.05,
             HARD_UPDATE=1,
             SOFT_UPDATE=True,
@@ -151,7 +152,7 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period=1000, skip=False)
     np.random.seed(seedNum)
     torch.manual_seed(seedNum)
 
-    agent = TD3(CONFIG, env.action_space, dimLists, actType={'critic':'Sin', 'actor':'ReLU'},
+    agent = SAC(CONFIG, env.action_space, dimLists, actType={'critic':'Sin', 'actor':'ReLU'},
                 verbose=True)
 
     # If *true* episode ends when gym environment gives done flag.
@@ -164,7 +165,7 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period=1000, skip=False)
         MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
         warmupBuffer=True,
         warmupQ=False,  # Need to implement inside env.
-        warmupIter=20000,
+        warmupIter=7000,
         addBias=False,  # args.addBias,
         doneTerminate=True,
         runningCostThr=None,

@@ -499,7 +499,7 @@ class ZermeloShowEnv(gym.Env):
                     result = 1 # succeeded
                     break
 
-            state_tensor = torch.FloatTensor(state, device=self.device).unsqueeze(0)
+            state_tensor = torch.FloatTensor(state).to(self.device).unsqueeze(0)
             action_index = q_func(state_tensor).min(dim=1)[1].item()
             u = self.discrete_controls[action_index]
 
@@ -587,14 +587,14 @@ class ZermeloShowEnv(gym.Env):
                 cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
 
 
-    def plot_target_failure_set(self, ax=None, c_c='m', c_t='y', lw=1.5):
+    def plot_target_failure_set(self, ax=None, c_c='m', c_t='y', lw=1.5, zorder=1):
         # Plot bounadries of constraint set.
         for one_boundary in self.constraint_set_boundary:
-            ax.plot(one_boundary[:, 0], one_boundary[:, 1], color=c_c, lw=lw)
+            ax.plot(one_boundary[:, 0], one_boundary[:, 1], color=c_c, lw=lw, zorder=zorder)
 
         # Plot boundaries of target set.
         for one_boundary in self.target_set_boundary:
-            ax.plot(one_boundary[:, 0], one_boundary[:, 1], color=c_t, lw=lw)
+            ax.plot(one_boundary[:, 0], one_boundary[:, 1], color=c_t, lw=lw, zorder=zorder)
 
 
     def plot_trajectories(self, q_func, T=200, num_rnd_traj=None, states=None, 
@@ -616,7 +616,7 @@ class ZermeloShowEnv(gym.Env):
         return results
 
 
-    def plot_reach_avoid_set(self, ax, c='g', lw=3):
+    def plot_reach_avoid_set(self, ax, c='g', lw=3, zorder=1):
         slope = self.upward_speed / self.horizontal_rate
 
         def get_line(slope, end_point, x_limit, ns=100):
@@ -634,9 +634,9 @@ class ZermeloShowEnv(gym.Env):
             x2 = x + w/2.0
             y_min = y - h/2.0
             xs, ys = get_line(-slope, end_point=[x1, y_min], x_limit=x)
-            ax.plot(xs, ys, color=c, linewidth=lw)
+            ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
             xs, ys = get_line( slope, end_point=[x2, y_min], x_limit=x)
-            ax.plot(xs, ys, color=c, linewidth=lw)
+            ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
         # border unsafe set
         x, y, w, h = self.target_x_y_w_h[0]
@@ -644,9 +644,9 @@ class ZermeloShowEnv(gym.Env):
         x2 = x + w/2.0
         y_max = y + h/2.0
         xs, ys = get_line( slope, end_point=[x1, y_max], x_limit=self.low[0])
-        ax.plot(xs, ys, color=c, linewidth=lw)
+        ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
         xs, ys = get_line(-slope, end_point=[x2, y_max], x_limit=self.high[0])
-        ax.plot(xs, ys, color=c, linewidth=lw)
+        ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
 
     def plot_formatting(self, ax=None, labels=None):

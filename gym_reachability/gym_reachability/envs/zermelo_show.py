@@ -440,7 +440,7 @@ class ZermeloShowEnv(gym.Env):
             else:
                 v[idx] = q_func(state).min(dim=1)[0].item()
             it.iternext()
-        return v
+        return xs, ys, v
 
 
     def get_axes(self):
@@ -573,7 +573,7 @@ class ZermeloShowEnv(gym.Env):
         axStyle = self.get_axes()
 
         #== Plot V ==
-        v = self.get_value(q_func, nx, ny, addBias=addBias)
+        _, _, v = self.get_value(q_func, nx, ny, addBias=addBias)
 
         if boolPlot:
             im = ax.imshow(v.T>0., interpolation='none', extent=axStyle[0],
@@ -598,7 +598,7 @@ class ZermeloShowEnv(gym.Env):
 
 
     def plot_trajectories(self, q_func, T=200, num_rnd_traj=None, states=None, 
-        keepOutOf=False, toEnd=False, ax=None, c='k', lw=2):
+        keepOutOf=False, toEnd=False, ax=None, c='k', lw=2, zorder=2):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -610,8 +610,8 @@ class ZermeloShowEnv(gym.Env):
 
         for traj in trajectories:
             traj_x, traj_y = traj
-            ax.scatter(traj_x[0], traj_y[0], s=48, c=c)
-            ax.plot(traj_x, traj_y, color=c, linewidth=lw)
+            ax.scatter(traj_x[0], traj_y[0], s=48, c=c, zorder=zorder)
+            ax.plot(traj_x, traj_y, color=c, linewidth=lw, zorder=zorder)
 
         return results
 

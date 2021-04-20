@@ -437,7 +437,7 @@ class ZermeloKCEnv(gym.Env):
             else:
                 v[idx] = q_func(state).min(dim=1)[0].item()
             it.iternext()
-        return v
+        return xs, ys, v
 
 
     def get_axes(self):
@@ -572,7 +572,7 @@ class ZermeloKCEnv(gym.Env):
         axStyle = self.get_axes()
 
         #== Plot V ==
-        v = self.get_value(q_func, nx, ny, addBias=addBias)
+        xs, ys, v = self.get_value(q_func, nx, ny, addBias=addBias)
 
         if boolPlot:
             im = ax.imshow(v.T>0., interpolation='none', extent=axStyle[0], origin="lower",

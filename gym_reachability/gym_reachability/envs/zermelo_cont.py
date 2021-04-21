@@ -439,8 +439,8 @@ class ZermeloContEnv(gym.Env):
     def get_value(self, q_func, policy, nx=41, ny=121, addBias=False):
         v = np.zeros((nx, ny))
         it = np.nditer(v, flags=['multi_index'])
-        xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)
-        ys = np.linspace(self.bounds[1,0], self.bounds[1,1], ny)
+        xs = np.linspace(self.bounds[0, 0], self.bounds[0, 1], nx)
+        ys = np.linspace(self.bounds[1, 0], self.bounds[1, 1], ny)
         while not it.finished:
             idx = it.multi_index
 

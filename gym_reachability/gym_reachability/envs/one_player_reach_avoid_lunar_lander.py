@@ -41,7 +41,10 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
                  param_dict={},
                  rnd_seed=0,
                  terrain=None,  # Used for world-related avoid set.
-                 doneType='toEnd'):
+                 target_type='default',
+                 doneType='toEnd',
+                 obstacle_sampling=False,
+                 discrete=True):
 
         self.parent_init = False
         super(OnePlayerReachAvoidLunarLander, self).__init__(
@@ -49,7 +52,10 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
             num_players=1,
             observation_type=observation_type,
             param_dict=param_dict,
-            rnd_seed=rnd_seed)
+            rnd_seed=rnd_seed,
+            doneType=doneType,
+            obstacle_sampling=obstacle_sampling,
+            discrete=discrete)
         self.parent_init = True
 
         # safety problem limits in --> simulator self.SCALE <--
@@ -67,11 +73,11 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
         self.theta_hover_max = np.radians(15.0)  # most the lander can be tilted when landing
         self.theta_hover_min = np.radians(-15.0)
 
-        self.midpoint_x = (self.fly_max_x + self.fly_min_x) / 2
-        self.width_x = (self.fly_max_x - self.fly_min_x)
+        self.midpoint_x = self.W / 2
+        self.width_x = self.W
 
-        self.midpoint_y = (self.fly_max_y + self.fly_min_y) / 2
-        self.width_y = (self.fly_max_y - self.fly_min_y)
+        self.midpoint_y = self.H / 2
+        self.width_y = self.H
 
         self.hover_min_x = self.W / (self.CHUNKS - 1) * (self.CHUNKS // 2 - 1)
         self.hover_max_x = self.W / (self.CHUNKS - 1) * (self.CHUNKS // 2 + 1)
@@ -89,12 +95,6 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
                       self.midpoint_y + self.width_y/4,
                       0, 0, 0, 0])]
 
-        # Cost Params
-        self.penalty = 1
-        self.reward = -1
-        self.costType = 'dense_ell'
-        self.scaling = 1.
-
         self.polygon_target = [
             (self.helipad_x1, self.HELIPAD_Y),
             (self.helipad_x2, self.HELIPAD_Y),
@@ -108,63 +108,32 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
         if mode == 'extend':
             self.sim_state = np.zeros(self.total_obs_dim + 1)
 
-        self.doneType = doneType
+        # Visualization params
+        self.axes = None
+        self.img_data = None
+        self.scaling_factor = 3.0
+        self.slices_y = np.array([1, 0, -1]) * self.scaling_factor
+        self.slices_x = np.array([-1, 0, 1]) * self.scaling_factor
+        self.vis_init_flag = True
+        self.visual_initial_states = [
+            np.array([self.midpoint_x + self.width_x/4,
+                      self.midpoint_y + self.width_y/4,
+                      0, 0, 0, 0])]
 
         if mode == 'extend':
             self.visual_initial_states = self.extend_state(
                 self.visual_initial_states)
-
-        print("Env: mode---{:s}; doneType---{:s}".format(mode, doneType))
 
     def reset(self, state_in=None, terrain_polyline=None):
         return super().reset(
             state_in=state_in, terrain_polyline=terrain_polyline)
 
     def step(self, action):
-        # cost
-        # if self.mode == 'extend' or self.mode == 'RA':
-        #     fail = g_x_cur > 0
-        #     success = l_x_cur <= 0
-        #     if fail:
-        #         cost = self.penalty
-        #     elif success:
-        #         cost = self.reward
-        #     else:
-        #         cost = 0.
-        # else:
-        #     fail = g_x_nxt > 0
-        #     success = l_x_nxt <= 0
-        #     if g_x_nxt > 0 or g_x_cur > 0:
-        #         cost = self.penalty
-        #     elif l_x_nxt <= 0 or l_x_cur <= 0:
-        #         cost = self.reward
-        #     else:
-        #         if self.costType == 'dense_ell':
-        #             cost = l_x_nxt
-        #         elif self.costType == 'dense_ell_g':
-        #             cost = l_x_nxt + g_x_nxt
-        #         elif self.costType == 'imp_ell_g':
-        #             cost = (l_x_nxt-l_x_cur) + (g_x_nxt-g_x_cur)
-        #         elif self.costType == 'imp_ell':
-        #             cost = (l_x_nxt-l_x_cur)
-        #         elif self.costType == 'sparse':
-        #             cost = 0. * self.scaling
-        #         elif self.costType == 'max_ell_g':
-        #             cost = max(l_x_nxt, g_x_nxt)
-        #         else:
-        #             cost = 0.
-        # done
-        # if not done and self.doneType == 'toEnd':
-        #     outsideTop = (self.sim_state[1] >= self.bounds_simulation[1, 1])
-        #     outsideLeft = (self.sim_state[0] <= self.bounds_simulation[0, 0])
-        #     outsideRight = (self.sim_state[0] >= self.bounds_simulation[0, 1])
-        #     done = outsideTop or outsideLeft or outsideRight
-        # elif not done:
-        #     done = fail or success
-        #     assert self.doneType == 'TF', 'invalid doneType'
         return super().step(action)
 
-    def target_margin(self, state):
+    def target_margin(self, state, soft=False):
+        if not self.parent_init:
+            return 0
         x = state[0]
         y = state[1]
         p = Point(x, y)
@@ -173,21 +142,14 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
         return -inside*L2_distance
 
     def safety_margin(self, state):
+        if not self.parent_init:
+            return 0
         x = state[0]
         y = state[1]
         p = Point(x, y)
         L2_distance = self.obstacle_polyline.exterior.distance(p)
         inside = 2*self.obstacle_polyline.contains(p) - 1
         return -inside*L2_distance
-
-    def set_doneType(self, doneType):
-        self.doneType = doneType
-
-    def set_costParam(self, penalty=1, reward=-1, costType='normal', scaling=4.):
-        self.penalty = penalty
-        self.reward = reward
-        self.costType = costType
-        self.scaling = scaling
 
     def set_seed(self, seed):
         """ Set the random seed.
@@ -198,44 +160,68 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
         self.seed_val = seed
         np.random.seed(self.seed_val)
 
-    def simulate_one_trajectory(self, q_func, T=10, state=None):
+    def set_doneType(self, doneType):
+        """ Set the doneType seed.
+
+        Args:
+            donetype: (str) doneType.
+        """
+        self.doneType = doneType
+
+    def simulate_one_trajectory(self, policy, T=10, state=None, init_q=False):
         """
         simulates one trajectory in observation scale.
         """
         if state is None:
             state = self.reset()
         else:
-            state = self.reset(state)
+            state = self.reset(state_in=state)
         traj_x = [state[0]]
         traj_y = [state[1]]
         result = 0  # Not finished.
+        initial_q = None
 
         for t in range(T):
-            if self.safety_margin(
-                    self.obs_scale_to_simulator_scale(state)) > 0:
+            state_sim = self.obs_scale_to_simulator_scale(state)
+            s_margin = self.safety_margin(state_sim)
+            t_margin = self.target_margin(state_sim)
+            # print("S_Margin: ", s_margin)
+            # print("T_Margin: ", t_margin)
+
+            state_tensor = torch.FloatTensor(state).to(self.device).unsqueeze(0)
+            if self.discrete:
+                action = policy(state_tensor).min(dim=1)[1].item()
+                if initial_q is None:
+                    initial_q = policy(state_tensor).min(dim=1)[0].item()
+            else:
+                action = policy(state_tensor).detach().numpy()[0]
+            assert isinstance(action, np.ndarray), "Not numpy array for action!"
+
+            if s_margin > 0:
                 result = -1  # Failed.
                 break
-            elif self.target_margin(
-                    self.obs_scale_to_simulator_scale(state)) <= 0:
+            elif t_margin <= 0:
                 result = 1  # Succeeded.
                 break
 
-            state_tensor = torch.FloatTensor(state,
-                                             device=self.device).unsqueeze(0)
-            action_index = q_func(state_tensor).min(dim=1)[1].item()
-
-            state, _, done, _ = self.step(action_index)
+            state, _, done, _ = self.step(action)
             traj_x.append(state[0])
             traj_y.append(state[1])
             if done:
                 result = -1
                 break
 
+        # If the Lander get's 'stuck' in a hover position..
+        if result == 0:
+            result = -1
+
+        if init_q:
+            return traj_x, traj_y, result, initial_q
         return traj_x, traj_y, result
 
+    def simulate_trajectories(self, policy, T=10, num_rnd_traj=None,
+                              states=None, *args, **kwargs):
 
-    def simulate_trajectories(self, q_func, T=10, num_rnd_traj=None,
-                              states=None):
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
@@ -245,41 +231,41 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
             results = np.empty(shape=(num_rnd_traj,), dtype=int)
             for idx in range(num_rnd_traj):
                 traj_x, traj_y, result = self.simulate_one_trajectory(
-                    q_func, T=T)
+                    policy, T=T)
                 trajectories.append((traj_x, traj_y))
                 results[idx] = result
         else:
             results = np.empty(shape=(len(states),), dtype=int)
             for idx, state in enumerate(states):
                 traj_x, traj_y, result = self.simulate_one_trajectory(
-                    q_func, T=T, state=state)
+                    policy, T=T, state=state)
                 trajectories.append((traj_x, traj_y))
                 results[idx] = result
 
         return trajectories, results
 
-
-    def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None,
-                          c='w'):
+    def plot_trajectories(self, policy, T=10, num_rnd_traj=None, states=None,
+                          c='w', ax=None):
         # plt.figure(2)
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
         # plt.clf()
-        plt.subplot(len(self.slices_y), len(self.slices_x), 1)
+        if ax == None:
+            ax=plt.gca()
         trajectories, results = self.simulate_trajectories(
             q_func, T=T, num_rnd_traj=num_rnd_traj, states=states)
         for traj in trajectories:
             traj_x, traj_y = traj
-            plt.scatter(traj_x[0], traj_y[0], s=48, c=c)
-            plt.plot(traj_x, traj_y, color=c, linewidth=2)
+            ax.scatter(traj_x[0], traj_y[0], s=24, c=c)
+            ax.plot(traj_x, traj_y, color=c, linewidth=2)
 
         return results
 
-
-    def get_value(self, q_func, nx=41, ny=121,
-                  x_dot=0, y_dot=0, theta=0, theta_dot=0):
+    def get_value(self, q_func, policy=None, nx=41, ny=121, x_dot=0, y_dot=0, theta=0, theta_dot=0,
+                  addBias=False):
         v = np.zeros((nx, ny))
+        max_lg = np.zeros((nx, ny))
         it = np.nditer(v, flags=['multi_index'])
         xs = np.linspace(self.bounds_observation[0, 0],
                          self.bounds_observation[0, 1], nx)
@@ -296,21 +282,34 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
             x = xs[idx[0]]
             y = ys[idx[1]]
             l_x = self.target_margin(
-                np.array([x, y, x_dot, y_dot, theta, theta_dot]))
+                self.obs_scale_to_simulator_scale(
+                    np.array([x, y, x_dot, y_dot, theta, theta_dot])))
             g_x = self.safety_margin(
-                np.array([x, y, x_dot, y_dot, theta, theta_dot]))
+                self.obs_scale_to_simulator_scale(
+                    np.array([x, y, x_dot, y_dot, theta, theta_dot])))
 
             if self.mode == 'normal' or self.mode == 'RA':
                 state = torch.FloatTensor(
-                    [x, y, x_dot, y_dot, theta, theta_dot],
-                    device=self.device).unsqueeze(0)
+                    [x, y, x_dot, y_dot, theta, theta_dot]).to(self.device)
             else:
                 z = max([l_x, g_x])
                 state = torch.FloatTensor(
-                    [x, y, x_dot, y_dot, theta, theta_dot, z],
-                    device=self.device).unsqueeze(0)
+                    [x, y, x_dot, y_dot, theta, theta_dot, z]).to(self.device)
 
-            v[idx] = q_func(state).min(dim=1)[0].item()
+            if self.discrete:
+                if policy is None:
+                    v[idx] = q_func(state).min(dim=1)[0].item()
+                else:
+                    q_vals = q_func(state)
+                    action = policy(state).max(dim=1)[0]  # Pick the action from softmax.
+                    v[idx] = q_vals[action].item()
+            else:
+                # Need to have an actor when actions are continuous.
+                assert policy is not None, "Need actor-policy for continuous actions."
+                action = policy(state)
+                xx = torch.cat([state, action.detach()]).to(self.device)
+                v[idx] = q_func(xx).item()
+            # v[idx] = max(g_x, min(l_x, v[idx]))
             it.iternext()
         # print("End value collection on grid.")
         return v, xs, ys
@@ -329,79 +328,105 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
                          self.bounds_observation[1, 0] - 0.15,
                          self.bounds_observation[1, 1] + 0.15])
         return [axes, aspect_ratio]
-    # TODO(vrubies) Move to the child.
-    def imshow_lander(self, extent=None, alpha=0.4):
+
+    def imshow_lander(self, extent=None, alpha=0.4, ax=None):
         if self.img_data is None:
             # todo{vrubies} can we find way to supress gym window?
-            img_data = self.render(mode="rgb_array")
-            # self.close()
+            img_data = self.render(mode="rgb_array", plot_landers=False)
+            self.close()
             self.img_data = img_data[::2, ::3, :]  # Reduce image size.
-        plt.imshow(self.img_data,
+        if ax == None:
+            ax=plt.gca()
+        ax.imshow(self.img_data,
                    interpolation='none', extent=extent,
                    origin='upper', alpha=alpha)
-    # TODO(vrubies) Move to the child.
-    def visualize(self, q_func, no_show=False,
-                  vmin=-50, vmax=50, nx=21, ny=21,
+
+    def visualize(self, q_func, policy=None, no_show=False,
+                  vmin=-50, vmax=50, nx=91, ny=91,
                   labels=['', ''],
                   boolPlot=False, plotZero=False,
-                  cmap='coolwarm'):
+                  cmap='seismic', addBias=False, trueRAZero=False, lvlset=0):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
             v: State value function.
         """
         # plt.figure(1)
-        plt.clf()
-        axes = self.get_axes()
+        # plt.clf()
+        axStyle = self.get_axes()
+        numX = len(self.slices_x)
+        numY = len(self.slices_y)
+        if self.axes is None:
+            self.fig, self.axes = plt.subplots(
+                numX, numY, figsize=(2*numY, 2*numX), sharex=True, sharey=True)
+        # else:
+        #     self.fig.clf()
+        #     self.fig, self.axes = plt.subplots(
+        #         numX, numY, figsize=(2*numY, 2*numX), sharex=True, sharey=True)
         for y_jj, y_dot in enumerate(self.slices_y):
             for x_ii, x_dot in enumerate(self.slices_x):
-                plt.subplot(len(self.slices_y), len(self.slices_x),
-                            y_jj*len(self.slices_y)+x_ii+1)
+                ax = self.axes[y_jj][x_ii]
+                ax.cla()
                 # print("Subplot -> ", y_jj*len(self.slices_y)+x_ii+1)
-                v, xs, ys = self.get_value(q_func, nx, ny,
+                v, xs, ys = self.get_value(q_func, policy=policy, nx=nx, ny=ny,
                                            x_dot=x_dot, y_dot=y_dot, theta=0,
-                                           theta_dot=0)
-                #im = visualize_matrix(v.T, self.get_axes(labels), no_show, vmin=vmin, vmax=vmax)
+                                           theta_dot=0, addBias=addBias)
 
+                #== Plot Value Function ==
                 if boolPlot:
-                    im = plt.imshow(v.T > vmin,
-                                    interpolation='none', extent=axes[0],
-                                    origin="lower", cmap=cmap)
+                    if trueRAZero:
+                        nx1 = nx
+                        ny1 = ny
+                        resultMtx = np.empty((nx1, ny1), dtype=int)
+                        xs = np.linspace(self.bounds_simulation[0, 0],
+                                         self.bounds_simulation[0, 1], nx1)
+                        ys = np.linspace(self.bounds_simulation[1, 0],
+                                         self.bounds_simulation[1, 1], ny1)
+
+                        it = np.nditer(resultMtx, flags=['multi_index'])
+                        while not it.finished:
+                            idx = it.multi_index
+                            x = xs[idx[0]]
+                            y = ys[idx[1]]
+
+                            state = np.array([x, y, x_dot, y_dot, 0, 0])
+                            (traj_x, traj_y,
+                                result) = self.simulate_one_trajectory(
+                                q_func, policy=policy, T=400, state=state)
+
+                            resultMtx[idx] = result
+                            it.iternext()
+                        im = ax.imshow(resultMtx.T != 1,
+                                        interpolation='none', extent=axStyle[0],
+                                        origin="lower", cmap=cmap)
+                    else:
+                        im = ax.imshow(v.T > lvlset,
+                                        interpolation='none', extent=axStyle[0],
+                                        origin="lower", cmap=cmap)
+                    X, Y = np.meshgrid(xs, ys)
+                    ax.contour(X, Y, v.T, levels=[-0.1], colors=('k',),
+                               linestyles=('--',), linewidths=(1,))
                 else:
-                    im = plt.imshow(v.T,
-                                    interpolation='none', extent=axes[0],
-                                    origin="lower", cmap=cmap)  #,vmin=vmin, vmax=vmax)
-                    # cbar = plt.colorbar(im, pad=0.01, shrink=0.95,
-                    #                     ticks=[vmin, 0, vmax])
-                    # cbar.ax.set_yticklabels(labels=[vmin, 0, vmax],
-                    #                         fontsize=24)
+                    vmin = np.min(v)
+                    vmax = np.max(v)
+                    vstar = max(abs(vmin), vmax)
+                    im = ax.imshow(v.T,
+                                    interpolation='none', extent=axStyle[0],
+                                    origin="lower", cmap=cmap, vmin=-vstar,
+                                    vmax=vstar)
+                    X, Y = np.meshgrid(xs, ys)
+                    ax.contour(X, Y, v.T, levels=[-0.1], colors=('k',),
+                               linestyles=('--',), linewidths=(1,))
 
-                self.imshow_lander(extent=axes[0], alpha=0.4)
-                ax = plt.gca()
-                # Plot bounadries of constraint set.
-                # plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
-                # plt.plot(self.x_box2_pos, self.y_box2_pos, color="black")
-                # plt.plot(self.x_box3_pos, self.y_box3_pos, color="black")
-
-                # Plot boundaries of target set.
-                # plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
-
-                # Plot zero level set
-                if plotZero:
-                    it = np.nditer(v, flags=['multi_index'])
-                    while not it.finished:
-                        idx = it.multi_index
-                        x = xs[idx[0]]
-                        y = ys[idx[1]]
-
-                        if v[idx] <= 0:
-                            plt.scatter(x, y, c='k', s=48)
-                        it.iternext()
+                #  == Plot Environment ==
+                self.imshow_lander(extent=axStyle[0], alpha=0.4, ax=ax)
 
 
-                ax.axis(axes[0])
+                # _ = self.plot_trajectories( q_func, T=100, states=self.visual_initial_states, ax=ax)
+
+                ax.axis(axStyle[0])
                 ax.grid(False)
-                ax.set_aspect(axes[1])  # makes equal aspect ratio
+                ax.set_aspect(axStyle[1])  # makes equal aspect ratio
                 if labels is not None:
                     ax.set_xlabel(labels[0], fontsize=52)
                     ax.set_ylabel(labels[1], fontsize=52)
@@ -411,11 +436,88 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
                                left=False, right=False)    # ticks along the left and right edges are off
                 ax.set_xticklabels([])
                 ax.set_yticklabels([])
-
+                if trueRAZero:
+                    return
+        plt.tight_layout()
 
         if not no_show:
             plt.show()
 
+    def get_warmup_examples(self, num_warmup_samples=100, s_margin=True):
+
+        rv = np.random.uniform(low=self.bounds_simulation[:, 0],
+                               high=self.bounds_simulation[:, 1],
+                               size=(num_warmup_samples, self.total_obs_dim))
+
+        heuristic_v = np.zeros((num_warmup_samples, self.action_space.n))
+        states = np.zeros((num_warmup_samples, self.observation_space.shape[0]))
+
+        for i in range(num_warmup_samples):
+            s = np.array(rv[i, :])
+            if s_margin:
+                g_x = self.safety_margin(s)
+                heuristic_v[i, :] = g_x
+                states[i, :] = self.simulator_scale_to_obs_scale(s)
+            else:
+                l_x = self.target_margin(s)
+                g_x = self.safety_margin(s)
+                heuristic_v[i, :] = np.maximum(l_x, g_x)
+                states[i, :] = self.simulator_scale_to_obs_scale(s)
+
+        return states, heuristic_v
+
+    def confusion_matrix(self, q_func, num_states=50):
+
+        confusion_matrix = np.array([[0.0, 0.0], [0.0, 0.0]])
+        for ii in range(num_states):
+            _, _, result, initial_q = self.simulate_one_trajectory(
+                q_func, T=1000, init_q=True)
+            assert (result == 1) or (result == -1)
+            # print(initial_q, " ", result)
+            # note that signs are inverted
+            if -int(np.sign(initial_q)) == np.sign(result):
+                if np.sign(result) == 1:
+                    # True Positive. (reaches and it predicts so)
+                    confusion_matrix[0, 0] += 1.0
+                elif np.sign(result) == -1:
+                    # True Negative. (collides and it predicts so)
+                    confusion_matrix[1, 1] += 1.0
+            else:
+                if np.sign(result) == 1:
+                    # False Positive.(reaches target, predicts it will collide)
+                    confusion_matrix[0, 1] += 1.0
+                elif np.sign(result) == -1:
+                    # False Negative.(collides, predicts it will reach target)
+                    confusion_matrix[1, 0] += 1.0
+        return confusion_matrix / num_states
+
+    def scatter_actions(self, q_func, num_states=50):
+        rv = np.random.uniform(low=self.bounds_simulation[:, 0],
+                               high=self.bounds_simulation[:, 1],
+                               size=(num_states, self.total_obs_dim))
+        rv[:, 2:] = 0
+        for ii in range(num_states):
+            s = np.array(rv[ii, :])
+            g_x = self.safety_margin(s)
+            if g_x < 0:
+                obs = self.simulator_scale_to_obs_scale(s)
+
+                state_tensor = torch.FloatTensor(obs).to(self.device).unsqueeze(0)
+                action_index = q_func(state_tensor).min(dim=1)[1].item()
+                # action_index = q_func(state_tensor).sort()[1][0, 1].item()
+
+                if action_index == 0:   # Nothing
+                    plt.plot(rv[ii, 0], rv[ii, 1], "r*")
+                elif action_index == 1:  # Left
+                    plt.plot(rv[ii, 0], rv[ii, 1], "g*")
+                elif action_index == 2:  # Main
+                    plt.plot(rv[ii, 0], rv[ii, 1], "b*")
+                elif action_index == 3:  # Right
+                    plt.plot(rv[ii, 0], rv[ii, 1], "y*")
+
+    def render(self, mode='human', plot_landers=True):
+        return super().render(mode, plot_landers=plot_landers,
+                              target=self.polygon_target)
 
 # class RandomAlias:
 #     # Note: This is a little hacky. The LunarLander uses the instance attribute self.np_random to

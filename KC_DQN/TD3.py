@@ -171,7 +171,7 @@ class TD3(ActorCritic):
             dtype=torch.bool).to(self.device)
         non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None]).to(self.device)
         state  = torch.FloatTensor(batch.s).to(self.device)
-        action = torch.LongTensor(batch.a).to(self.device).view(-1,1)
+        action = torch.LongTensor(batch.a).to(self.device).view(-1, self.actionSpace.shape[0])
         reward = torch.FloatTensor(batch.r).to(self.device)
 
         g_x = torch.FloatTensor([info['g_x'] for info in batch.info]).to(self.device).view(-1)

@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-
 from warnings import simplefilter
 simplefilter(action='ignore', category=FutureWarning)
 
@@ -19,8 +17,8 @@ import pickle
 import os.path
 import glob
 
-from KC_DQN.DDQNSingle import DDQNSingle
-from KC_DQN.config import dqnConfig
+from KC_DQN.TD3 import TD3
+from KC_DQN.config import actorCriticConfig
 
 import time
 timestr = time.strftime("%Y-%m-%d-%H_%M_%S")
@@ -38,7 +36,7 @@ parser.add_argument("-te",  "--toEnd",          help="stop until reaching bounda
 parser.add_argument("-ab",  "--addBias",        help="add bias term for RA",            action="store_true")
 parser.add_argument("-ma",  "--maxAccess",      help="maximal number of access",        default=4e6,  type=int)
 parser.add_argument("-ms",  "--maxSteps",       help="maximal length of rollouts",      default=100,  type=int)
-parser.add_argument("-cp",  "--check_period",   help="check the success ratio",         default=50000,  type=int)
+parser.add_argument("-cp",  "--check_period",   help="check the success ratio",         default=10000,  type=int)
 parser.add_argument("-upe",  "--update_period_eps",    help="update period for eps scheduler",     default=int(4e6/20),  type=int)
 parser.add_argument("-upg",  "--update_period_gamma",  help="update period for gamma scheduler",   default=int(4e6/20),  type=int)
 parser.add_argument("-upl",  "--update_period_lr",     help="update period for lr cheduler",       default=int(4e6/20),  type=int)
@@ -50,7 +48,7 @@ parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",        
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-4,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",          default=0.9,    type=float)
 parser.add_argument("-e",   "--eps",            help="exploration coeff.",          default=0.5,   type=float)
-parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[512, 512],  nargs="*", type=int)
+parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[100,20],  nargs="*", type=int)
 parser.add_argument("-act", "--activation",     help="activation function",         default='Tanh', type=str)
 parser.add_argument("-skp", "--skip",           help="skip connections",            action="store_true")
 parser.add_argument("-dbl", "--double",         help="double DQN",                  action="store_true")
@@ -81,12 +79,12 @@ def save_frames_as_gif(frames, path='./', filename='gym_animation.gif'):
 
 # == CONFIGURATION ==
 env_name = "one_player_reach_avoid_lunar_lander-v0"
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = "cpu"  #torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 reward = -1
 penalty = 0.1
 
-CONFIG = dqnConfig(
+CONFIG = actorCriticConfig(
             ENV_NAME=env_name,
             DEVICE=device,
             MAX_UPDATES=args.maxAccess,  # Number of grad updates.
@@ -99,23 +97,26 @@ CONFIG = dqnConfig(
             EPS_RESET_PERIOD=args.update_period_gamma,
             # =================== LEARNING RATE PARAMS.
             LR_C=args.learningRate,  # Learning rate.
-            LR_C_END=args.learningRate * 0.1,           # Final learning rate.
+            LR_C_END=args.learningRate,           # Final learning rate.
             LR_C_PERIOD=args.update_period_lr,  # How often to update lr.
             LR_C_DECAY=0.9,          # Learning rate decay rate.
+            LR_A=args.learningRate,
+            LR_A_END=args.learningRate,
+            LR_A_PERIOD=args.update_period_lr,
+            LR_A_DECAY=0.9,
             # =================== LEARNING RATE .
-            GAMMA=args.gamma,         # Inital gamma.
-            GAMMA_END=0.9999999,    # Final gamma.
+            GAMMA=0.999,# args.gamma,         # Inital gamma.
+            GAMMA_END=0.999,    # Final gamma.
             GAMMA_PERIOD=args.update_period_gamma,  # How often to update gamma.
             GAMMA_DECAY=0.9,         # Rate of decay of gamma.
             # ===================
-            TAU=0.01,
+            TAU=0.05,
             HARD_UPDATE=1,
             SOFT_UPDATE=True,
-            MEMORY_CAPACITY=150000,   # Number of transitions in replay buffer.
+            MEMORY_CAPACITY=100000,   # Number of transitions in replay buffer.
             BATCH_SIZE=args.batchsize,          # Number of examples to use to update Q.
             RENDER=False,
             MAX_MODEL=10,            # How many models to store while training.
-            DOUBLE=args.double,
             # ADDED by vrubies
             ARCHITECTURE=args.architecture,
             ACTIVATION=args.activation,
@@ -130,23 +131,26 @@ def report_config(CONFIG):
 
 
 # == ENVIRONMENT ==
-env = gym.make(env_name, device=device, mode="RA", doneType='toThreshold',
-               obstacle_sampling=True)
+env = gym.make(env_name, device=device, mode="RA", discrete=False)
 env.set_costParam(penalty=CONFIG.PENALTY, reward=CONFIG.REWARD)
 
 # == EXPERIMENT ==
 def multi_experiment(seedNum, args, CONFIG, env, report_period=1000, skip=False):
     # == AGENT ==
     s_dim = env.observation_space.shape[0]
-    numAction = env.action_space.n
+    numAction = env.action_space.shape[0]
     actionList = np.arange(numAction)
-    dimList = [s_dim] + args.architecture + [numAction]
+
+    dimListActor = [s_dim] + args.architecture + [numAction]
+    dimListCritic = [s_dim + numAction] + args.architecture + [1]
+    dimLists = [dimListCritic, dimListActor]
 
     env.set_seed(seedNum)
     np.random.seed(seedNum)
-    agent = DDQNSingle(CONFIG, numAction, actionList, dimList,
-                       mode='RA', actType=args.activation,
-                       skip=skip)
+    torch.manual_seed(seedNum)
+
+    agent = TD3(CONFIG, env.action_space, dimLists, actType={'critic':'Sin', 'actor':'ReLU'},
+                verbose=True)
 
     # If *true* episode ends when gym environment gives done flag.
     # If *false* end
@@ -157,8 +161,8 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period=1000, skip=False)
         MAX_UPDATES=CONFIG.MAX_UPDATES,  # 6000000 for Dubins
         MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
         warmupBuffer=True,
-        warmupQ=True,  # Need to implement inside env.
-        warmupIter=10000,
+        warmupQ=False,  # Need to implement inside env.
+        warmupIter=15000,
         addBias=False,  # args.addBias,
         doneTerminate=True,
         runningCostThr=None,
@@ -171,8 +175,7 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period=1000, skip=False)
         vmax=1,
         checkPeriod=args.check_period,  # How often to compute Safe vs. Unsafe.
         storeFigure=False,  # Store the figure in an eps file.
-        storeModel=True,
-        storeBest=False,
+        storeModel=False,
         # randomPlot=True,  # Plot from random starting points.
         outFolder=args.outFolder,
         verbose=True)
@@ -252,28 +255,4 @@ if args.test:
     test_experiment(args, CONFIG, env, path1,
                     doneType='toThreshold', sim_only=False)
 else:
-    multi_experiment(0, args, CONFIG, env, skip=args.skip)
-
-# == TESTING ==
-
-# trainProgressList = []
-# L = args.num_test
-# nThr = args.num_worker
-# for ith in range( int(L/(nThr+1e-6))+1 ):
-#     print('{} / {}'.format(ith+1, int(L/(nThr+1e-6))+1) )
-#     with Pool(processes = nThr) as pool:
-#         seedList = list(range(ith*nThr, min(L, (ith+1)*nThr) ))
-#         argsList = [args]*len(seedList)
-#         configList = [CONFIG]*len(seedList)
-#         envList = [env]*len(seedList)
-#         reportPeriodList = [update_period]*len(seedList)
-#         trainProgress_i = pool.starmap(multi_experiment, zip(seedList, argsList, configList, envList, reportPeriodList))
-#     trainProgressList = trainProgressList + trainProgress_i
-# print(trainProgressList)
-
-
-# == RECORD ==
-# import pickle
-# with open("figure/{:s}/{:s}.txt".format(args.outFolder,
-#                                         args.outFolder), "wb") as fp:
-#     pickle.dump(trainProgressList, fp)
+    multi_experiment(1, args, CONFIG, env, skip=args.skip)

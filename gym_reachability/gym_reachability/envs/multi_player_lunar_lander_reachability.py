@@ -78,10 +78,37 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
                  num_players=1,
                  observation_type='default',
                  param_dict={},
-                 rnd_seed=0):
+                 rnd_seed=0,
+                 doneType='toFailureOrSuccess',
+                 obstacle_sampling=False,
+                 discrete=True):
+        """
+        __init__
 
+        Args:
+            device (torch.device, optional): CPU or GPU.
+                Defaults to CPU.
+            num_players (int, optional): number of lunar landers.
+                Defaults to 1.
+            observation_type (string, optional): type of observations available
+                    to the players.
+                Defaults to 'default'.
+                Additional options: 'LiDAR'.
+            param_dict (dict, optional): dictionary to set simulation params.
+                Defaults to empty dict.
+            rnd_seed (int, optional): random seed.
+                Defaults to 0.
+            doneType (string, optional): type of end-of-trajectory condition.
+                Defaults to 'toFailureOrSuccess'.
+                Additional Options: 'toEnd' (to outer env boundary),
+                                    'toThreshold' (to specific g thr. value),
+                                    'toDone' (to collision or done flag true).
+        """
+
+        self.discrete = discrete
         self.param_dict = self._generate_param_dict(param_dict)
         self.initialize_simulator_variables(self.param_dict)
+        self.set_costParam(penalty=1, reward=-1)
         # in LunarLander init() calls reset() which calls step() so some variables need
         # to be set up before calling init() to prevent problems from variables not being defined
         self.num_players = num_players
@@ -121,7 +148,11 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         # Actions.
         self.one_player_act_dim = 4
         self.total_act_dim = self.one_player_act_dim ** self.num_players
-        self.action_space = spaces.Discrete(self.total_act_dim)
+        if discrete:
+            self.action_space = spaces.Discrete(self.total_act_dim)
+        else:
+            self.action_space = gym.spaces.Box(np.array([0.0, -1.0]),
+                                               np.array([1.0, 1.0]))
         self.bounds_simulation_one_player = np.array([
             [0, self.W],
             [0, self.H],
@@ -144,6 +175,9 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             self.bounds_simulation[:, 0].T)
         self.bounds_observation[:, 1] = self.simulator_scale_to_obs_scale(
             self.bounds_simulation[:, 1].T)
+
+        self.doneType = doneType
+        self.sio = obstacle_sampling
 
         self.reset()
 
@@ -335,7 +369,8 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             leg.joint = self.world.CreateJoint(rjd)
             self.legs[key].append(leg)
 
-    def generate_terrain_and_landers(self, terrain_polyline=None):
+    def generate_terrain_and_landers(self, terrain_polyline=None,
+        sample_inside_obs=False):
         # self.chunk_x = [self.W/(self.CHUNKS-1)*i for i in range(self.CHUNKS)]
         # self.helipad_x1 = self.chunk_x[self.CHUNKS//2-1]
         # self.helipad_x2 = self.chunk_x[self.CHUNKS//2+1]
@@ -360,6 +395,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.moon = self.world.CreateStaticBody(
             shapes=edgeShape(vertices=[(0, 0), (self.W, 0)]))
         self.sky_polys = []
+        self.moon_chunk = []
         obstacle_polyline = [(self.chunk_x[0], smooth_y[0])]
         for i in range(self.CHUNKS-1):
             p1 = (self.chunk_x[i], smooth_y[i])
@@ -370,18 +406,21 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
                 density=0,
                 friction=0.1)
             self.sky_polys.append([p1, p2, (p2[0], self.H), (p1[0], self.H)])
+            self.moon_chunk.append([p1, p2, (p2[0], 0), (p1[0], 0)])
         # Enclose terrain within window.
         obstacle_polyline.append((self.W, self.H))
         obstacle_polyline.append((0, self.H))
         obstacle_polyline.append(obstacle_polyline[0])
         self.obstacle_polyline = Polygon(obstacle_polyline)
+        self.paint_obstacle = obstacle_polyline
 
-        self.moon.color1 = (0.0, 0.0, 0.0)
-        self.moon.color2 = (0.0, 0.0, 0.0)
+        self.moon.color1 = (0.6, 0.6, 0.6)
+        self.moon.color2 = (0.6, 0.6, 0.6)
 
         # Instantiate the Landers in random initial states.
         initial_states = [
-            self.rejection_sample() for _ in range(self.num_players)]
+            self.rejection_sample(sample_inside_obs)
+            for _ in range(self.num_players)]
         self.drawlist = []
         for ii, initial_state in enumerate(initial_states):
             self.generate_lander(initial_state, ii)
@@ -399,10 +438,13 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             for ii in range(self.num_players):
                 self.lidar[ii] = [LidarCallback() for _ in range(10)]
 
-        s, _, _, _ = self.step(0)
+        if self.discrete:
+            s, _, _, _ = self.step(0)
+        else:
+            s, _, _, _ = self.step(np.array([0.0, 0.0]))
         return s
 
-    def rejection_sample(self):
+    def rejection_sample(self, sample_inside_obs=False):
         flag_sample = False
         while not flag_sample:
             xy_sample = np.random.uniform(low=[0,
@@ -411,20 +453,23 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
                                                 self.H])
             flag_sample = self.obstacle_polyline.contains(
                 Point(xy_sample[0], xy_sample[1]))
+            if sample_inside_obs:
+                break
         return xy_sample
 
     def _destroy(self):
-        if not self.moon:
-            return
-        self.world.contactListener = None
-        self._clean_particles(True)
-        self.world.DestroyBody(self.moon)
-        self.moon = None
-        for ii, _ in enumerate(self.lander):
-            self.world.DestroyBody(self.lander[ii])
-            self.lander[ii] = None
-            self.world.DestroyBody(self.legs[ii][0])
-            self.world.DestroyBody(self.legs[ii][1])
+        if self.moon is not None:
+            self.world.contactListener = None
+            self._clean_particles(True)
+            self.world.DestroyBody(self.moon)
+            self.moon = None
+        if len(self.lander) > 0 and any(
+                [l is not None for l in self.lander]):
+            for ii, _ in enumerate(self.lander):
+                self.world.DestroyBody(self.lander[ii])
+                self.lander[ii] = None
+                self.world.DestroyBody(self.legs[ii][0])
+                self.world.DestroyBody(self.legs[ii][1])
 
     def reset(self, state_in=None, terrain_polyline=None):
         """
@@ -440,7 +485,13 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         # This returns something in --> observation self.SCALE <--.
 
         s = self.generate_terrain_and_landers(
-            terrain_polyline=terrain_polyline)
+            terrain_polyline=terrain_polyline, sample_inside_obs=self.sio)
+        # When 'toThreshold' is enabled we need to remove obstacles.
+        if self.doneType is 'toThreshold' or self.doneType is 'toFailureOrSuccess':
+            self.world.contactListener = None
+            self._clean_particles(True)
+            self.world.DestroyBody(self.moon)
+            self.moon = None
 
 
         # Rewrite internal lander variables in --> simulation self.SCALE <--.
@@ -469,8 +520,9 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         return s
 
     def parent_step(self, action, key):
-        # Action needs to be single action 0-3.
-        assert self.action_space.contains(action), "%r (%s) invalid " % (action, type(action))
+        if self.discrete:
+            # Action needs to be single action 0-3.
+            assert self.action_space.contains(action), "%r (%s) invalid " % (action, type(action))
 
         # Engines
         tip  = (math.sin(self.lander[key].angle), math.cos(self.lander[key].angle))
@@ -489,7 +541,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
                     self.lidar[key][ii].p1, self.lidar[key][ii].p2)
 
         m_power = 0.0
-        if action == 2:
+        if self.discrete and action == 2:
             # Main engine
             m_power = 1.0
             ox = tip[0] * 4/self.SCALE  # 4 is move a bit downwards, +-2 for randomness
@@ -505,9 +557,24 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             self.lander[key].ApplyLinearImpulse((-ox * self.MAIN_ENGINE_POWER * m_power, -oy * self.MAIN_ENGINE_POWER * m_power),
                                            impulse_pos,
                                            True)
+        elif not self.discrete:
+            m_power = action[0]  # Main engine's action is in the 0-th position.
+            ox = tip[0] * 4/self.SCALE  # 4 is move a bit downwards, +-2 for randomness
+            oy = -tip[1] * 4/self.SCALE
+            impulse_pos = (self.lander[key].position[0] + ox, self.lander[key].position[1] + oy)
+            p = self._create_particle(3.5,  # 3.5 is here to make particle speed adequate
+                                      impulse_pos[0],
+                                      impulse_pos[1],
+                                      m_power)  # particles are just a decoration
+            p.ApplyLinearImpulse((ox * self.MAIN_ENGINE_POWER * m_power, oy * self.MAIN_ENGINE_POWER * m_power),
+                                 impulse_pos,
+                                 True)
+            self.lander[key].ApplyLinearImpulse((-ox * self.MAIN_ENGINE_POWER * m_power, -oy * self.MAIN_ENGINE_POWER * m_power),
+                                           impulse_pos,
+                                           True)
 
         s_power = 0.0
-        if action in [1, 3]:
+        if self.discrete and action in [1, 3]:
             # Orientation engines
             direction = action-2
             s_power = 1.0
@@ -522,16 +589,26 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             self.lander[key].ApplyLinearImpulse((-ox * self.SIDE_ENGINE_POWER * s_power, -oy * self.SIDE_ENGINE_POWER * s_power),
                                            impulse_pos,
                                            True)
-
-        self.world.Step(1.0/self.FPS, 6*30, 2*30)
+        elif not self.discrete:
+            s_power = action[1]  # Side engines power in 1-st position.
+            ox = side[0] * np.sign(s_power) * self.SIDE_ENGINE_AWAY/self.SCALE
+            oy = side[1] * np.sign(s_power) * self.SIDE_ENGINE_AWAY/self.SCALE
+            impulse_pos = (self.lander[key].position[0] + ox - tip[0] * 17/self.SCALE,
+                           self.lander[key].position[1] + oy + tip[1] * self.SIDE_ENGINE_HEIGHT/self.SCALE)
+            p = self._create_particle(0.7, impulse_pos[0], impulse_pos[1], s_power)
+            p.ApplyLinearImpulse((ox * self.SIDE_ENGINE_POWER * s_power, oy * self.SIDE_ENGINE_POWER * s_power),
+                                 impulse_pos, True)
+            self.lander[key].ApplyLinearImpulse((-ox * self.SIDE_ENGINE_POWER * s_power, -oy * self.SIDE_ENGINE_POWER * s_power),
+                                           impulse_pos,
+                                           True)
 
         pos = self.lander[key].position
         vel = self.lander[key].linearVelocity
         state = [
-            (pos.x - self.VIEWPORT_W/self.SCALE/2) / (self.VIEWPORT_W/self.SCALE/2),
-            (pos.y - (self.HELIPAD_Y+self.LEG_DOWN/self.SCALE)) / (self.VIEWPORT_H/self.SCALE/2),
-            vel.x*(self.VIEWPORT_W/self.SCALE/2)/self.FPS,
-            vel.y*(self.VIEWPORT_H/self.SCALE/2)/self.FPS,
+            (pos.x - self.W/2) / (self.W/2),
+            (pos.y - (self.HELIPAD_Y+self.LEG_DOWN/self.SCALE)) / (self.H/2),
+            vel.x*(self.W/2)/self.FPS,
+            vel.y*(self.H/2)/self.FPS,
             self.lander[key].angle,
             20.0*self.lander[key].angularVelocity/self.FPS,
             1.0 if self.legs[key][0].ground_contact else 0.0,
@@ -551,10 +628,12 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.prev_shaping = shaping
 
         reward -= m_power*0.30  # less fuel spent is better, about -30 for heuristic landing
-        reward -= s_power*0.03
+        reward -= np.abs(s_power)*0.03
 
         done = False
-        if self.game_over or abs(state[0]) >= 1.0:
+        if (self.game_over or
+            self.legs[key][0].ground_contact or
+                self.legs[key][1].ground_contact):
             done = True
             reward = -100
         if not self.lander[key].awake:
@@ -569,8 +648,17 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         l_x_cur = self.target_margin(self.sim_state)
         g_x_cur = self.safety_margin(self.sim_state)
 
-        # Transform decimal action to individual player actions.
-        actions = self.decimal_actions_to_player_actions(action)
+        # Fail or Success?
+        fail = g_x_cur > 0
+        success = l_x_cur <= 0
+
+        if self.discrete:
+            # Transform decimal action to individual player actions.
+            actions = self.decimal_actions_to_player_actions(action)
+        else:
+            actions = [action[
+                ii*self.one_player_act_dim:(ii+1)*self.one_player_act_dim]
+                for ii in range(self.num_players)]
 
         state_list = []
         reward_list = []
@@ -584,16 +672,39 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             done_list.append(done_ii)
             info_list.append(info_ii)
         self.obs_state = np.concatenate(state_list)
-
         self.sim_state = self.obs_scale_to_simulator_scale(self.obs_state)
 
         l_x_nxt = self.target_margin(self.sim_state)
         g_x_nxt = self.safety_margin(self.sim_state)
 
-        done = np.any(done_list)
+        done = False
+        if self.doneType is 'toFailureOrSuccess' or self.doneType is 'toDone':
+            if fail:
+                done = True
+                info = {"g_x": self.penalty, "l_x": l_x_cur,
+                        "g_x_nxt": self.penalty, "l_x_nxt": l_x_nxt}
+            if success:
+                done = True
+                info = {"g_x": g_x_cur, "l_x": self.reward,
+                        "g_x_nxt": g_x_nxt, "l_x_nxt": self.reward}
+            if self.doneType is 'toDone' and np.any(done_list):
+                done = True
+                info = {"g_x": g_x_cur,  "l_x": l_x_cur,
+                        "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
+        elif self.doneType is 'toThreshold':
+            if g_x_cur > self.penalty:  # or success:
+                done = True
+                info = {"g_x": g_x_cur,  "l_x": l_x_cur,
+                        "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
+        elif self.doneType is 'toEnd':
+            # Not implemented.
+            pass
 
-        info = {"g_x": g_x_cur,  "l_x": l_x_cur, "g_x_nxt": g_x_nxt,
-                "l_x_nxt": l_x_nxt}
+        # If done flag has not triggered, just collect normal info.
+        if not done:
+            info = {"g_x": g_x_cur,  "l_x": l_x_cur,
+                    "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
+
         return np.copy(self.obs_state), 0, done, info
 
     def _create_particle(self, mass, x, y, ttl):
@@ -617,8 +728,8 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         while self.particles and (all_ or self.particles[0].ttl < 0):
             self.world.DestroyBody(self.particles.pop(0))
 
+    # TODO(vrubies): Swap to
     def decimal_actions_to_player_actions(self, action):
-        print("Action in: ", action)
         base_actions = self.one_player_act_dim
         player_actions = []
         for ii in range(self.num_players - 1, -1, -1):
@@ -631,7 +742,6 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             action -= jj*base_actions**ii
             player_actions.append(jj)
         player_actions.reverse()
-        print("Action out: ", player_actions)
         return player_actions
 
     def target_margin(self, state):
@@ -646,10 +756,10 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         chg_dims = self.one_player_obs_dim
         x, y, x_dot, y_dot, theta, theta_dot = copy_state[:chg_dims]
         copy_state[:chg_dims] = np.array([
-            (x - self.VIEWPORT_W / self.SCALE / 2) / (self.VIEWPORT_W / self.SCALE / 2),
-            (y - (self.HELIPAD_Y + self.LEG_DOWN/self.SCALE)) / (self.VIEWPORT_H / self.SCALE / 2),
-            x_dot * (self.VIEWPORT_W / self.SCALE / 2) / self.FPS,
-            y_dot * (self.VIEWPORT_H / self.SCALE / 2) / self.FPS,
+            (x - self.W / 2) / (self.W / 2),
+            (y - (self.HELIPAD_Y + self.LEG_DOWN/self.SCALE)) / (self.H / 2),
+            x_dot * (self.W / 2) / self.FPS,
+            y_dot * (self.H / 2) / self.FPS,
             theta,
             20.0*theta_dot / self.FPS], dtype=np.float32)  # theta_dot])
         return copy_state
@@ -668,10 +778,10 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         chg_dims = self.one_player_obs_dim
         x, y, x_dot, y_dot, theta, theta_dot = copy_state[:chg_dims]
         copy_state[:chg_dims] = np.array([
-            (x * (self.VIEWPORT_W / self.SCALE / 2)) + (self.VIEWPORT_W / self.SCALE / 2),
-            (y * (self.VIEWPORT_H / self.SCALE / 2)) + (self.HELIPAD_Y + self.LEG_DOWN/self.SCALE),
-            x_dot / ((self.VIEWPORT_W / self.SCALE / 2) / self.FPS),
-            y_dot / ((self.VIEWPORT_H / self.SCALE / 2) / self.FPS),
+            (x * (self.W / 2)) + (self.W / 2),
+            (y * (self.H / 2)) + (self.HELIPAD_Y + self.LEG_DOWN/self.SCALE),
+            x_dot / ((self.W / 2) / self.FPS),
+            y_dot / ((self.H / 2) / self.FPS),
             theta,
             theta_dot * self.FPS / 20.0], dtype=np.float64)  # theta_dot])
         return copy_state
@@ -695,7 +805,14 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.seed_val = seed
         np.random.seed(self.seed_val)
 
-    def render(self, mode='human'):
+    def set_doneType(self, doneType):
+        self.doneType = doneType
+
+    def set_costParam(self, penalty=1, reward=-1):
+        self.penalty = penalty
+        self.reward = reward
+
+    def render(self, mode='human', plot_landers=True, **kwargs):
         from gym.envs.classic_control import rendering
         if self.viewer is None:
             self.viewer = rendering.Viewer(self.VIEWPORT_W, self.VIEWPORT_H)
@@ -710,32 +827,44 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
 
         for p in self.sky_polys:
             self.viewer.draw_polygon(p, color=(0, 0, 0))
+        # for p in self.moon_chunk:
+        #     self.viewer.draw_polygon(p, color=(0.5, 0.5, 0.5))
 
-        if self.observation_type == "LiDAR":
-            for ii in range(self.num_players):
-                for l in self.lidar[ii]:
-                    self.viewer.draw_polyline(
-                        [l.p1, l.p2], color=(1, 0, 0), linewidth=2)
+        if plot_landers:
+            if self.observation_type == "LiDAR":
+                for ii in range(self.num_players):
+                    for l in self.lidar[ii]:
+                        self.viewer.draw_polyline(
+                            [l.p1, l.p2], color=(1, 0, 0), linewidth=2)
 
-        for obj in self.particles + self.drawlist:
-            for f in obj.fixtures:
-                trans = f.body.transform
-                if type(f.shape) is circleShape:
-                    t = rendering.Transform(translation=trans*f.shape.pos)
-                    self.viewer.draw_circle(f.shape.radius, 20, color=obj.color1).add_attr(t)
-                    self.viewer.draw_circle(f.shape.radius, 20, color=obj.color2, filled=False, linewidth=2).add_attr(t)
-                else:
-                    path = [trans*v for v in f.shape.vertices]
-                    self.viewer.draw_polygon(path, color=obj.color1)
-                    path.append(path[0])
-                    self.viewer.draw_polyline(path, color=obj.color2, linewidth=2)
+            for obj in self.particles + self.drawlist:
+                for f in obj.fixtures:
+                    trans = f.body.transform
+                    if type(f.shape) is circleShape:
+                        t = rendering.Transform(translation=trans*f.shape.pos)
+                        self.viewer.draw_circle(f.shape.radius, 20,
+                                                color=obj.color1).add_attr(t)
+                        self.viewer.draw_circle(f.shape.radius, 20,
+                                                color=obj.color2, filled=False,
+                                                linewidth=2).add_attr(t)
+                    else:
+                        path = [trans*v for v in f.shape.vertices]
+                        self.viewer.draw_polygon(path, color=obj.color1)
+                        path.append(path[0])
+                        self.viewer.draw_polyline(path, color=obj.color2,
+                                                  linewidth=2)
 
         for x in [self.helipad_x1, self.helipad_x2]:
             flagy1 = self.HELIPAD_Y
             flagy2 = flagy1 + 50/self.SCALE
-            self.viewer.draw_polyline([(x, flagy1), (x, flagy2)], color=(1, 1, 1))
+            self.viewer.draw_polyline([(x, flagy1), (x, flagy2)], color=(0, 0, 0))
             self.viewer.draw_polygon([(x, flagy2), (x, flagy2-10/self.SCALE), (x + 25/self.SCALE, flagy2 - 5/self.SCALE)],
                                      color=(0.8, 0.8, 0))
+
+        self.viewer.draw_polyline(self.paint_obstacle, color=(1, 0, 0), linewidth=10)
+
+        for key, value in kwargs.items():
+            self.viewer.draw_polyline(value, color=(0, 1, 0), linewidth=10)
 
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
 

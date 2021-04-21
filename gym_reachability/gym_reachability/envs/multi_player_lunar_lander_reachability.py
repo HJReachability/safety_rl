@@ -148,11 +148,14 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         # Actions.
         self.one_player_act_dim = 4
         self.total_act_dim = self.one_player_act_dim ** self.num_players
-        if discrete:
+        if self.discrete:
             self.action_space = spaces.Discrete(self.total_act_dim)
         else:
-            self.action_space = gym.spaces.Box(np.array([0.0, -1.0]),
-                                               np.array([1.0, 1.0]))
+            # Action is two floats [main engine, left-right engines].
+            # Main engine: -1..0 off, 0..+1 throttle from 50% to 100% power. Engine can't work with less than 50% power.
+            # Left-right:  -1.0..-0.5 fire left engine, +0.5..+1.0 fire right engine, -0.5..0.5 off
+            self.action_space = spaces.Box(-1, +1, (self.total_act_dim,),
+                                           dtype=np.float32)
         self.bounds_simulation_one_player = np.array([
             [0, self.W],
             [0, self.H],
@@ -541,24 +544,13 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
                     self.lidar[key][ii].p1, self.lidar[key][ii].p2)
 
         m_power = 0.0
-        if self.discrete and action == 2:
+        if (not self.discrete and action[0] > 0.0) or (self.discrete and action == 2):
             # Main engine
-            m_power = 1.0
-            ox = tip[0] * 4/self.SCALE  # 4 is move a bit downwards, +-2 for randomness
-            oy = -tip[1] * 4/self.SCALE
-            impulse_pos = (self.lander[key].position[0] + ox, self.lander[key].position[1] + oy)
-            p = self._create_particle(3.5,  # 3.5 is here to make particle speed adequate
-                                      impulse_pos[0],
-                                      impulse_pos[1],
-                                      m_power)  # particles are just a decoration
-            p.ApplyLinearImpulse((ox * self.MAIN_ENGINE_POWER * m_power, oy * self.MAIN_ENGINE_POWER * m_power),
-                                 impulse_pos,
-                                 True)
-            self.lander[key].ApplyLinearImpulse((-ox * self.MAIN_ENGINE_POWER * m_power, -oy * self.MAIN_ENGINE_POWER * m_power),
-                                           impulse_pos,
-                                           True)
-        elif not self.discrete:
-            m_power = action[0]  # Main engine's action is in the 0-th position.
+            if not self.discrete:
+                m_power = (np.clip(action[0], 0.0,1.0) + 1.0)*0.5   # 0.5..1.0
+                assert m_power >= 0.5 and m_power <= 1.0
+            else:
+                m_power = 1.0
             ox = tip[0] * 4/self.SCALE  # 4 is move a bit downwards, +-2 for randomness
             oy = -tip[1] * 4/self.SCALE
             impulse_pos = (self.lander[key].position[0] + ox, self.lander[key].position[1] + oy)
@@ -574,10 +566,15 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
                                            True)
 
         s_power = 0.0
-        if self.discrete and action in [1, 3]:
+        if (not self.discrete and np.abs(action[1]) > 0.5) or (self.discrete and action in [1, 3]):
             # Orientation engines
-            direction = action-2
-            s_power = 1.0
+            if not self.discrete:
+                direction = np.sign(action[1])
+                s_power = np.clip(np.abs(action[1]), 0.5, 1.0)
+                assert s_power >= 0.5 and s_power <= 1.0
+            else:
+                direction = action-2
+                s_power = 1.0
             ox = side[0] * direction * self.SIDE_ENGINE_AWAY/self.SCALE
             oy = side[1] * direction * self.SIDE_ENGINE_AWAY/self.SCALE
             impulse_pos = (self.lander[key].position[0] + ox - tip[0] * 17/self.SCALE,
@@ -586,18 +583,6 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             p.ApplyLinearImpulse((ox * self.SIDE_ENGINE_POWER * s_power, oy * self.SIDE_ENGINE_POWER * s_power),
                                  impulse_pos
                                  , True)
-            self.lander[key].ApplyLinearImpulse((-ox * self.SIDE_ENGINE_POWER * s_power, -oy * self.SIDE_ENGINE_POWER * s_power),
-                                           impulse_pos,
-                                           True)
-        elif not self.discrete:
-            s_power = action[1]  # Side engines power in 1-st position.
-            ox = side[0] * np.sign(s_power) * self.SIDE_ENGINE_AWAY/self.SCALE
-            oy = side[1] * np.sign(s_power) * self.SIDE_ENGINE_AWAY/self.SCALE
-            impulse_pos = (self.lander[key].position[0] + ox - tip[0] * 17/self.SCALE,
-                           self.lander[key].position[1] + oy + tip[1] * self.SIDE_ENGINE_HEIGHT/self.SCALE)
-            p = self._create_particle(0.7, impulse_pos[0], impulse_pos[1], s_power)
-            p.ApplyLinearImpulse((ox * self.SIDE_ENGINE_POWER * s_power, oy * self.SIDE_ENGINE_POWER * s_power),
-                                 impulse_pos, True)
             self.lander[key].ApplyLinearImpulse((-ox * self.SIDE_ENGINE_POWER * s_power, -oy * self.SIDE_ENGINE_POWER * s_power),
                                            impulse_pos,
                                            True)

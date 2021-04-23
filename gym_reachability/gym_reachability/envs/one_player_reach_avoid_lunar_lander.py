@@ -42,7 +42,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
                  rnd_seed=0,
                  terrain=None,  # Used for world-related avoid set.
                  target_type='default',
-                 doneType='toEnd',
+                 doneType='toFailureOrSuccess',
                  obstacle_sampling=False,
                  discrete=True):
 

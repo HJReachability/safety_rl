@@ -146,7 +146,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             shape=(self.total_obs_dim,),
             dtype=np.float32)
         # Actions.
-        self.one_player_act_dim = 4
+        self.one_player_act_dim = 4 if self.discrete else 2
         self.total_act_dim = self.one_player_act_dim ** self.num_players
         if self.discrete:
             self.action_space = spaces.Discrete(self.total_act_dim)
@@ -441,11 +441,12 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             for ii in range(self.num_players):
                 self.lidar[ii] = [LidarCallback() for _ in range(10)]
 
-        if self.discrete:
-            s, _, _, _ = self.step(0)
-        else:
-            s, _, _, _ = self.step(np.array([0.0, 0.0]))
-        return s
+        # if self.discrete:
+        #     s, _, _, _ = self.step(0)
+        # else:
+        #     s, _, _, _ = self.step(np.array([0.0, 0.0]))
+        # return s
+        return self.step(np.array([0, 0]) if not self.discrete else 0)[0]
 
     def rejection_sample(self, sample_inside_obs=False):
         flag_sample = False
@@ -581,11 +582,13 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
                            self.lander[key].position[1] + oy + tip[1] * self.SIDE_ENGINE_HEIGHT/self.SCALE)
             p = self._create_particle(0.7, impulse_pos[0], impulse_pos[1], s_power)
             p.ApplyLinearImpulse((ox * self.SIDE_ENGINE_POWER * s_power, oy * self.SIDE_ENGINE_POWER * s_power),
-                                 impulse_pos
-                                 , True)
+                                 impulse_pos,
+                                 True)
             self.lander[key].ApplyLinearImpulse((-ox * self.SIDE_ENGINE_POWER * s_power, -oy * self.SIDE_ENGINE_POWER * s_power),
                                            impulse_pos,
                                            True)
+
+        self.world.Step(1.0/self.FPS, 6*30, 2*30)
 
         pos = self.lander[key].position
         vel = self.lander[key].linearVelocity
@@ -656,6 +659,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             reward_list.append(reward_ii)
             done_list.append(done_ii)
             info_list.append(info_ii)
+        self.world.Step(1.0/self.FPS, 6*30, 2*30)
         self.obs_state = np.concatenate(state_list)
         self.sim_state = self.obs_scale_to_simulator_scale(self.obs_state)
 
@@ -668,10 +672,10 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
                 done = True
                 info = {"g_x": self.penalty, "l_x": l_x_cur,
                         "g_x_nxt": self.penalty, "l_x_nxt": l_x_nxt}
-            if success:
-                done = True
-                info = {"g_x": g_x_cur, "l_x": self.reward,
-                        "g_x_nxt": g_x_nxt, "l_x_nxt": self.reward}
+            # if success:
+            #     done = True
+            #     info = {"g_x": g_x_cur, "l_x": self.reward,
+            #             "g_x_nxt": g_x_nxt, "l_x_nxt": self.reward}
             if self.doneType is 'toDone' and np.any(done_list):
                 done = True
                 info = {"g_x": g_x_cur,  "l_x": l_x_cur,
@@ -683,7 +687,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
                         "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
         elif self.doneType is 'toEnd':
             # Not implemented.
-            pass
+            assert False, "Not implemented yet!"
 
         # If done flag has not triggered, just collect normal info.
         if not done:

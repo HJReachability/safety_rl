@@ -45,10 +45,10 @@ parser.add_argument("-upl",  "--update_period_lr",     help="update period for l
 parser.add_argument("-r",   "--reward",         help="when entering target set",    default=-1,     type=float)
 parser.add_argument("-p",   "--penalty",        help="when entering failure set",   default=1,      type=float)
 parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",            default=1,      type=float)
-parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-4,   type=float)
+parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",          default=0.9,    type=float)
 parser.add_argument("-e",   "--eps",            help="exploration coeff.",          default=0.5,   type=float)
-parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[100,20],  nargs="*", type=int)
+parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[30,20],  nargs="*", type=int)
 parser.add_argument("-act", "--activation",     help="activation function",         default='Tanh', type=str)
 parser.add_argument("-skp", "--skip",           help="skip connections",            action="store_true")
 parser.add_argument("-dbl", "--double",         help="double DQN",                  action="store_true")
@@ -82,7 +82,7 @@ env_name = "one_player_reach_avoid_lunar_lander-v0"
 device = "cpu"  #torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 reward = -1
-penalty = 0.1
+penalty = 1
 
 CONFIG = actorCriticConfig(
             ENV_NAME=env_name,
@@ -131,7 +131,8 @@ def report_config(CONFIG):
 
 
 # == ENVIRONMENT ==
-env = gym.make(env_name, device=device, mode="RA", discrete=False)
+env = gym.make(env_name, device=device, mode="RA",
+               doneType='toFailureOrSuccess', discrete=False)
 env.set_costParam(penalty=CONFIG.PENALTY, reward=CONFIG.REWARD)
 
 # == EXPERIMENT ==

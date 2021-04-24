@@ -201,7 +201,7 @@ class ActorCritic(object):
         loss_pi = 0.0
         if timer % update_period == 0:
             loss_pi = self.update_actor(batch)
-            print('\r{:d}: ({:3.5f}/{:3.5f}): This episode.'.format(
+            print('\r{:d}: (q, pi) = ({:3.5f}/{:3.5f}).'.format(
                 self.cntUpdate, loss_q, loss_pi), end=' ')
 
         self.update_target_networks()

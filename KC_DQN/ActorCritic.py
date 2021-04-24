@@ -77,6 +77,7 @@ class ActorCritic(object):
             actorType (str): The type of actor model, Currently supports SAC, TD3.
             CONFIG (dict): configurations.
         """
+        self.saved = False
         self.actorType = actorType
         self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)
 
@@ -344,11 +345,15 @@ class ActorCritic(object):
         logs_path_actor = os.path.join(logs_path, 'actor/')
         save_model(self.critic, step, logs_path_critic, 'critic', self.MAX_MODEL)
         save_model(self.actor,  step, logs_path_actor, 'actor',  self.MAX_MODEL)
+        if not self.saved:
+            config_path = logs_path + "CONFIG.pkl"
+            pickle.dump(self.CONFIG, open(config_path, "wb"))
+            self.saved = True
 
 
     def restore(self, step, logs_path):
-        logs_path_critic = os.path.join(logs_path, 'critic/critic-{}.pth'.format(step))
-        logs_path_actor  = os.path.join(logs_path, 'actor/actor-{}.pth'.format(step))
+        logs_path_critic = os.path.join(logs_path, 'model/critic/critic-{}.pth'.format(step))
+        logs_path_actor  = os.path.join(logs_path, 'model/actor/actor-{}.pth'.format(step))
         self.critic.load_state_dict(
             torch.load(logs_path_critic, map_location=self.device))
         self.critic.to(self.device)

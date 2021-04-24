@@ -36,7 +36,7 @@ parser.add_argument("-te",  "--toEnd",          help="stop until reaching bounda
 parser.add_argument("-ab",  "--addBias",        help="add bias term for RA",            action="store_true")
 parser.add_argument("-ma",  "--maxAccess",      help="maximal number of access",        default=4e6,  type=int)
 parser.add_argument("-ms",  "--maxSteps",       help="maximal length of rollouts",      default=100,  type=int)
-parser.add_argument("-cp",  "--check_period",   help="check the success ratio",         default=10000,  type=int)
+parser.add_argument("-cp",  "--check_period",   help="check the success ratio",         default=50000,  type=int)
 parser.add_argument("-upe",  "--update_period_eps",    help="update period for eps scheduler",     default=int(4e6/20),  type=int)
 parser.add_argument("-upg",  "--update_period_gamma",  help="update period for gamma scheduler",   default=int(4e6/20),  type=int)
 parser.add_argument("-upl",  "--update_period_lr",     help="update period for lr cheduler",       default=int(4e6/20),  type=int)
@@ -48,7 +48,7 @@ parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",        
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",          default=0.9,    type=float)
 parser.add_argument("-e",   "--eps",            help="exploration coeff.",          default=0.5,   type=float)
-parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[30,20],  nargs="*", type=int)
+parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[100,100],  nargs="*", type=int)
 parser.add_argument("-act", "--activation",     help="activation function",         default='Tanh', type=str)
 parser.add_argument("-skp", "--skip",           help="skip connections",            action="store_true")
 parser.add_argument("-dbl", "--double",         help="double DQN",                  action="store_true")
@@ -81,6 +81,8 @@ def save_frames_as_gif(frames, path='./', filename='gym_animation.gif'):
 env_name = "one_player_reach_avoid_lunar_lander-v0"
 device = "cpu"  #torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+actor_act = 'Sin'
+critic_act = 'ReLU'
 reward = -1
 penalty = 1
 
@@ -105,8 +107,8 @@ CONFIG = actorCriticConfig(
             LR_A_PERIOD=args.update_period_lr,
             LR_A_DECAY=0.9,
             # =================== LEARNING RATE .
-            GAMMA=0.999,# args.gamma,         # Inital gamma.
-            GAMMA_END=0.999,    # Final gamma.
+            GAMMA=0.9999,# args.gamma,         # Inital gamma.
+            GAMMA_END=0.9999,    # Final gamma.
             GAMMA_PERIOD=args.update_period_gamma,  # How often to update gamma.
             GAMMA_DECAY=0.9,         # Rate of decay of gamma.
             # ===================
@@ -150,7 +152,7 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period=1000, skip=False)
     np.random.seed(seedNum)
     torch.manual_seed(seedNum)
 
-    agent = TD3(CONFIG, env.action_space, dimLists, actType={'critic':'Sin', 'actor':'ReLU'},
+    agent = TD3(CONFIG, env.action_space, dimLists, actType={'critic':critic_act, 'actor':actor_act},
                 verbose=True)
 
     # If *true* episode ends when gym environment gives done flag.
@@ -170,13 +172,13 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period=1000, skip=False)
         curUpdates=None,
         # toEnd=args.toEnd,
         # reportPeriod=report_period,  # How often to report Value function figs.
-        plotFigure=False,  # Display value function while learning.
+        plotFigure=True,  # Display value function while learning.
         showBool=False,  # Show boolean reach avoid set 0/1.
         vmin=-1,
         vmax=1,
         checkPeriod=args.check_period,  # How often to compute Safe vs. Unsafe.
-        storeFigure=False,  # Store the figure in an eps file.
-        storeModel=False,
+        storeFigure=True,  # Store the figure in an eps file.
+        storeModel=True,
         # randomPlot=True,  # Plot from random starting points.
         outFolder=args.outFolder,
         verbose=True)
@@ -186,15 +188,20 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period=1000, skip=False)
 def test_experiment(args, CONFIG, env, path, doneType='toFailureOrSuccess',
                     sim_only=False):
     s_dim = env.observation_space.shape[0]
-    numAction = env.action_space.n
+    numAction = env.action_space.shape[0]
     actionList = np.arange(numAction)
-    if ".pth" not in path:
-        model_list = glob.glob(os.path.join(path, '*.pth'))
-        max_step = max([int(li.split('/')[-1][6:-4]) for li in model_list])
-        path += 'model-{}.pth'.format(max_step)
+
+    dimListActor = [s_dim] + args.architecture + [numAction]
+    dimListCritic = [s_dim + numAction] + args.architecture + [1]
+    dimLists = [dimListCritic, dimListActor]
+
+    # This finds largest checkpoint.
+    model_list = glob.glob(os.path.join(path, 'model/actor/*.pth'))
+    max_step = max([int(li.split('/')[-1][6:-4]) for li in model_list])
 
     # If CONFIG.pkl file exists overwrite CONFIG object.
-    config_path = path.split(path.split("/")[-1])[0] + "CONFIG.pkl"
+    # config_path = path.split(path.split("/")[-1])[0] + "CONFIG.pkl"
+    config_path = path + "CONFIG.pkl"
     if os.path.isfile(config_path):
         CONFIG_ = pickle.load(open(config_path, 'rb'))
         for k in CONFIG_.__dict__:
@@ -206,14 +213,12 @@ def test_experiment(args, CONFIG, env, path, doneType='toFailureOrSuccess',
     env.set_costParam(penalty=CONFIG.PENALTY, reward=CONFIG.REWARD)
 
     dimList = [s_dim] + CONFIG.ARCHITECTURE + [numAction]
-    agent = DDQNSingle(CONFIG, numAction, actionList, dimList,
-                       mode='RA', actType=CONFIG.ACTIVATION,
-                       skip=CONFIG.SKIP)
-    agent.restore(path)
+    agent = TD3(CONFIG, env.action_space, dimLists, actType={'critic':critic_act, 'actor':actor_act})
+    agent.restore(max_step, path)
 
     # Show policy in velocity 0 space.
-    env.scatter_actions(agent.Q_network, num_states=20000)
-    plt.show()
+    # env.scatter_actions(agent.Q_network, num_states=20000)
+    # plt.show()
 
     if not sim_only:
         # Print confusion matrix.
@@ -232,9 +237,9 @@ def test_experiment(args, CONFIG, env, path, doneType='toFailureOrSuccess',
     tmp_int = 0
     tmp_ii = 0
     while True:
-        state_tensor = torch.FloatTensor(s).to(device).unsqueeze(0)
-        action_index = agent.Q_network(state_tensor).min(dim=1)[1].item()
-        s, r, done, info = env.step(action_index)
+        state_tensor = torch.FloatTensor(s).to(device)
+        action = agent.actor(state_tensor).detach().numpy()
+        s, r, done, info = env.step(action)
         s_trajs.append([s[0], s[1]])
         total_reward += r
         tmp_ii += 1
@@ -251,9 +256,9 @@ def test_experiment(args, CONFIG, env, path, doneType='toFailureOrSuccess',
     env.close()
     # save_frames_as_gif(my_images)
 
-path1 = "models/RA2021-03-15-09_58_46/"
+path1 = "models/RA2021-04-23-11_38_42/"
 if args.test:
     test_experiment(args, CONFIG, env, path1,
-                    doneType='toThreshold', sim_only=False)
+                    doneType='toThreshold', sim_only=True)
 else:
     multi_experiment(1, args, CONFIG, env, skip=args.skip)

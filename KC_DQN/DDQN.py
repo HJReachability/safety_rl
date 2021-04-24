@@ -12,6 +12,7 @@ from collections import namedtuple
 import numpy as np
 import os
 import glob
+import pickle
 
 from .model import StepLR, StepLRMargin, StepResetLR
 from .ReplayMemory import ReplayMemory
@@ -20,15 +21,15 @@ from .ReplayMemory import ReplayMemory
 Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
 class DDQN():
     def __init__(self, CONFIG):
-        self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY, CONFIG.SEED)
+        self.CONFIG = CONFIG
+        self.saved = False
+        self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)
 
         #== PARAM ==
         # Exploration
-        # self.EpsilonScheduler = StepLR( initValue=CONFIG.EPSILON, period=CONFIG.EPS_PERIOD,
-        #                                 decay=CONFIG.EPS_DECAY, endValue=CONFIG.EPS_END)
-        self.EpsilonScheduler = StepResetLR( initValue=CONFIG.EPSILON, 
-            period=CONFIG.EPS_PERIOD, decay=CONFIG.EPS_DECAY,
-            endValue=CONFIG.EPS_END, resetPeriod=CONFIG.EPS_RESET_PERIOD)
+        self.EpsilonScheduler = StepResetLR(
+            initValue=CONFIG.EPSILON, period=CONFIG.EPS_PERIOD, resetPeriod=CONFIG.EPS_RESET_PERIOD,
+            decay=CONFIG.EPS_DECAY, endValue=CONFIG.EPS_END)
         self.EPSILON = self.EpsilonScheduler.get_variable()
         # Learning Rate
         self.LR_C = CONFIG.LR_C
@@ -123,15 +124,18 @@ class DDQN():
         logs_path = os.path.join(logs_path, 'model-{}.pth' .format(step))
         torch.save(self.Q_network.state_dict(), logs_path)
         print('  => Save {} after [{}] updates' .format(logs_path, step))
+        if not self.saved:
+            config_path = logs_path.split(logs_path.split("/")[-1])[0] + "CONFIG.pkl"
+            pickle.dump(self.CONFIG, open(config_path, "wb"))
+            self.saved = True
 
 
-    def restore(self, logs_path, verbose=True):
+    def restore(self, logs_path):
         self.Q_network.load_state_dict(
             torch.load(logs_path, map_location=torch.device('cpu')))
         self.target_network.load_state_dict(
             torch.load(logs_path, map_location=torch.device('cpu')))
-        if verbose:
-            print('  => Restore {}' .format(logs_path))
+        print('  => Restore {}' .format(logs_path))
 
 
     # ! Deprecated method, do not use

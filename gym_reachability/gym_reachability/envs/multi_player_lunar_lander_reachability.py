@@ -588,8 +588,6 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
                                            impulse_pos,
                                            True)
 
-        self.world.Step(1.0/self.FPS, 6*30, 2*30)
-
         pos = self.lander[key].position
         vel = self.lander[key].linearVelocity
         state = [

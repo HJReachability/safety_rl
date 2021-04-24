@@ -441,7 +441,8 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
         plt.tight_layout()
 
         if not no_show:
-            plt.show()
+            plt.pause(0.1)
+            # plt.show()
 
     def get_warmup_examples(self, num_warmup_samples=100, s_margin=True):
 

@@ -202,7 +202,9 @@ dimListCritic = [stateDim + actionDim] + args.architecture + [1]
 dimLists = [dimListCritic, dimListActor]
 agent = TD3(CONFIG, env.action_space, dimLists,
     actType={'critic': args.actType[0], 'actor': args.actType[1]}, verbose=True)
-print(device)
+print(device, agent.device)
+print(next(agent.critic.parameters()).is_cuda)
+print(next(agent.actor.parameters()).is_cuda)
 
 if args.warmup:
     lossList = agent.initQ(env, args.warmupIter, outFolder,

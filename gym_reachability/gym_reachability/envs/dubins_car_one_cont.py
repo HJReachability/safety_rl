@@ -320,9 +320,11 @@ class DubinsCarOneContEnv(gym.Env):
             else:
                 z = max([l_x, g_x])
                 state = torch.FloatTensor([x, y, theta, z]).to(self.device)
-            action = policy(state)
+            with torch.no_grad():
+                action = policy(state)
+            print(action, state)
 
-            xx = torch.cat([state, action.detach()]).to(self.device)
+            xx = torch.cat([state, action]).to(self.device)
             if addBias:
                 v[idx] = q_func(xx).item() + max(l_x, g_x)
             else:

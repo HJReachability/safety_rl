@@ -21,7 +21,10 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 
 #== ARGS ==
-# e.g., python3 sim_car_one.py -te -w (default)
+# test
+    # python3 sim_car_one_cont.py -w -wi 5 -mu 200 -ut 2 -cp 100 -arc 100 20 -of scratch/tmp -sf
+# default
+    # python3 sim_car_one_cont.py -w -sf -of scratch/tmp
 parser = argparse.ArgumentParser()
 
 # training scheme
@@ -36,11 +39,11 @@ parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",        
 parser.add_argument("-cp",  "--checkPeriod",    help="check period",                    default=200000, type=int)
 
 # hyper-parameters
-parser.add_argument("-arc", "--architecture",   help="NN architecture",     default=[512, 512, 512],  nargs="*", type=int)
-parser.add_argument("-lrA", "--lrA",            help="learning rate actor",       default=1e-3,   type=float)
-parser.add_argument("-lrC", "--lrC",            help="learning rate critic",       default=1e-3,   type=float)
-parser.add_argument("-g",   "--gamma",          help="contraction coeff.",  default=0.8,    type=float)
-parser.add_argument("-act", "--actType",        help="activation type",     default=['Tanh', 'ReLU'],  nargs=2, type=str)
+parser.add_argument("-arc", "--architecture",   help="NN architecture",      default=[512, 512, 512],  nargs="*", type=int)
+parser.add_argument("-lrA", "--lrA",            help="learning rate actor",  default=1e-3,   type=float)
+parser.add_argument("-lrC", "--lrC",            help="learning rate critic", default=1e-3,   type=float)
+parser.add_argument("-g",   "--gamma",          help="contraction coeff.",   default=0.8,    type=float)
+parser.add_argument("-act", "--actType",        help="activation type",      default=['Tanh', 'ReLU'],  nargs=2, type=str)
 
 # car dynamics
 parser.add_argument("-cr",      "--constraintRadius",   help="constraint radius",   default=1., type=float)

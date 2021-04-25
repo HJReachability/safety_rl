@@ -118,6 +118,9 @@ class TD3(ActorCritic):
 
         (non_final_mask, non_final_state_nxt, state, action, reward,
             g_x, l_x, g_x_nxt, l_x_nxt) = self.unpack_batch(batch)
+        self.critic.train()
+        self.criticTarget.eval()
+        self.actorTarget.eval()
 
         #== get Q(s,a) ==
         q1, q2 = self.critic(state, action)  # Used to compute loss (non-target part).
@@ -153,9 +156,11 @@ class TD3(ActorCritic):
 
     def update_actor(self, batch):
 
-        (non_final_mask, non_final_state_nxt, state,
-         action, reward, g_x, l_x, g_x_nxt, l_x_nxt) = self.unpack_batch(batch)
+        (non_final_mask, non_final_state_nxt, state, action, reward,
+            g_x, l_x, g_x_nxt, l_x_nxt) = self.unpack_batch(batch)
 
+        self.critic.eval()
+        self.actor.train()
         for p in self.critic.parameters():
             p.requires_grad = False
 
@@ -180,7 +185,7 @@ class TD3(ActorCritic):
             dtype=torch.bool).to(self.device)
         non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None]).to(self.device)
         state  = torch.FloatTensor(batch.s).to(self.device)
-        action = torch.LongTensor(batch.a).to(self.device).view(-1,1)
+        action = torch.FloatTensor(batch.a).to(self.device).view(-1,1)
         reward = torch.FloatTensor(batch.r).to(self.device)
 
         g_x = torch.FloatTensor([info['g_x'] for info in batch.info]).to(self.device).view(-1)

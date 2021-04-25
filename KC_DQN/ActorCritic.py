@@ -326,6 +326,7 @@ class ActorCritic(object):
                 if self.cntUpdate % update_every == 0:
                     for timer in range(update_every):
                         loss_q, loss_pi = self.update(timer)
+                        trainingRecords.append([loss_q, loss_pi])
                 self.cntUpdate += 1
                 # Update gamma, lr etc.
                 self.updateHyperParam()
@@ -355,6 +356,9 @@ class ActorCritic(object):
         self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
         print('\nInitBuffer: {:.1f}, InitQ: {:.1f}, Learning: {:.1f}'.format(
             timeInitBuffer, timeInitQ, timeLearning))
+
+        trainingRecords = np.array(trainingRecords)
+        trainProgress = np.array(trainProgress)
         return trainingRecords, trainProgress
     # * LEARN ENDS
 

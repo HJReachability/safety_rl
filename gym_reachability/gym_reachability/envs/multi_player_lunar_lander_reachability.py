@@ -332,10 +332,10 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
                 )
         self.lander[key].color1 = (0.5, 0.4, 0.9)
         self.lander[key].color2 = (0.3, 0.3, 0.5)
-        self.lander[key].ApplyForceToCenter((
-            np.random.uniform(-self.INITIAL_RANDOM, self.INITIAL_RANDOM),
-            np.random.uniform(-self.INITIAL_RANDOM, self.INITIAL_RANDOM)
-            ), True)
+        # self.lander[key].ApplyForceToCenter((
+        #     np.random.uniform(-self.INITIAL_RANDOM, self.INITIAL_RANDOM),
+        #     np.random.uniform(-self.INITIAL_RANDOM, self.INITIAL_RANDOM)
+        #     ), True)
 
         self.legs[key] = []
         for i in [-1, +1]:

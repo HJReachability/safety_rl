@@ -59,6 +59,7 @@ import time
 import glob
 from copy import deepcopy
 import matplotlib.pyplot as plt
+import pickle
 
 from .model import StepLR, StepLRMargin, TwinnedQNetwork, StepResetLR
 from .ReplayMemory import ReplayMemory
@@ -77,6 +78,7 @@ class ActorCritic(object):
             actorType (str): The type of actor model, Currently supports SAC, TD3.
             CONFIG (dict): configurations.
         """
+        self.CONFIG = CONFIG
         self.saved = False
         self.actorType = actorType
         self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)

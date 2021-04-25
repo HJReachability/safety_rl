@@ -141,6 +141,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.one_player_obs_dim = 6
         self.total_obs_dim = self.one_player_obs_dim * self.num_players
         self.sim_state = np.zeros(self.total_obs_dim)
+        self.obs_state = np.zeros(self.total_obs_dim)
         self.observation_space = spaces.Box(
             -np.inf, np.inf,
             shape=(self.total_obs_dim,),

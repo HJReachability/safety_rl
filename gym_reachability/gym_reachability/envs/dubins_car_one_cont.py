@@ -408,10 +408,10 @@ class DubinsCarOneContEnv(gym.Env):
             
             policy.eval()
             state_tensor = torch.FloatTensor(state).to(self.device)
-            u = policy(state_tensor).detach().cpu().numpy()
-            print(state, u)
+            u = policy(state_tensor).detach().cpu().numpy()[0]
+            # print(state, u)
             state = self.car.integrate_forward(state, u)
-            print(state)
+            # print(state)
         traj = np.array(traj)
         info = {'valueList':valueList, 'gxList':gxList, 'lxList':lxList}
         return traj, result, minV, info

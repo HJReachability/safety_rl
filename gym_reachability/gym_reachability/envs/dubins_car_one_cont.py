@@ -322,7 +322,6 @@ class DubinsCarOneContEnv(gym.Env):
                 state = torch.FloatTensor([x, y, theta, z]).to(self.device)
             with torch.no_grad():
                 action = policy(state)
-            print(action, state)
 
             xx = torch.cat([state, action]).to(self.device)
             if addBias:

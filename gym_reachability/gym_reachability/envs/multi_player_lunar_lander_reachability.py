@@ -294,25 +294,25 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             new_states.append(np.append(state, max(l_x, g_x)))
         return new_states
 
-    def set_lander_state(self, state, key):
-        # convention is x,y,x_dot,y_dot, theta, theta_dot
-        # These internal variables are in --> simulator self.SCALE <--
-        # changes need to be in np.float64
-        self.lander[key].position = np.array([state[0], state[1]],
-                                             dtype=np.float64)
-        self.lander[key].linearVelocity = np.array([state[2], state[3]],
-                                                   dtype=np.float64)
-        self.lander[key].angle = np.float64(state[4])
-        self.lander[key].angularVelocity = np.float64(state[5])
+    # def set_lander_state(self, state, key):
+    #     # convention is x,y,x_dot,y_dot, theta, theta_dot
+    #     # These internal variables are in --> simulator self.SCALE <--
+    #     # changes need to be in np.float64
+    #     self.lander[key].position = np.array([state[0], state[1]],
+    #                                          dtype=np.float64)
+    #     self.lander[key].linearVelocity = np.array([state[2], state[3]],
+    #                                                dtype=np.float64)
+    #     self.lander[key].angle = np.float64(state[4])
+    #     self.lander[key].angularVelocity = np.float64(state[5])
 
-        # after lander position is set have to set leg positions to be where
-        # new lander position is.
-        self.legs[key][0].position = np.array(
-            [self.lander[key].position.x + self.LEG_AWAY/self.SCALE,
-             self.lander[key].position.y], dtype=np.float64)
-        self.legs[key][1].position = np.array(
-            [self.lander[key].position.x - self.LEG_AWAY/self.SCALE,
-             self.lander[key].position.y], dtype=np.float64)
+    #     # after lander position is set have to set leg positions to be where
+    #     # new lander position is.
+    #     self.legs[key][0].position = np.array(
+    #         [self.lander[key].position.x + self.LEG_AWAY/self.SCALE,
+    #          self.lander[key].position.y], dtype=np.float64)
+    #     self.legs[key][1].position = np.array(
+    #         [self.lander[key].position.x - self.LEG_AWAY/self.SCALE,
+    #          self.lander[key].position.y], dtype=np.float64)
 
     def generate_lander(self, initial_state, key):
         # Generate Landers
@@ -320,7 +320,9 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         initial_y = initial_state[1]
         self.lander[key] = self.world.CreateDynamicBody(
             position=(initial_x, initial_y),
-            angle=0.0,
+            angle=initial_state[4],
+            linearVelocity=(initial_state[2], initial_state[3]),
+            angularVelocity=initial_state[5],
             fixtures=fixtureDef(
                 shape=polygonShape(
                     vertices=[(x/self.SCALE, y/self.SCALE) for x, y in self.LANDER_POLY]),
@@ -374,7 +376,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             self.legs[key].append(leg)
 
     def generate_terrain_and_landers(self, terrain_polyline=None,
-        sample_inside_obs=False):
+        sample_inside_obs=False, state_in=None, zero_vel=False):
         # self.chunk_x = [self.W/(self.CHUNKS-1)*i for i in range(self.CHUNKS)]
         # self.helipad_x1 = self.chunk_x[self.CHUNKS//2-1]
         # self.helipad_x2 = self.chunk_x[self.CHUNKS//2+1]
@@ -422,9 +424,21 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.moon.color2 = (0.6, 0.6, 0.6)
 
         # Instantiate the Landers in random initial states.
-        initial_states = [
-            self.rejection_sample(sample_inside_obs)
-            for _ in range(self.num_players)]
+        if state_in is None:
+            initial_states = [
+                self.rejection_sample(sample_inside_obs, zero_vel)
+                for _ in range(self.num_players)]
+        else:  # Instantiate the Landers with given initial state.
+            # If it is a list check they are all correct length.
+            if isinstance(state_in, list):
+                assert len(state_in) == self.num_players, "List neq num players"
+                for ss in state_in:
+                    assert len(ss) == self.one_player_obs_dim, "Wrong state list"
+                initial_states = state_in
+            else:  # If it is not a list it must be a single state.
+                assert len(state_in) == self.one_player_obs_dim, "Wrong statein"
+                initial_states = [state_in]
+
         self.drawlist = []
         for ii, initial_state in enumerate(initial_states):
             self.generate_lander(initial_state, ii)
@@ -447,10 +461,11 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         # else:
         #     s, _, _, _ = self.step(np.array([0.0, 0.0]))
         # return s
-        return self.step(np.array([0, 0]) if not self.discrete else 0)[0]
+        return self.step(np.array([0, 0]) * self.num_players if not self.discrete else 0)[0]
 
-    def rejection_sample(self, sample_inside_obs=False):
+    def rejection_sample(self, sample_inside_obs=False, zero_vel=False):
         flag_sample = False
+        # Repeat sampling until outside obstacle if needed.
         while not flag_sample:
             xy_sample = np.random.uniform(low=[0,
                                                0],
@@ -460,7 +475,15 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
                 Point(xy_sample[0], xy_sample[1]))
             if sample_inside_obs:
                 break
-        return xy_sample
+        # Sample within simulation space bounds.
+        state_in = np.random.uniform(
+            low=self.bounds_simulation_one_player[:, 0],
+            high=self.bounds_simulation_one_player[:, 1])
+        state_in[:2] = xy_sample
+        # If zero_vel active, remove any initial rates.
+        if zero_vel:
+            state_in[[2, 3, -1]] = 0.0
+        return state_in
 
     def _destroy(self):
         if self.moon is not None:
@@ -476,7 +499,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
                 self.world.DestroyBody(self.legs[ii][0])
                 self.world.DestroyBody(self.legs[ii][1])
 
-    def reset(self, state_in=None, terrain_polyline=None):
+    def reset(self, state_in=None, terrain_polyline=None, zero_vel=False):
         """
         resets the environment accoring to a uniform distribution.
         state_in assumed to be in simulation self.SCALE.
@@ -487,10 +510,17 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.world.contactListener = self.world.contactListener_keepref
         self.game_over = False
         self.prev_shaping = None
+        # If state_in is not None bound it.
+        if state_in is not None:
+            for ii in range(len(state_in)):
+                state_in[ii] = np.float64(
+                    min(state_in[ii], self.bounds_simulation[ii, 1]))
+                state_in[ii] = np.float64(
+                    max(state_in[ii], self.bounds_simulation[ii, 0]))
         # This returns something in --> observation self.SCALE <--.
-
         s = self.generate_terrain_and_landers(
-            terrain_polyline=terrain_polyline, sample_inside_obs=self.sio)
+            terrain_polyline=terrain_polyline, sample_inside_obs=self.sio,
+            state_in=state_in, zero_vel=zero_vel)
         # When 'toThreshold' is enabled we need to remove obstacles.
         if self.doneType is 'toThreshold' or self.doneType is 'toFailureOrSuccess':
             self.world.contactListener = None
@@ -499,27 +529,27 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             self.moon = None
 
 
-        # Rewrite internal lander variables in --> simulation self.SCALE <--.
-        if state_in is None:
-            state_in = np.copy(self.obs_scale_to_simulator_scale(s))
-            state_in[4] = np.random.uniform(low=-self.theta_bound,
-                                            high=self.theta_bound)
-        else:
-            # Ensure that when specifing a state it is within
-            # our simulation bounds.
-            for ii in range(len(state_in)):
-                state_in[ii] = np.float64(
-                    min(state_in[ii], self.bounds_simulation[ii, 1]))
-                state_in[ii] = np.float64(
-                    max(state_in[ii], self.bounds_simulation[ii, 0]))
+        # # Rewrite internal lander variables in --> simulation self.SCALE <--.
+        # if state_in is None:
+        #     state_in = np.copy(self.obs_scale_to_simulator_scale(s))
+        #     state_in[4] = np.random.uniform(low=-self.theta_bound,
+        #                                     high=self.theta_bound)
+        # else:
+        #     # Ensure that when specifing a state it is within
+        #     # our simulation bounds.
+        #     for ii in range(len(state_in)):
+        #         state_in[ii] = np.float64(
+        #             min(state_in[ii], self.bounds_simulation[ii, 1]))
+        #         state_in[ii] = np.float64(
+        #             max(state_in[ii], self.bounds_simulation[ii, 0]))
 
-        # Set the states for the landers.
-        for ii in range(self.num_players):
-            self.set_lander_state(state_in[
-                ii*self.one_player_obs_dim:(ii+1)*self.one_player_obs_dim], ii)
+        # # Set the states for the landers.
+        # for ii in range(self.num_players):
+        #     self.set_lander_state(state_in[
+        #         ii*self.one_player_obs_dim:(ii+1)*self.one_player_obs_dim], ii)
 
         # Convert from simulator self.SCALE to observation self.SCALE.
-        s = self.simulator_scale_to_obs_scale(state_in)
+        # s = self.simulator_scale_to_obs_scale(state_in)
 
         # Return in --> observation self.SCALE <--.
         return s
@@ -591,13 +621,16 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
 
         pos = self.lander[key].position
         vel = self.lander[key].linearVelocity
+        sim_state = np.array([pos.x, pos.y, vel.x, vel.y,
+                              self.lander[key].angle, self.lander[key].angle])
+        obs_state = self.simulator_scale_to_obs_scale_single(sim_state)
         state = [
-            (pos.x - self.W/2) / (self.W/2),
-            (pos.y - (self.HELIPAD_Y+self.LEG_DOWN/self.SCALE)) / (self.H/2),
-            vel.x*(self.W/2)/self.FPS,
-            vel.y*(self.H/2)/self.FPS,
-            self.lander[key].angle,
-            20.0*self.lander[key].angularVelocity/self.FPS,
+            obs_state[0],
+            obs_state[1],
+            obs_state[2],
+            obs_state[3],
+            obs_state[4],
+            obs_state[5],
             1.0 if self.legs[key][0].ground_contact else 0.0,
             1.0 if self.legs[key][1].ground_contact else 0.0
             ]

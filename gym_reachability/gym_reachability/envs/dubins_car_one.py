@@ -324,6 +324,34 @@ class DubinsCarOneEnv(gym.Env):
         return v
 
 
+    def get_reach_avoid_set(self, nx=101, ny=101):
+        xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)
+        ys =np.linspace(self.bounds[1,0], self.bounds[1,1], ny)
+
+        v = np.full((nx, ny), fill_value=False)
+        it = np.nditer(v, flags=['multi_index'])
+
+        while not it.finished:
+            idx = it.multi_index
+            x = xs[idx[0]]
+            y = ys[idx[1]]
+
+            xtilde = x*np.cos(orientation) + y*np.sin(orientation)
+            ytilde = y*np.cos(orientation) - x*np.sin(orientation)
+
+            boolIn = (x**2 + y**2) <= R**2
+            if np.abs(ytilde) > 2*R_turn-R:
+                bool0 = ( xtilde <= np.sqrt( (R - R_turn)**2 - (R_turn - np.abs(ytilde))**2 ) )
+            else:
+                bool0 = False
+            if np.abs(ytilde) <= r:
+                bool1 = xtilde <=  np.sqrt( r**2 - ytilde**2 )
+            else:
+                bool1 = False
+
+            v[idx] = not ( (bool0 or bool1) and boolIn )
+            it.iternext()
+
 #== Trajectory Functions ==
     def simulate_one_trajectory(self, q_func, T=10, state=None, theta=None,
                                 keepOutOf=False, toEnd=False):

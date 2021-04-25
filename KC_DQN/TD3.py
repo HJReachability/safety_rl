@@ -44,7 +44,8 @@ class TD3(ActorCritic):
     def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.2,
         noiseClamp=0.5):
         self.actor = DeterministicPolicy(dimListActor, self.actionSpace,
-            actType=actType, noiseStd=noiseStd, noiseClamp=noiseClamp)
+            actType=actType, noiseStd=noiseStd, noiseClamp=noiseClamp,
+            device=self.device)
         self.actorTarget = deepcopy(self.actor)
         for p in self.actorTarget.parameters():
             p.requires_grad = False

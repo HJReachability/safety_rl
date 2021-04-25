@@ -321,11 +321,9 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         initial_y = initial_state[1]
         self.lander[key] = self.world.CreateDynamicBody(
             position=(initial_x, initial_y),
-            angle=0.0,
-            # position=(initial_x, initial_y),
-            # angle=initial_state[4],
-            # linearVelocity=(initial_state[2], initial_state[3]),
-            # angularVelocity=initial_state[5],
+            angle=initial_state[4],
+            linearVelocity=(initial_state[2], initial_state[3]),
+            angularVelocity=initial_state[5],
             fixtures=fixtureDef(
                 shape=polygonShape(
                     vertices=[(x/self.SCALE, y/self.SCALE) for x, y in self.LANDER_POLY]),

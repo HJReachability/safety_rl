@@ -321,7 +321,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         initial_y = initial_state[1]
         self.lander[key] = self.world.CreateDynamicBody(
             position=(initial_x, initial_y),
-            angle=initial_state[4],
+            angle=0.0,
             linearVelocity=(initial_state[2], initial_state[3]),
             angularVelocity=initial_state[5],
             fixtures=fixtureDef(
@@ -375,6 +375,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
                 rjd.upperAngle = -0.9 + 0.5
             leg.joint = self.world.CreateJoint(rjd)
             self.legs[key].append(leg)
+        self.lander[key].angle = initial_state[4]
 
     def generate_terrain_and_landers(self, terrain_polyline=None,
         sample_inside_obs=False, state_in=None, zero_vel=False):
@@ -712,8 +713,8 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             #             "g_x_nxt": g_x_nxt, "l_x_nxt": self.reward}
             if self.doneType is 'toDone' and np.any(done_list):
                 done = True
-                info = {"g_x": g_x_cur,  "l_x": l_x_cur,
-                        "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
+                info = {"g_x": self.penalty,  "l_x": l_x_cur,
+                        "g_x_nxt": self.penalty, "l_x_nxt": l_x_nxt}
         elif self.doneType is 'toThreshold':
             if g_x_cur > self.penalty:  # or success:
                 done = True

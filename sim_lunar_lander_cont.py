@@ -84,7 +84,7 @@ device = "cpu"  #torch.device("cuda" if torch.cuda.is_available() else "cpu")
 actor_act = 'Sin'
 critic_act = 'ReLU'
 reward = -1
-penalty = 0
+penalty = 1
 
 CONFIG = actorCriticConfig(
             ENV_NAME=env_name,
@@ -134,7 +134,7 @@ def report_config(CONFIG):
 
 # == ENVIRONMENT ==
 env = gym.make(env_name, device=device, mode="RA",
-               doneType='toThreshold', discrete=False)
+               doneType='toDone', discrete=False)
 env.set_costParam(penalty=CONFIG.PENALTY, reward=CONFIG.REWARD)
 
 # == EXPERIMENT ==
@@ -258,7 +258,7 @@ def test_experiment(args, CONFIG, env, path, doneType='toFailureOrSuccess',
     env.close()
     # save_frames_as_gif(my_images)
 
-path1 = "models/RA2021-04-25-08_32_30/"
+path1 = "models/RA2021-04-25-15_10_15/"
 if args.test:
     test_experiment(args, CONFIG, env, path1,
                     doneType='toThreshold', sim_only=True)

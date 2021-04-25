@@ -248,8 +248,8 @@ def test_experiment(args, CONFIG, env, path, doneType='toFailureOrSuccess',
 
         if done or tmp_ii > 1000:
           tmp_ii = 0
-          s = env.reset()
-          s[-3:] = 0.0
+          s = env.obs_scale_to_simulator_scale(env.reset())
+          s[[2, 3, -1]] = 0.0
           env.reset(np.float64(s))
           if tmp_int > 20:
             break
@@ -258,7 +258,7 @@ def test_experiment(args, CONFIG, env, path, doneType='toFailureOrSuccess',
     env.close()
     # save_frames_as_gif(my_images)
 
-path1 = "models/RA2021-04-25-10_30_18/"
+path1 = "models/RA2021-04-25-08_32_30/"
 if args.test:
     test_experiment(args, CONFIG, env, path1,
                     doneType='toThreshold', sim_only=True)

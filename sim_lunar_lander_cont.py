@@ -250,7 +250,7 @@ def test_experiment(args, CONFIG, env, path, doneType='toFailureOrSuccess',
           tmp_ii = 0
           s = env.reset()
           s[-3:] = 0.0
-          env.reset(s)
+          env.reset(np.float64(s))
           if tmp_int > 20:
             break
           else:
@@ -258,7 +258,7 @@ def test_experiment(args, CONFIG, env, path, doneType='toFailureOrSuccess',
     env.close()
     # save_frames_as_gif(my_images)
 
-path1 = "models/RA2021-04-24-16_21_00/"
+path1 = "models/RA2021-04-25-10_30_18/"
 if args.test:
     test_experiment(args, CONFIG, env, path1,
                     doneType='toThreshold', sim_only=True)

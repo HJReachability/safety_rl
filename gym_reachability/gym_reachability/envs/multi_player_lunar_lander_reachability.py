@@ -316,13 +316,16 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
 
     def generate_lander(self, initial_state, key):
         # Generate Landers
+        assert isinstance(initial_state[0], np.float64), "Float64!"
         initial_x = initial_state[0]  # self.VIEWPORT_W/self.SCALE/2
         initial_y = initial_state[1]
         self.lander[key] = self.world.CreateDynamicBody(
             position=(initial_x, initial_y),
-            angle=initial_state[4],
-            linearVelocity=(initial_state[2], initial_state[3]),
-            angularVelocity=initial_state[5],
+            angle=0.0,
+            # position=(initial_x, initial_y),
+            # angle=initial_state[4],
+            # linearVelocity=(initial_state[2], initial_state[3]),
+            # angularVelocity=initial_state[5],
             fixtures=fixtureDef(
                 shape=polygonShape(
                     vertices=[(x/self.SCALE, y/self.SCALE) for x, y in self.LANDER_POLY]),
@@ -483,7 +486,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         # If zero_vel active, remove any initial rates.
         if zero_vel:
             state_in[[2, 3, -1]] = 0.0
-        return state_in
+        return np.float64(state_in)
 
     def _destroy(self):
         if self.moon is not None:
@@ -505,6 +508,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         state_in assumed to be in simulation self.SCALE.
         :return: current state as 6d NumPy array of floats
         """
+        assert state_in is None or isinstance(state_in[0], np.float64), "None or float64!"
         self._destroy()
         self.world.contactListener_keepref = MultiPlayerContactDetector(self)
         self.world.contactListener = self.world.contactListener_keepref

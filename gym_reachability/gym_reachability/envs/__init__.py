@@ -20,9 +20,11 @@ from gym_reachability.gym_reachability.envs.two_player_pursuit_evasion_lunar_lan
 
 #from gym_reachability.gym_reachability.envs.double_integrator import DoubleIntegratorEnv
 
-from gym_reachability.gym_reachability.envs.dubins_car import DubinsCarEnv
+# from gym_reachability.gym_reachability.envs.dubins_car import DubinsCarEnv
 
 from gym_reachability.gym_reachability.envs.dubins_car_one import DubinsCarOneEnv
+
+from gym_reachability.gym_reachability.envs.dubins_car_one_cont import DubinsCarOneContEnv
 
 from gym_reachability.gym_reachability.envs.dubins_car_pe import DubinsCarPEEnv
 

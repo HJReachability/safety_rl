@@ -45,10 +45,10 @@ parser.add_argument("-upl",  "--update_period_lr",     help="update period for l
 parser.add_argument("-r",   "--reward",         help="when entering target set",    default=-1,     type=float)
 parser.add_argument("-p",   "--penalty",        help="when entering failure set",   default=1,      type=float)
 parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",            default=1,      type=float)
-parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-3,   type=float)
+parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=5e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",          default=0.9,    type=float)
 parser.add_argument("-e",   "--eps",            help="exploration coeff.",          default=0.5,   type=float)
-parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[100,100],  nargs="*", type=int)
+parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[200,200],  nargs="*", type=int)
 parser.add_argument("-act", "--activation",     help="activation function",         default='Tanh', type=str)
 parser.add_argument("-skp", "--skip",           help="skip connections",            action="store_true")
 parser.add_argument("-dbl", "--double",         help="double DQN",                  action="store_true")
@@ -258,9 +258,9 @@ def test_experiment(args, CONFIG, env, path, doneType='toFailureOrSuccess',
     env.close()
     # save_frames_as_gif(my_images)
 
-path1 = "models/RA2021-04-25-15_10_15/"
+path1 = "models/RA2021-04-25-17_20_04/"
 if args.test:
     test_experiment(args, CONFIG, env, path1,
-                    doneType='toThreshold', sim_only=True)
+                    doneType='toDone', sim_only=True)
 else:
     multi_experiment(1, args, CONFIG, env, skip=args.skip)

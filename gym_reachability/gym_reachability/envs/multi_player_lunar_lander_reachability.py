@@ -708,10 +708,6 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
                 done = True
                 info = {"g_x": self.penalty, "l_x": l_x_cur,
                         "g_x_nxt": self.penalty, "l_x_nxt": l_x_nxt}
-            # if success:
-            #     done = True
-            #     info = {"g_x": g_x_cur, "l_x": self.reward,
-            #             "g_x_nxt": g_x_nxt, "l_x_nxt": self.reward}
             if self.doneType is 'toDone' and np.any(done_list):
                 done = True
                 info = {"g_x": self.penalty,  "l_x": l_x_cur,

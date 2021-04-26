@@ -625,7 +625,8 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         pos = self.lander[key].position
         vel = self.lander[key].linearVelocity
         sim_state = np.array([pos.x, pos.y, vel.x, vel.y,
-                              self.lander[key].angle, self.lander[key].angularVelocity])
+                              self.lander[key].angle,
+                              self.lander[key].angularVelocity])
         obs_state = self.simulator_scale_to_obs_scale_single(sim_state)
         state = [
             obs_state[0],

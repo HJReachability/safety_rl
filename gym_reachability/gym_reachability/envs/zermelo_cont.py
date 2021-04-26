@@ -40,6 +40,7 @@ class ZermeloContEnv(gym.Env):
         self.low = self.bounds[:, 0]
         self.high = self.bounds[:, 1]
 
+        self.sample_inside_obs = False
         # Time step parameter.
         self.time_step = 0.05
 
@@ -124,15 +125,27 @@ class ZermeloContEnv(gym.Env):
             The state the environment has been reset to.
         """
         if start is None:
-            self.state = self.sample_random_state()
+            self.state = self.sample_random_state(
+                sample_inside_obs=self.sample_inside_obs)
         else:
             self.state = start
         return np.copy(self.state)
 
 
-    def sample_random_state(self, keepOutOf=False):
-        rnd_state = np.random.uniform(low=self.low,
-                                      high=self.high)
+    def sample_random_state(self, sample_inside_obs=False):
+        inside_obs = True
+        # Repeat sampling until outside obstacle if needed.
+        while inside_obs:
+            xy_sample = np.random.uniform(low=self.low,
+                                          high=self.high)
+            g_x = self.safety_margin(xy_sample)
+            inside_obs = (g_x > 0)
+            if sample_inside_obs:
+                break
+
+        return xy_sample
+        # rnd_state = np.random.uniform(low=self.low,
+        #                               high=self.high)
         # flag = True
         # while flag:
         #     rnd_state = np.random.uniform(low=self.low,
@@ -146,7 +159,7 @@ class ZermeloContEnv(gym.Env):
         #     terminal = (g_x > 0) or (l_x <= 0)
         #     flag = terminal and keepOutOf
 
-        return rnd_state
+        # return rnd_state
 
 
     def step(self, action):
@@ -172,41 +185,50 @@ class ZermeloContEnv(gym.Env):
         l_x_cur = self.target_margin(self.state[:2])
         g_x_cur = self.safety_margin(self.state[:2])
 
+        state_old = np.copy(self.state)
         state, [l_x_nxt, g_x_nxt] = self.integrate_forward(self.state, action)
         self.state = state
 
-        # cost
-        if self.mode == 'extend' or self.mode == 'RA':
-            fail = g_x_cur > 0
-            success = l_x_cur <= 0
-            if fail:
-                cost = self.penalty
-            elif success:
-                cost = self.reward
-            else:
-                cost = 0.
+        fail = g_x_cur > 0
+        success = l_x_cur <= 0
+        if fail:
+            cost = self.penalty
+        elif success:
+            cost = self.reward
         else:
-            fail = g_x_nxt > 0
-            success = l_x_nxt <= 0
-            if g_x_nxt > 0 or g_x_cur > 0:
-                cost = self.penalty
-            elif l_x_nxt <= 0 or l_x_cur <= 0:
-                cost = self.reward
-            else:
-                if self.costType == 'dense_ell':
-                    cost = l_x_nxt
-                elif self.costType == 'dense_ell_g':
-                    cost = l_x_nxt + g_x_nxt
-                elif self.costType == 'imp_ell_g':
-                    cost = (l_x_nxt-l_x_cur) + (g_x_nxt-g_x_cur)
-                elif self.costType == 'imp_ell':
-                    cost = (l_x_nxt-l_x_cur)
-                elif self.costType == 'sparse':
-                    cost = 0. * self.scaling
-                elif self.costType == 'max_ell_g':
-                    cost = max(l_x_nxt, g_x_nxt)
-                else:
-                    cost = 0.
+            cost = 0.
+        # cost
+        # if self.mode == 'extend' or self.mode == 'RA':
+        #     fail = g_x_cur > 0
+        #     success = l_x_cur <= 0
+        #     if fail:
+        #         cost = self.penalty
+        #     elif success:
+        #         cost = self.reward
+        #     else:
+        #         cost = 0.
+        # else:
+        #     fail = g_x_nxt > 0
+        #     success = l_x_nxt <= 0
+        #     if g_x_nxt > 0 or g_x_cur > 0:
+        #         cost = self.penalty
+        #     elif l_x_nxt <= 0 or l_x_cur <= 0:
+        #         cost = self.reward
+        #     else:
+        #         if self.costType == 'dense_ell':
+        #             cost = l_x_nxt
+        #         elif self.costType == 'dense_ell_g':
+        #             cost = l_x_nxt + g_x_nxt
+        #         elif self.costType == 'imp_ell_g':
+        #             cost = (l_x_nxt-l_x_cur) + (g_x_nxt-g_x_cur)
+        #         elif self.costType == 'imp_ell':
+        #             cost = (l_x_nxt-l_x_cur)
+        #         elif self.costType == 'sparse':
+        #             cost = 0. * self.scaling
+        #         elif self.costType == 'max_ell_g':
+        #             cost = max(l_x_nxt, g_x_nxt)
+        #         else:
+        #             cost = 0.
         # done
         # if self.doneType == 'toEnd':
         #     outsideTop   = (self.state[1] >= self.bounds[1,1])
@@ -214,7 +236,38 @@ class ZermeloContEnv(gym.Env):
         #     outsideRight = (self.state[0] >= self.bounds[0,1])
         #     done = outsideTop or outsideLeft or outsideRight
         # else:
-        done = fail # or success
+
+        done = False
+        if self.doneType is 'toFailureOrSuccess':
+            if fail:
+                done = True
+                info = {"g_x": self.penalty, "l_x": l_x_cur,
+                        "g_x_nxt": self.penalty, "l_x_nxt": l_x_nxt}
+            # if success:
+            #     done = True
+            #     info = {"g_x": g_x_cur, "l_x": self.reward,
+            #             "g_x_nxt": g_x_nxt, "l_x_nxt": self.reward}
+        elif self.doneType is 'toDone':
+            if fail:
+                done = True
+                self.state = state_old
+                info = {"g_x": self.penalty,  "l_x": l_x_cur,
+                        "g_x_nxt": self.penalty, "l_x_nxt": l_x_nxt}
+        elif self.doneType is 'toThreshold':
+            if g_x_cur > self.penalty:  # or success:
+                done = True
+                info = {"g_x": g_x_cur,  "l_x": l_x_cur,
+                        "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
+        elif self.doneType is 'toEnd':
+            # Not implemented.
+            assert False, "Not implemented yet!"
+
+        # If done flag has not triggered, just collect normal info.
+        if not done:
+            info = {"g_x": g_x_cur,  "l_x": l_x_cur,
+                    "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
+
+        # done = fail # or success
         # assert self.doneType == 'TF', 'invalid doneType'
 
         info = {"g_x": g_x_cur, "l_x": l_x_cur, "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
@@ -499,7 +552,8 @@ class ZermeloContEnv(gym.Env):
         toEnd=False):
 
         if state is None:
-            state = self.sample_random_state(keepOutOf=keepOutOf)
+            state = self.sample_random_state(
+                sample_inside_obs=self.sample_inside_obs)
         x, y = state[:2]
         traj_x = [x]
         traj_y = [y]

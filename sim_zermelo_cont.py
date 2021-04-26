@@ -81,10 +81,10 @@ def save_frames_as_gif(frames, path='./', filename='gym_animation.gif'):
 
 # == CONFIGURATION ==
 env_name = "zermelo_cont-v0"
-device = "cpu" #torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = "cpu"  # torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 reward = -1
-penalty = 0.1
+penalty = 1
 
 CONFIG = actorCriticConfig(
             ENV_NAME=env_name,
@@ -133,7 +133,7 @@ def report_config(CONFIG):
 
 
 # == ENVIRONMENT ==
-env = gym.make(env_name, device=device, mode="RA")
+env = gym.make(env_name, device=device, mode="RA", doneType="toDone")
 env.set_costParam(penalty=CONFIG.PENALTY, reward=CONFIG.REWARD)
 
 # == EXPERIMENT ==

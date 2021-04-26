@@ -232,7 +232,7 @@ trainRecords, trainProgress = agent.learn(env,
     MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps,
     warmupQ=False, warmupIter=args.warmupIter, doneTerminate=True,
     vmin=vmin, vmax=vmax, checkPeriod=args.checkPeriod, outFolder=outFolder,
-    plotFigure=plotFigure, storeFigure=storeFigure)
+    plotFigure=plotFigure, storeFigure=storeFigure, saveBest=False)
 
 
 if plotFigure or storeFigure:

@@ -39,7 +39,7 @@ parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",        
 parser.add_argument("-cp",  "--checkPeriod",    help="check period",                    default=200000, type=int)
 
 # hyper-parameters
-parser.add_argument("-arc", "--architecture",   help="NN architecture",      default=[512, 512, 512],  nargs="*", type=int)
+parser.add_argument("-arc", "--architecture",   help="NN architecture",      default=[100, 20],  nargs="*", type=int)
 parser.add_argument("-lrA", "--lrA",            help="learning rate actor",  default=1e-3,   type=float)
 parser.add_argument("-lrC", "--lrC",            help="learning rate critic", default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",   default=0.8,    type=float)
@@ -106,6 +106,14 @@ else:
     print("Type I Reach-Avoid Set")
 
 env.set_seed(args.randomSeed)
+np.random.seed(args.randomSeed)
+random.seed(args.randomSeed) 
+torch.manual_seed(args.randomSeed)
+torch.cuda.manual_seed(args.randomSeed)
+torch.cuda.manual_seed_all(args.randomSeed)  # if you are using multi-GPU.
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.deterministic = True
+print(env.seed_val, env.car.seed_val)
 
 
 #== Get and Plot max{l_x, g_x} ==

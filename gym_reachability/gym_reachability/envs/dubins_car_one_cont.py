@@ -20,16 +20,6 @@ from .dubins_car_dyn_cont import DubinsCarDynCont
 
 class DubinsCarOneContEnv(gym.Env):
     def __init__(self, device, mode='normal', doneType='toEnd', seed=0):
-        # Set random seed.
-        self.seed_val = seed
-        np.random.seed(self.seed_val)
-        torch.manual_seed(self.seed_val)
-        torch.cuda.manual_seed(self.seed_val)
-        torch.cuda.manual_seed_all(self.seed_val)  # if you are using multi-GPU.
-        random.seed(self.seed_val) 
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
-
         # State bounds.
         self.bounds = np.array([[-1.1, 1.1],
                                 [-1.1, 1.1],
@@ -63,6 +53,9 @@ class DubinsCarOneContEnv(gym.Env):
         self.car = DubinsCarDynCont(doneType=doneType)
         self.init_car()
 
+        # Set random seed.
+        self.set_seed(seed)
+
         # Visualization params 
         self.visual_initial_states =[   np.array([ .6*self.constraint_radius,  -.5, np.pi/2]),
                                         np.array([ -.4*self.constraint_radius, -.5, np.pi/2]),
@@ -81,7 +74,6 @@ class DubinsCarOneContEnv(gym.Env):
 
 
     def init_car(self):
-        self.car.set_seed(seed=self.seed_val)
         self.car.set_bounds(bounds=self.bounds)
         self.car.set_constraint(center=self.constraint_center, radius=self.constraint_radius)
         self.car.set_target(center=self.target_center, radius=self.target_radius)

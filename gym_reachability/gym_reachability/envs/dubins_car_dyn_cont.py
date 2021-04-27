@@ -40,8 +40,7 @@ class DubinsCarDynCont(object):
         self.doneType = doneType
 
         # Set random seed.
-        self.seed_val = 0
-        np.random.seed(self.seed_val)
+        self.set_seed(0)
 
         # Cost Params
         self.targetScaling = 1.
@@ -154,7 +153,6 @@ class DubinsCarDynCont(object):
             seed: Random seed.
         """
         self.seed_val = seed
-        np.random.seed(self.seed_val)
 
 
     def set_bounds(self, bounds):
@@ -198,8 +196,6 @@ class DubinsCarDynCont(object):
             dtype=np.float32) # w
         self.action_space = gym.spaces.Box(
             -self.max_turning_rate, self.max_turning_rate)
-        if verbose:
-            print(self.discrete_controls)
 
 
     def set_radius(self, target_radius=.3, constraint_radius=1., R_turn=.6):

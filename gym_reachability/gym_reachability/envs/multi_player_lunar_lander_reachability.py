@@ -211,8 +211,8 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
 
         param_dict["vx_bound"] = 10
         param_dict["vy_bound"] = 10
-        param_dict["theta_bound"] = np.radians(90)
-        param_dict["theta_dot_bound"] = np.radians(90)
+        param_dict["theta_bound"] = np.radians(45)
+        param_dict["theta_dot_bound"] = np.radians(10)
 
         for key, value in input_dict:
             param_dict[key] = value
@@ -294,26 +294,6 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             new_states.append(np.append(state, max(l_x, g_x)))
         return new_states
 
-    # def set_lander_state(self, state, key):
-    #     # convention is x,y,x_dot,y_dot, theta, theta_dot
-    #     # These internal variables are in --> simulator self.SCALE <--
-    #     # changes need to be in np.float64
-    #     self.lander[key].position = np.array([state[0], state[1]],
-    #                                          dtype=np.float64)
-    #     self.lander[key].linearVelocity = np.array([state[2], state[3]],
-    #                                                dtype=np.float64)
-    #     self.lander[key].angle = np.float64(state[4])
-    #     self.lander[key].angularVelocity = np.float64(state[5])
-
-    #     # after lander position is set have to set leg positions to be where
-    #     # new lander position is.
-    #     self.legs[key][0].position = np.array(
-    #         [self.lander[key].position.x + self.LEG_AWAY/self.SCALE,
-    #          self.lander[key].position.y], dtype=np.float64)
-    #     self.legs[key][1].position = np.array(
-    #         [self.lander[key].position.x - self.LEG_AWAY/self.SCALE,
-    #          self.lander[key].position.y], dtype=np.float64)
-
     def generate_lander(self, initial_state, key):
         # Generate Landers
         assert isinstance(initial_state[0], np.float64), "Float64!"
@@ -335,10 +315,6 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
                 )
         self.lander[key].color1 = (0.5, 0.4, 0.9)
         self.lander[key].color2 = (0.3, 0.3, 0.5)
-        # self.lander[key].ApplyForceToCenter((
-        #     np.random.uniform(-self.INITIAL_RANDOM, self.INITIAL_RANDOM),
-        #     np.random.uniform(-self.INITIAL_RANDOM, self.INITIAL_RANDOM)
-        #     ), True)
 
         self.legs[key] = []
         for i in [-1, +1]:
@@ -458,12 +434,12 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             for ii in range(self.num_players):
                 self.lidar[ii] = [LidarCallback() for _ in range(10)]
 
-        # if self.discrete:
-        #     s, _, _, _ = self.step(0)
-        # else:
-        #     s, _, _, _ = self.step(np.array([0.0, 0.0]))
-        # return s
-        return self.step(np.array([0, 0]) * self.num_players if not self.discrete else 0)[0]
+        if self.discrete:
+            s, _, _, _ = self.step(0)
+        else:
+            s, _, _, _ = self.step(np.array([0.0, 0.0]) * self.num_players)
+        return s
+        # return self.step(np.array([0, 0]) * self.num_players if not self.discrete else 0)[0]
 
     def rejection_sample(self, sample_inside_obs=False, zero_vel=False):
         flag_sample = False
@@ -512,7 +488,6 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.world.contactListener_keepref = MultiPlayerContactDetector(self)
         self.world.contactListener = self.world.contactListener_keepref
         self.game_over = False
-        self.prev_shaping = None
         # If state_in is not None bound it.
         if state_in is not None:
             for ii in range(len(state_in)):
@@ -525,7 +500,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             terrain_polyline=terrain_polyline, sample_inside_obs=self.sio,
             state_in=state_in, zero_vel=zero_vel)
         # When 'toThreshold' is enabled we need to remove obstacles.
-        if self.doneType is 'toThreshold' or self.doneType is 'toFailureOrSuccess':
+        if self.doneType is 'toThreshold' or self.doneType is 'toDone':
             self.world.contactListener = None
             self._clean_particles(True)
             self.world.DestroyBody(self.moon)
@@ -642,39 +617,17 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
             state += [l.fraction for l in self.lidar[key]]
 
         reward = 0
-        shaping = \
-            - 100*np.sqrt(state[0]*state[0] + state[1]*state[1]) \
-            - 100*np.sqrt(state[2]*state[2] + state[3]*state[3]) \
-            - 100*abs(state[4]) + 10*state[6] + 10*state[7]  # And ten points for legs contact, the idea is if you
-                                                             # lose contact again after landing, you get negative reward
-        if self.prev_shaping is not None:
-            reward = shaping - self.prev_shaping
-        self.prev_shaping = shaping
-
-        reward -= m_power*0.30  # less fuel spent is better, about -30 for heuristic landing
-        reward -= np.abs(s_power)*0.03
-
         done = False
         if (self.game_over or
             self.legs[key][0].ground_contact or
                 self.legs[key][1].ground_contact):
             done = True
             reward = -100
-        if not self.lander[key].awake:
-            done = True
-            reward = +100
         return np.array(state, dtype=np.float32), reward, done, {}
 
     def step(self, action):
 
         info = {}
-
-        l_x_cur = self.target_margin(self.sim_state)
-        g_x_cur = self.safety_margin(self.sim_state)
-
-        # Fail or Success?
-        fail = g_x_cur > 0
-        success = l_x_cur <= 0
 
         if self.discrete:
             # Transform decimal action to individual player actions.
@@ -699,32 +652,38 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.obs_state = np.concatenate(state_list)
         self.sim_state = self.obs_scale_to_simulator_scale(self.obs_state)
 
-        l_x_nxt = self.target_margin(self.sim_state)
-        g_x_nxt = self.safety_margin(self.sim_state)
+        l_x = self.target_margin(self.sim_state)
+        g_x = self.safety_margin(self.sim_state)
+        # Fail or Success?
+        fail = g_x > 0
+        success = l_x <= 0
+        done = fail or np.any(done_list)  # Outside enclosure or collision.
 
-        done = False
-        if self.doneType is 'toFailureOrSuccess' or self.doneType is 'toDone':
-            if fail:
-                done = True
-                info = {"g_x": self.penalty, "l_x": l_x_cur,
-                        "g_x_nxt": self.penalty, "l_x_nxt": l_x_nxt}
-            if self.doneType is 'toDone' and np.any(done_list):
-                done = True
-                info = {"g_x": self.penalty,  "l_x": l_x_cur,
-                        "g_x_nxt": self.penalty, "l_x_nxt": l_x_nxt}
-        elif self.doneType is 'toThreshold':
-            if g_x_cur > self.penalty:  # or success:
-                done = True
-                info = {"g_x": g_x_cur,  "l_x": l_x_cur,
-                        "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
-        elif self.doneType is 'toEnd':
-            # Not implemented.
-            assert False, "Not implemented yet!"
+        # done = False
+        # if self.doneType is 'toFailureOrSuccess':
+        #     if fail:
+        #         done = True
+        #         info = {"g_x": self.penalty, "l_x": l_x}
+        # elif self.doneType is 'toDone':
+        #     if np.any(done_list):
+        #         done = True
+        #         info = {"g_x": self.penalty,  "l_x": l_x}
+        #     if success:
+        #         done = True
+        #         info = {"g_x": g_x, "l_x": self.reward}
+        # elif self.doneType is 'toThreshold':
+        #     if g_x > self.penalty:  # or success:
+        #         done = True
+        #         info = {"g_x": g_x,  "l_x": l_x}
+        # elif self.doneType is 'toEnd':
+        #     # Not implemented.
+        #     assert False, "Not implemented yet!"
 
         # If done flag has not triggered, just collect normal info.
         if not done:
-            info = {"g_x": g_x_cur,  "l_x": l_x_cur,
-                    "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
+            info = {"g_x": g_x, "l_x": l_x}
+        else:
+            info = {"g_x": self.penalty, "l_x": l_x}  
 
         return np.copy(self.obs_state), 0, done, info
 

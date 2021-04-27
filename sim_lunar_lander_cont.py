@@ -45,7 +45,7 @@ parser.add_argument("-upl",  "--update_period_lr",     help="update period for l
 parser.add_argument("-r",   "--reward",         help="when entering target set",    default=-1,     type=float)
 parser.add_argument("-p",   "--penalty",        help="when entering failure set",   default=1,      type=float)
 parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",            default=1,      type=float)
-parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=5e-3,   type=float)
+parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",          default=0.9,    type=float)
 parser.add_argument("-e",   "--eps",            help="exploration coeff.",          default=0.5,   type=float)
 parser.add_argument("-arc", "--architecture",   help="neural network architecture", default=[200,200],  nargs="*", type=int)
@@ -112,10 +112,10 @@ CONFIG = actorCriticConfig(
             GAMMA_PERIOD=args.update_period_gamma,  # How often to update gamma.
             GAMMA_DECAY=0.9,         # Rate of decay of gamma.
             # ===================
-            TAU=0.05,
+            TAU=0.005,
             HARD_UPDATE=1,
             SOFT_UPDATE=True,
-            MEMORY_CAPACITY=100000,   # Number of transitions in replay buffer.
+            MEMORY_CAPACITY=500000,   # Number of transitions in replay buffer.
             BATCH_SIZE=args.batchsize,          # Number of examples to use to update Q.
             RENDER=False,
             MAX_MODEL=10,            # How many models to store while training.
@@ -251,14 +251,14 @@ def test_experiment(args, CONFIG, env, path, doneType='toFailureOrSuccess',
           s = env.obs_scale_to_simulator_scale(env.reset())
           s[[2, 3, -1]] = 0.0
           env.reset(np.float64(s))
-          if tmp_int > 20:
+          if tmp_int > 30:
             break
           else:
             tmp_int += 1
     env.close()
     # save_frames_as_gif(my_images)
 
-path1 = "models/RA2021-04-25-17_20_04/"
+path1 = "models/RA2021-04-27-09_17_09/"
 if args.test:
     test_experiment(args, CONFIG, env, path1,
                     doneType='toDone', sim_only=True)

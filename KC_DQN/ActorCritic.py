@@ -257,6 +257,8 @@ class ActorCritic(object):
 
                 # Interact with env
                 s_, r, done, info = env.step(a)
+                s_ = None if done else s_
+                # env.render()
                 epCost = max(info["g_x"], min(epCost, info["l_x"]))
 
                 # Store the transition in memory
@@ -301,7 +303,7 @@ class ActorCritic(object):
 
                 # Perform one step of the optimization (on the target network)
                 loss_q, loss_pi = 0, 0
-                update_every = 50
+                update_every = 100
                 if self.cntUpdate % update_every == 0:
                     for timer in range(update_every):
                         loss_q, loss_pi = self.update(timer)

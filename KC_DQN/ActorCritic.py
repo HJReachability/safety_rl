@@ -265,7 +265,8 @@ class ActorCritic(object):
                         a, _ = self.actor.sample(
                             torch.from_numpy(s).float().to(self.device))
                 else:
-                    a = env.action_space.sample()
+                    # a = env.action_space.sample()
+                    a = self.genRandomActions(1)[0]
 
                 # Interact with env
                 s_, r, done, info = env.step(a)

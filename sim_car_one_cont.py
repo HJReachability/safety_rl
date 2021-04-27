@@ -30,20 +30,21 @@ parser = argparse.ArgumentParser()
 # training scheme
 # parser.add_argument("-te",  "--toEnd",          help="stop until reaching boundary",    action="store_true")
 # parser.add_argument("-ab",  "--addBias",        help="add bias term for RA",            action="store_true")
-parser.add_argument("-w",   "--warmup",         help="warmup Q-network",                action="store_true")
-parser.add_argument("-rnd", "--randomSeed",     help="random seed",                     default=0,      type=int)
-parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",       default=2.4e6,  type=int)
-parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",                  default=1e4,    type=int)
-parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",             default=12,     type=int)
-parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",                default=5000,   type=int)
-parser.add_argument("-cp",  "--checkPeriod",    help="check period",                    default=200000, type=int)
+parser.add_argument("-w",   "--warmup",         help="warmup Q-network",            action="store_true")
+parser.add_argument("-rnd", "--randomSeed",     help="random seed",                 default=0,          type=int)
+parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",   default=2400000,    type=int)
+parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",              default=1e4,        type=int)
+parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",         default=12,         type=int)
+parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",            default=5000,       type=int)
+parser.add_argument("-cp",  "--checkPeriod",    help="check period",                default=200000,     type=int)
 
 # hyper-parameters
-parser.add_argument("-arc", "--architecture",   help="NN architecture",      default=[100, 20],  nargs="*", type=int)
-parser.add_argument("-lrA", "--lrA",            help="learning rate actor",  default=1e-3,   type=float)
-parser.add_argument("-lrC", "--lrC",            help="learning rate critic", default=1e-3,   type=float)
-parser.add_argument("-g",   "--gamma",          help="contraction coeff.",   default=0.8,    type=float)
-parser.add_argument("-act", "--actType",        help="activation type",      default=['Tanh', 'ReLU'],  nargs=2, type=str)
+parser.add_argument("-arc", "--architecture",   help="NN architecture",         default=[100, 20],          nargs="*", type=int)
+parser.add_argument("-act", "--actType",        help="activation type",         default=['Tanh', 'ReLU'],   nargs=2, type=str)
+parser.add_argument("-lrA", "--lrA",            help="learning rate actor",     default=1e-3,   type=float)
+parser.add_argument("-lrC", "--lrC",            help="learning rate critic",    default=1e-3,   type=float)
+parser.add_argument("-g",   "--gamma",          help="contraction coeff.",      default=0.8,    type=float)
+
 
 # car dynamics
 parser.add_argument("-cr",      "--constraintRadius",   help="constraint radius",   default=1., type=float)
@@ -106,13 +107,6 @@ else:
     print("Type I Reach-Avoid Set")
 
 env.set_seed(args.randomSeed)
-np.random.seed(args.randomSeed)
-random.seed(args.randomSeed) 
-torch.manual_seed(args.randomSeed)
-torch.cuda.manual_seed(args.randomSeed)
-torch.cuda.manual_seed_all(args.randomSeed)  # if you are using multi-GPU.
-torch.backends.cudnn.benchmark = False
-torch.backends.cudnn.deterministic = True
 print(env.seed_val, env.car.seed_val)
 
 
@@ -186,7 +180,7 @@ CONFIG = actorCriticConfig(
     TAU=0.05,
     HARD_UPDATE=1,
     SOFT_UPDATE=True,
-    MEMORY_CAPACITY=50000,   # Number of transitions in replay buffer.
+    MEMORY_CAPACITY=args.memoryCapacity,   # Number of transitions in replay buffer.
     BATCH_SIZE=128,          # Number of examples to use to update Q.
     RENDER=False,
     MAX_MODEL=50,            # How many models to store while training.
@@ -219,21 +213,21 @@ if args.warmup:
         num_warmup_samples=200, vmin=vmin, vmax=vmax,
         plotFigure=plotFigure, storeFigure=storeFigure)
 
-if plotFigure or storeFigure:
-    fig, ax = plt.subplots(1,1, figsize=(4, 4))
+    if plotFigure or storeFigure:
+        fig, ax = plt.subplots(1,1, figsize=(4, 4))
 
-    ax.plot(lossList, 'b-')
-    ax.set_xlabel('Iteration', fontsize=18)
-    ax.set_ylabel('Loss', fontsize=18)
-    plt.tight_layout()
+        ax.plot(lossList, 'b-')
+        ax.set_xlabel('Iteration', fontsize=18)
+        ax.set_ylabel('Loss', fontsize=18)
+        plt.tight_layout()
 
-    if storeFigure:
-        figurePath = os.path.join(figureFolder, 'initQ_Loss.png')
-        fig.savefig(figurePath)
-    if plotFigure:
-        plt.show()
-        plt.pause(0.001)
-    plt.close()
+        if storeFigure:
+            figurePath = os.path.join(figureFolder, 'initQ_Loss.png')
+            fig.savefig(figurePath)
+        if plotFigure:
+            plt.show()
+            plt.pause(0.001)
+        plt.close()
 
 print("\n== Training Information ==")
 trainRecords, trainProgress = agent.learn(env,

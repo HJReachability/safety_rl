@@ -217,6 +217,7 @@ class DubinsCarOneContEnv(gym.Env):
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
         self.car.set_seed(seed)
+        self.action_space = self.car.action_space
 
 
     def set_bounds(self, bounds):

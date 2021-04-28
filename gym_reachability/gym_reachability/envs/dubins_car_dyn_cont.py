@@ -153,6 +153,7 @@ class DubinsCarDynCont(object):
             seed: Random seed.
         """
         self.seed_val = seed
+        self.action_space.seed(self.seed_val)
 
 
     def set_bounds(self, bounds):

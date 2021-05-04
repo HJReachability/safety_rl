@@ -19,6 +19,7 @@ from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape,
 # from gym.envs.box2d.lunar_lander import LunarLander
 from gym.utils import seeding
 from gym.utils import EzPickle
+import pyglet
 
 # NOTE the overrides cause crashes with ray in this file but I would like to include them for
 # clarity in the future
@@ -106,6 +107,8 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         """
 
         self.discrete = discrete
+        self.l_x = 0.0
+        self.g_x = 0.0
         self.param_dict = self._generate_param_dict(param_dict)
         self.initialize_simulator_variables(self.param_dict)
         self.set_costParam(penalty=1, reward=-1)
@@ -652,11 +655,11 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.obs_state = np.concatenate(state_list)
         self.sim_state = self.obs_scale_to_simulator_scale(self.obs_state)
 
-        l_x = self.target_margin(self.sim_state)
-        g_x = self.safety_margin(self.sim_state)
+        self.l_x = self.target_margin(self.sim_state)
+        self.g_x = self.safety_margin(self.sim_state)
         # Fail or Success?
-        fail = g_x > 0
-        success = l_x <= 0
+        fail = self.g_x > 0
+        success = self.l_x <= 0
         done = fail or np.any(done_list)  # Outside enclosure or collision.
 
         # done = False
@@ -681,9 +684,9 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
 
         # If done flag has not triggered, just collect normal info.
         if not done:
-            info = {"g_x": g_x, "l_x": l_x}
+            info = {"g_x": self.g_x, "l_x": self.l_x}
         else:
-            info = {"g_x": self.penalty, "l_x": l_x}  
+            info = {"g_x": self.penalty, "l_x": self.l_x}  
 
         return np.copy(self.obs_state), 0, done, info
 
@@ -797,6 +800,15 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         if self.viewer is None:
             self.viewer = rendering.Viewer(self.VIEWPORT_W, self.VIEWPORT_H)
             self.viewer.set_bounds(0, self.VIEWPORT_W/self.SCALE, 0, self.VIEWPORT_H/self.SCALE)
+            self.minL = pyglet.text.Label(
+                        "0000",
+                        font_size=360,
+                        x=self.VIEWPORT_W / (2.0 * self.SCALE),
+                        y=self.VIEWPORT_H / (2.0 * self.SCALE),
+                        anchor_x="left",
+                        anchor_y="center",
+                        color=(255, 0, 255, 255),
+                        )
 
         for obj in self.particles:
             obj.ttl -= 0.15
@@ -845,6 +857,9 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
 
         for key, value in kwargs.items():
             self.viewer.draw_polyline(value, color=(0, 1, 0), linewidth=10)
+
+        self.minL.text = "%f" % self.l_x
+        self.minL.draw()
 
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
 

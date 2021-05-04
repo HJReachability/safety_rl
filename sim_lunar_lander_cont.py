@@ -186,7 +186,7 @@ def multi_experiment(seedNum, args, CONFIG, env, report_period=1000, skip=False)
 
 
 def test_experiment(args, CONFIG, env, path, doneType='toFailureOrSuccess',
-                    sim_only=False):
+                    sim_only=False, max_step=None):
     s_dim = env.observation_space.shape[0]
     numAction = env.action_space.shape[0]
     actionList = np.arange(numAction)
@@ -197,7 +197,8 @@ def test_experiment(args, CONFIG, env, path, doneType='toFailureOrSuccess',
 
     # This finds largest checkpoint.
     model_list = glob.glob(os.path.join(path, 'model/actor/*.pth'))
-    max_step = max([int(li.split('/')[-1][6:-4]) for li in model_list])
+    if max_step is None:
+        max_step = max([int(li.split('/')[-1][6:-4]) for li in model_list])
 
     # If CONFIG.pkl file exists overwrite CONFIG object.
     # config_path = path.split(path.split("/")[-1])[0] + "CONFIG.pkl"
@@ -222,11 +223,10 @@ def test_experiment(args, CONFIG, env, path, doneType='toFailureOrSuccess',
 
     if not sim_only:
         # Print confusion matrix.
-        print(env.confusion_matrix(agent.Q_network, num_states=100))
+        # print(env.confusion_matrix(agent.Q_network, num_states=100))
 
         # Visualize value function.
-        env.visualize(agent.Q_network, True, nx=91, ny=91, boolPlot=False, trueRAZero=False,
-            addBias=False, lvlset=0)
+        env.visualize(agent.critic.Q1, agent.actor, vmin=-1, vmax=1, cmap='seismic', addBias=False)
         plt.show()
 
     my_images = []
@@ -258,9 +258,9 @@ def test_experiment(args, CONFIG, env, path, doneType='toFailureOrSuccess',
     env.close()
     # save_frames_as_gif(my_images)
 
-path1 = "models/RA2021-04-27-09_17_09/"
+path1 = "models/RA2021-05-02-15_51_43/"
 if args.test:
     test_experiment(args, CONFIG, env, path1,
-                    doneType='toDone', sim_only=True)
+                    doneType='toDone', sim_only=True, max_step=1300000)
 else:
     multi_experiment(1, args, CONFIG, env, skip=args.skip)

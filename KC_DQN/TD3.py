@@ -19,7 +19,7 @@ from .ActorCritic import ActorCritic, Transition
 
 class TD3(ActorCritic):
     def __init__(self, CONFIG, actionSpace, dimLists, actType={'critic':'Tanh', 'actor':'Tanh'},
-        verbose=True):
+        terminalType='g', verbose=True):
         """
         __init__: initialization.
 
@@ -32,6 +32,7 @@ class TD3(ActorCritic):
             verbose (bool, optional): print info or not. Defaults to True.
         """
         super(TD3, self).__init__('TD3', CONFIG, actionSpace)
+        self.terminalType = terminalType
 
         #== Build NN for (D)DQN ==
         assert dimLists is not None, "Define the architectures"
@@ -143,9 +144,13 @@ class TD3(ActorCritic):
         # done_obstac = torch.logical_and(torch.logical_not(non_final_mask), g_x_nxt > 0)
         # target_q[done_target] = l_x_nxt[done_target]
         # target_q[done_obstac] = g_x_nxt[done_obstac]
-        # target_q[torch.logical_not(non_final_mask)] = g_x[torch.logical_not(non_final_mask)]
-        target_q[torch.logical_not(non_final_mask)] = torch.max(
-            l_x[torch.logical_not(non_final_mask)], g_x[torch.logical_not(non_final_mask)])
+        if self.terminalType == 'g':
+            target_q[torch.logical_not(non_final_mask)] = g_x[torch.logical_not(non_final_mask)]
+        elif self.terminalType == 'max':
+            target_q[torch.logical_not(non_final_mask)] = torch.max(
+                l_x[torch.logical_not(non_final_mask)], g_x[torch.logical_not(non_final_mask)])
+        else:
+            raise ValueError("invalid terminalType")
 
         #== MSE update for both Q1 and Q2 ==
         loss_q1 = mse_loss(input=q1.view(-1), target=target_q)

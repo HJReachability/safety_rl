@@ -21,7 +21,8 @@ import random
 
 
 class ZermeloContEnv(gym.Env):
-    def __init__(self, device, mode='normal', doneType='toEnd'):
+    def __init__(self, device, mode='normal', doneType='toEnd',
+        sample_inside_obs=False):
 
         # State bounds.
         self.bounds = np.array([[-2, 2],  # axis_0 = state, axis_1 = bounds.
@@ -29,8 +30,8 @@ class ZermeloContEnv(gym.Env):
 
         self.low = self.bounds[:, 0]
         self.high = self.bounds[:, 1]
+        self.sample_inside_obs = sample_inside_obs
 
-        self.sample_inside_obs = False
         # Time step parameter.
         self.time_step = 0.05
 
@@ -78,8 +79,7 @@ class ZermeloContEnv(gym.Env):
 
         # Visualization params
         self.vis_init_flag = True
-        (self.x_box1_pos, self.x_box2_pos,
-        self.x_box3_pos, self.y_box1_pos,
+        (self.x_box1_pos, self.x_box2_pos, self.x_box3_pos, self.y_box1_pos,
         self.y_box2_pos, self.y_box3_pos) = self.constraint_set_boundary()
         (self.x_box4_pos, self.y_box4_pos) = self.target_set_boundary()
         self.visual_initial_states = [np.array([ 0,  0]), np.array([-1, -2]),
@@ -89,7 +89,8 @@ class ZermeloContEnv(gym.Env):
             self.visual_initial_states = self.extend_state(
                 self.visual_initial_states)
 
-        print("Env: mode---{:s}; doneType---{:s}".format(mode, doneType))
+        print("Env: mode-{:s}; doneType-{:s}; sample_inside_obs-{}".format(
+            mode, doneType, sample_inside_obs))
 
         # for torch
         self.device = device
@@ -151,6 +152,7 @@ class ZermeloContEnv(gym.Env):
         # return rnd_state
 
 
+#== Dynamics ==
     def step(self, action):
         """ Evolve the environment one step forward under given input action.
 
@@ -180,7 +182,7 @@ class ZermeloContEnv(gym.Env):
         fail = g_x > 0
         success = l_x <= 0
 
-        # cost
+        #= `cost` signal
         if self.mode == 'RA':
             if fail:
                 cost = self.penalty
@@ -208,17 +210,22 @@ class ZermeloContEnv(gym.Env):
                     cost = max(l_x, g_x)
                 else:
                     cost = 0.
-        # done
-        # if self.doneType == 'toEnd':
-        #     outsideTop   = (self.state[1] >= self.bounds[1,1])
-        #     outsideLeft  = (self.state[0] <= self.bounds[0,0])
-        #     outsideRight = (self.state[0] >= self.bounds[0,1])
-        #     done = outsideTop or outsideLeft or outsideRight
-        # else:
-        done = fail # or success
-        # assert self.doneType == 'TF', 'invalid doneType'
 
-        info = {"g_x": g_x, "l_x": l_x}
+        #= `done` signal
+        if self.doneType == 'toEnd':
+            done = self.check_within_env(self.state)
+        elif self.doneType == 'fail':
+            done = fail
+        elif self.doneType == 'TF':
+            done = fail or success
+        else:
+            raise ValueError("invalid doneType")
+
+        #= `info`
+        if done and self.doneType == 'fail':
+            info = {"g_x": self.penalty, "l_x": l_x}
+        else:
+            info = {"g_x": g_x, "l_x": l_x}
         return np.copy(self.state), cost, done, info
 
 
@@ -258,6 +265,7 @@ class ZermeloContEnv(gym.Env):
         return state, info
 
 
+#== Getting Margin ==
     def safety_margin(self, s):
         """ Computes the margin (e.g. distance) between state and failue set.
 
@@ -267,17 +275,17 @@ class ZermeloContEnv(gym.Env):
         Returns:
             Margin for the state s.
         """
-        box1_safety_margin = -(np.linalg.norm(s - self.box1_x_y_length[:2],
-                               ord=np.inf) - self.box1_x_y_length[-1]/2.0)
-        box2_safety_margin = -(np.linalg.norm(s - self.box2_x_y_length[:2],
-                               ord=np.inf) - self.box2_x_y_length[-1]/2.0)
-        box3_safety_margin = -(np.linalg.norm(s - self.box3_x_y_length[:2],
-                               ord=np.inf) - self.box3_x_y_length[-1]/2.0)
+        box1_safety_margin = -(np.linalg.norm(s - self.box1_x_y_length[:2], ord=np.inf)
+            - self.box1_x_y_length[-1]/2.0)
+        box2_safety_margin = -(np.linalg.norm(s - self.box2_x_y_length[:2], ord=np.inf)
+            - self.box2_x_y_length[-1]/2.0)
+        box3_safety_margin = -(np.linalg.norm(s - self.box3_x_y_length[:2], ord=np.inf)
+            - self.box3_x_y_length[-1]/2.0)
 
         vertical_margin = (np.abs( s[1] - (self.low[1] + self.high[1])/2.0)
-                           - self.interval[1]/2.0)
+            - self.interval[1]/2.0)
         horizontal_margin = (np.abs( s[0] - (self.low[0] + self.high[0])/2.0)
-                           - self.interval[0]/2.0)
+            - self.interval[0]/2.0)
         enclosure_safety_margin = max(horizontal_margin, vertical_margin)
 
         safety_margin = max(box1_safety_margin,
@@ -298,13 +306,14 @@ class ZermeloContEnv(gym.Env):
         Returns:
             Margin for the state s.
         """
-        box4_target_margin = (np.linalg.norm(s - self.box4_x_y_length[:2],
-                              ord=np.inf) - self.box4_x_y_length[-1]/2.0)
+        box4_target_margin = (np.linalg.norm(s - self.box4_x_y_length[:2], ord=np.inf)
+            - self.box4_x_y_length[-1]/2.0)
 
         target_margin = box4_target_margin
         return self.scaling * target_margin
 
 
+#== Setting Hyper-Parameters ==
     def set_costParam(self, penalty=1, reward=-1, costType='normal',
         scaling=4.):
         self.penalty = penalty
@@ -437,6 +446,14 @@ class ZermeloContEnv(gym.Env):
         return (x_box4_pos, y_box4_pos)
 
 
+#== Getting Information ==
+    def check_within_env(self, state):
+        outsideTop   = (state[1] >= self.bounds[1,1])
+        outsideLeft  = (state[0] <= self.bounds[0,0])
+        outsideRight = (state[0] >= self.bounds[0,1])
+        return outsideTop or outsideLeft or outsideRight
+
+
     def get_value(self, q_func, policy, nx=41, ny=121, addBias=False):
         v = np.zeros((nx, ny))
         it = np.nditer(v, flags=['multi_index'])
@@ -500,8 +517,7 @@ class ZermeloContEnv(gym.Env):
         toEnd=False):
 
         if state is None:
-            state = self.sample_random_state(
-                sample_inside_obs=self.sample_inside_obs)
+            state = self.sample_random_state(sample_inside_obs=keepOutOf)
         x, y = state[:2]
         traj_x = [x]
         traj_y = [y]
@@ -509,10 +525,7 @@ class ZermeloContEnv(gym.Env):
 
         for t in range(T):
             if toEnd:
-                outsideTop   = (state[1] >= self.bounds[1,1])
-                outsideLeft  = (state[0] <= self.bounds[0,0])
-                outsideRight = (state[0] >= self.bounds[0,1])
-                done = outsideTop or outsideLeft or outsideRight
+                done = self.check_within_env(state)
                 if done:
                     result = 1
                     break
@@ -535,8 +548,7 @@ class ZermeloContEnv(gym.Env):
 
 
     def simulate_trajectories(self, policy, T=10,
-                              num_rnd_traj=None, states=None,
-                              keepOutOf=False, toEnd=False):
+        num_rnd_traj=None, states=None, keepOutOf=False, toEnd=False):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -561,6 +573,7 @@ class ZermeloContEnv(gym.Env):
         return trajectories, results
 
 
+#== Visualizing ==
     def visualize(  self, q_func, policy,
                     vmin=-1, vmax=1, nx=81, ny=241, cmap='seismic',
                     labels=['', ''], boolPlot=False, addBias=False):

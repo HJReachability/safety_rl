@@ -378,7 +378,7 @@ class ActorCritic(object):
         save_model(self.critic, step, logs_path_critic, 'critic', self.MAX_MODEL)
         save_model(self.actor,  step, logs_path_actor, 'actor',  self.MAX_MODEL)
         if not self.saved:
-            config_path = logs_path + "CONFIG.pkl"
+            config_path = os.path.join(logs_path, "CONFIG.pkl")
             pickle.dump(self.CONFIG, open(config_path, "wb"))
             self.saved = True
 

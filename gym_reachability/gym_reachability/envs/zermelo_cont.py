@@ -20,16 +20,6 @@ import torch
 import random
 
 
-class continuousSpace(object):
-    def __init__(self, low=0., high=1.):
-        self.low = low
-        self.high = high
-        if isinstance(low, (np.ndarray)):
-            self.dim = low.shape[0]
-        else:
-            self.dim = 1
-
-
 class ZermeloContEnv(gym.Env):
     def __init__(self, device, mode='normal', doneType='toEnd'):
 

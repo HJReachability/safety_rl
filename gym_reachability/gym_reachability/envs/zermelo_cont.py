@@ -126,8 +126,7 @@ class ZermeloContEnv(gym.Env):
         inside_obs = True
         # Repeat sampling until outside obstacle if needed.
         while inside_obs:
-            xy_sample = np.random.uniform(low=self.low,
-                                          high=self.high)
+            xy_sample = np.random.uniform(low=self.low, high=self.high)
             g_x = self.safety_margin(xy_sample)
             inside_obs = (g_x > 0)
             if sample_inside_obs:
@@ -172,16 +171,17 @@ class ZermeloContEnv(gym.Env):
         else:
             x, y = self.state
 
-        l_x_cur = self.target_margin(self.state[:2])
-        g_x_cur = self.safety_margin(self.state[:2])
+        # l_x_cur = self.target_margin(self.state[:2])
+        # g_x_cur = self.safety_margin(self.state[:2])
 
-        state, [l_x_nxt, g_x_nxt] = self.integrate_forward(self.state, action)
+        state, [l_x, g_x] = self.integrate_forward(self.state, action)
         self.state = state
+
+        fail = g_x > 0
+        success = l_x <= 0
 
         # cost
         if self.mode == 'RA':
-            fail = g_x_cur > 0
-            success = l_x_cur <= 0
             if fail:
                 cost = self.penalty
             elif success:
@@ -189,25 +189,23 @@ class ZermeloContEnv(gym.Env):
             else:
                 cost = 0.
         else:
-            fail = g_x_nxt > 0
-            success = l_x_nxt <= 0
-            if g_x_nxt > 0 or g_x_cur > 0:
+            if fail:
                 cost = self.penalty
-            elif l_x_nxt <= 0 or l_x_cur <= 0:
+            elif success:
                 cost = self.reward
             else:
                 if self.costType == 'dense_ell':
-                    cost = l_x_nxt
+                    cost = l_x
                 elif self.costType == 'dense_ell_g':
-                    cost = l_x_nxt + g_x_nxt
-                elif self.costType == 'imp_ell_g':
-                    cost = (l_x_nxt-l_x_cur) + (g_x_nxt-g_x_cur)
-                elif self.costType == 'imp_ell':
-                    cost = (l_x_nxt-l_x_cur)
+                    cost = l_x + g_x
+                # elif self.costType == 'imp_ell_g':
+                #     cost = (l_x-l_x_cur) + (g_x-g_x_cur)
+                # elif self.costType == 'imp_ell':
+                #     cost = (l_x-l_x_cur)
                 elif self.costType == 'sparse':
                     cost = 0. * self.scaling
                 elif self.costType == 'max_ell_g':
-                    cost = max(l_x_nxt, g_x_nxt)
+                    cost = max(l_x, g_x)
                 else:
                     cost = 0.
         # done
@@ -220,7 +218,7 @@ class ZermeloContEnv(gym.Env):
         done = fail # or success
         # assert self.doneType == 'TF', 'invalid doneType'
 
-        info = {"g_x": g_x_cur, "l_x": l_x_cur, "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
+        info = {"g_x": g_x, "l_x": l_x}
         return np.copy(self.state), cost, done, info
 
 

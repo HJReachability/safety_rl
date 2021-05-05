@@ -22,7 +22,6 @@
 #   - Hyper-Parameter Scheduler
 #       + learning rate: Q1, Q2, Actor
 #       + contraction factor: gamma
-#       + exploration-exploitation trade-off: epsilon
 #   - Optimizer: Q1, Q2, Actor
 
 # * Functions
@@ -87,11 +86,6 @@ class ActorCritic(object):
         self.actionSpace = actionSpace
 
         #== PARAM ==
-        # Exploration
-        self.EpsilonScheduler = StepResetLR( initValue=CONFIG.EPSILON,
-            period=CONFIG.EPS_PERIOD, decay=CONFIG.EPS_DECAY,
-            endValue=CONFIG.EPS_END, resetPeriod=CONFIG.EPS_RESET_PERIOD)
-        self.EPSILON = self.EpsilonScheduler.get_variable()
 
         # Learning Rate
         self.LR_C = CONFIG.LR_C
@@ -165,8 +159,6 @@ class ActorCritic(object):
         else:
             self.criticScheduler.step()
 
-        self.EpsilonScheduler.step()
-        self.EPSILON = self.EpsilonScheduler.get_variable()
         self.GammaScheduler.step()
         self.GAMMA = self.GammaScheduler.get_variable()
 
@@ -226,16 +218,39 @@ class ActorCritic(object):
                 curUpdates=None, checkPeriod=50000,
                 plotFigure=True, storeFigure=False,
                 showBool=False, vmin=-1, vmax=1, numRndTraj=200,
-                storeModel=True, outFolder='RA', verbose=True):
+                storeModel=True, saveBest=True, outFolder='RA', verbose=True):
+
+        # == Warmup Buffer ==
+        startInitBuffer = time.time()
+        if warmupBuffer:
+            self.initBuffer(env)
+        endInitBuffer = time.time()
+
+        # == Warmup Q ==
+        startInitQ = time.time()
+        if warmupQ:
+            self.initQ(env, warmupIter=warmupIter, outFolder=outFolder,
+                vmin=vmin, vmax=vmax, plotFigure=plotFigure,
+                storeFigure=storeFigure)
+        endInitQ = time.time()
 
         # == Main Training ==
         startLearning = time.time()
-        TrainingRecord = namedtuple('TrainingRecord', ['ep', 'runningCost', 'cost', 'loss_q', 'loss_pi'])
+        TrainingRecord = namedtuple('TrainingRecord',
+            ['ep', 'runningCost', 'cost', 'loss_q', 'loss_pi'])
         trainingRecords = []
         runningCost = 0.
         trainProgress = []
         checkPointSucc = 0.
         ep = 0
+
+        if storeModel:
+            modelFolder = os.path.join(outFolder, 'model')
+            os.makedirs(modelFolder, exist_ok=True)
+        if storeFigure:
+            figureFolder = os.path.join(outFolder, 'figure')
+            os.makedirs(figureFolder, exist_ok=True)
+
         if curUpdates is not None:
             self.cntUpdate = curUpdates
             print("starting from {:d} updates".format(self.cntUpdate))
@@ -267,7 +282,10 @@ class ActorCritic(object):
 
                 # Check after fixed number of gradient updates
                 if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
-                    results= env.simulate_trajectories(self.actor,
+                    actor_sim = self.actor
+                    if self.actorType == 'SAC':
+                        actor_sim = lambda x: self.actor.sample(x,deterministic=True)
+                    results= env.simulate_trajectories(actor_sim,
                         T=MAX_EP_STEPS, num_rnd_traj=numRndTraj,
                         keepOutOf=False, toEnd=False)[1]
                     success  = np.sum(results==1) / numRndTraj
@@ -277,8 +295,8 @@ class ActorCritic(object):
                     if verbose:
                         lr = self.actorOptimizer.state_dict()['param_groups'][0]['lr']
                         print('\nAfter [{:d}] updates:'.format(self.cntUpdate))
-                        print('  - eps={:.2f}, gamma={:.6f}, lr={:.1e}.'.format(
-                            self.EPSILON, self.GAMMA, lr))
+                        print('  - gamma={:.6f}, lr={:.1e}.'.format(
+                            self.GAMMA, lr))
                         print('  - success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(
                             success, failure, unfinish))
 
@@ -289,17 +307,18 @@ class ActorCritic(object):
 
                     if plotFigure or storeFigure:
                         if showBool:
-                            env.visualize(self.critic.Q1, self.actor, vmin=0, boolPlot=True, addBias=addBias)
+                            env.visualize(self.critic.Q1, actor_sim, vmin=0, boolPlot=True, addBias=addBias)
                         else:
-                            env.visualize(self.critic.Q1, self.actor, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
+                            env.visualize(self.critic.Q1, actor_sim, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
+
                         if storeFigure:
-                            figureFolder = 'models/{:s}/figure/'.format(outFolder)
-                            os.makedirs(figureFolder, exist_ok=True)
-                            plt.savefig('{:s}{:d}.png'.format(figureFolder, self.cntUpdate))
-                        # if plotFigure:
-                        #     # plt.show()
-                        #     # plt.pause(0.001)
-                        #     # plt.close()
+                            figurePath = os.path.join(figureFolder,
+                                '{:d}.png'.format(self.cntUpdate))
+                            plt.savefig(figurePath)
+                        if plotFigure:
+                            plt.show()
+                            plt.pause(0.001)
+                            plt.close()
 
                 # Perform one step of the optimization (on the target network)
                 loss_q, loss_pi = 0, 0
@@ -339,6 +358,7 @@ class ActorCritic(object):
         return trainingRecords, trainProgress
     # * LEARN ENDS
 
+
     # * OTHERS STARTS
     def store_transition(self, *args):
         self.memory.update(Transition(*args))
@@ -371,5 +391,22 @@ class ActorCritic(object):
             self.actorTarget.load_state_dict(
                 torch.load(logs_path_actor, map_location=self.device))
             self.actorTarget.to(self.device)
-        print('  => Restore {}' .format(logs_path))
+        print('  <= Restore {}' .format(logs_path))
+
+
+    # def select_action(self, state, explore=False):
+    #     stateTensor = torch.from_numpy(state).float().to(self.device).unsqueeze(0)
+    #     if explore:
+    #         action, _, _ = self.actor.sample(stateTensor)
+    #     else:
+    #         _, _, action = self.actor.sample(stateTensor)
+    #     return action.detach().cpu().numpy()[0]
+
+
+    def genRandomActions(self, num_actions):
+        UB = self.actionSpace.high
+        LB = self.actionSpace.low
+        dim = UB.shape[0]
+        actions = (UB - LB) * np.random.rand(num_actions, dim) + LB
+        return actions
     # * OTHERS ENDS

@@ -166,7 +166,6 @@ class DDQNSingle(DDQN):
     def initQ(  self, env, warmupIter, outFolder, num_warmup_samples=200,
                 vmin=-1, vmax=1, plotFigure=True, storeFigure=True):
         for ep_tmp in range(warmupIter):
-            print('\rWarmup Q [{:d}]'.format(ep_tmp+1), end='')
             states, heuristic_v = env.get_warmup_examples(num_warmup_samples=num_warmup_samples)
 
             self.Q_network.train()
@@ -179,6 +178,7 @@ class DDQNSingle(DDQN):
             loss.backward()
             nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
             self.optimizer.step()
+            print('\rWarmup Q [{:d}]. MSE = {:f}'.format(ep_tmp+1, loss),end='')
 
         print(" --- Warmup Q Ends")
         if plotFigure or storeFigure:

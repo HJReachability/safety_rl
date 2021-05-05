@@ -106,45 +106,56 @@ class TwinnedQNetwork(nn.Module):
 
 # TODO == Policy (Actor) Model ==
 class GaussianPolicy(nn.Module):
-    LOG_STD_MAX = 1
-    LOG_STD_MIN = -8
-    eps = 1e-8
 
-    def __init__(self, dimList, actType='Tanh', device='cpu', actionSpace=None):
+    def __init__(self, dimList, actionSpace, actType='Tanh', device='cpu'):
         super(GaussianPolicy, self).__init__()
         self.device = device
         self.mean = model(dimList, actType, verbose=True).to(device)
         self.log_std = model(dimList, actType, verbose=True).to(device)
 
+        self.actionSpace = actionSpace
+        self.a_max = self.actionSpace.high[0]
+        self.a_min = self.actionSpace.low[0]  
+        self.scale = (self.a_max - self.a_min) / 2.0
+        self.bias = (self.a_max + self.a_min) / 2.0
+
+        self.LOG_STD_MAX = 1
+        self.LOG_STD_MIN = -5
+        self.log_scale = (self.LOG_STD_MAX - self.LOG_STD_MIN) / 2.0
+        self.log_bias = (self.LOG_STD_MAX + self.LOG_STD_MIN) / 2.0
+        self.eps = 1e-8
         # Action Scale and Bias
-        if actionSpace is None:
-            self.actionScale = torch.tensor(1.)
-            self.actionBias = torch.tensor(0.)
-        else:
-            self.actionScale = torch.FloatTensor(
-                (actionSpace.high - actionSpace.low) / 2.).to(device)
-            self.actionBias = torch.FloatTensor(
-                (actionSpace.high + actionSpace.low) / 2.).to(device)
+        # if actionSpace is None:
+        #     self.actionScale = torch.tensor(1.)
+        #     self.actionBias = torch.tensor(0.)
+        # else:
+        #     self.actionScale = torch.FloatTensor(
+        #         (actionSpace.high - actionSpace.low) / 2.).to(device)
+        #     self.actionBias = torch.FloatTensor(
+        #         (actionSpace.high + actionSpace.low) / 2.).to(device)
 
 
     def forward(self, state):
         stateTensor = state.to(self.device)
         mean = self.mean(stateTensor)
         log_std = self.log_std(stateTensor)
-        log_std = torch.clamp(log_std, min=LOG_SIG_MIN, max=LOG_SIG_MAX)
+        # log_std = torch.clamp(log_std, min=self.LOG_STD_MIN, max=self.LOG_STD_MAX)
+        log_std = torch.tanh(log_std) * self.log_scale + self.log_bias
         return mean, log_std
 
 
-    def sample(self, state):
+    def sample(self, state, deterministic=False):
         stateTensor = state.to(self.device)
         mean, log_std = self.forward(stateTensor)
-        std = log_std.exp()
+        if deterministic:
+            return torch.tanh(mean) * self.scale + self.bias
+        std = torch.exp(log_std)
         normalRV = Normal(mean, std)
 
         x = normalRV.rsample()  # reparameterization trick (mean + std * N(0,1))
         y = torch.tanh(x)   # constrain the output to be within [-1, 1]
 
-        action = y * self.actionScale + self.actionBias
+        action = y * self.scale + self.bias
         log_prob = normalRV.log_prob(x)
 
         # Get the correct probability: x -> a, a = c * y + b, y = tanh x
@@ -152,10 +163,15 @@ class GaussianPolicy(nn.Module):
         # log p(a) = log p(x) - log |det(da/dx)|
         # log |det(da/dx)| = sum log (d a_i / d x_i)
         # d a_i / d x_i = c * ( 1 - y_i^2 )
-        log_prob -= torch.log(self.actionScale * (1 - y.pow(2)) + eps)
-        log_prob = log_prob.sum(1, keepdim=True)
-        mean = torch.tanh(mean) * self.actionScale + self.actionBias
-        return action, log_prob, mean
+        # TODO(vrubies): Understand this!
+        log_prob -= torch.log(self.scale * (1 - y.pow(2)) + self.eps).sum(-1, keepdim=True)
+        # log_prob -= (2*(np.log(2) - x - F.softplus(-2*x)))
+        # if log_prob.dim() > 1:
+        #     log_prob = log_prob.sum(1, keepdim=True)
+        # else:
+        #     log_prob = log_prob.sum()
+        # mean = torch.tanh(mean) * self.scale + self.bias
+        return action, log_prob
 
 class DeterministicPolicy(nn.Module):
     def __init__(self, dimList, actionSpace, actType='Tanh', device='cpu',

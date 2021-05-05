@@ -14,10 +14,10 @@ import os
 import time
 from copy import deepcopy
 
-from .model import DeterministicPolicy
+from .model import GaussianPolicy
 from .ActorCritic import ActorCritic, Transition
 
-class TD3(ActorCritic):
+class SAC(ActorCritic):
     def __init__(self, CONFIG, actionSpace, dimLists, actType={'critic':'Tanh', 'actor':'Tanh'},
         verbose=True):
         """
@@ -27,11 +27,12 @@ class TD3(ActorCritic):
             CONFIG (Class object): hyper-parameter configuration.
             actionSpace (Class object): consists of `high` and `low` attributes.
             dimList (list): consists of dimension lists
-            actType (dict, optional): consists of activation types.
+            actType (list, optional): consists of activation types.
                 Defaults to ['Tanh', 'Tanh'].
             verbose (bool, optional): print info or not. Defaults to True.
         """
-        super(TD3, self).__init__('TD3', CONFIG, actionSpace)
+        super(SAC, self).__init__('SAC', CONFIG, actionSpace)
+        self.alpha = CONFIG.ALPHA
 
         #== Build NN for (D)DQN ==
         assert dimLists is not None, "Define the architectures"
@@ -40,11 +41,8 @@ class TD3(ActorCritic):
         self.actType = actType
         self.build_network(dimLists, actType)
 
-
-    def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.2,
-        noiseClamp=0.5):
-        self.actor = DeterministicPolicy(dimListActor, self.actionSpace,
-            actType=actType, noiseStd=noiseStd, noiseClamp=noiseClamp)
+    def build_actor(self, dimListActor, actType='Tanh'):
+        self.actor = GaussianPolicy(dimListActor, self.actionSpace, actType=actType)
         self.actorTarget = deepcopy(self.actor)
         for p in self.actorTarget.parameters():
             p.requires_grad = False
@@ -71,7 +69,7 @@ class TD3(ActorCritic):
                 vmin=-1, vmax=1, plotFigure=True, storeFigure=True):
         loss = 0.0
         for ep_tmp in range(warmupIter):
-            print('\rWarmup Q [{:d}]. MSE = {:f}'.format(ep_tmp+1, loss),end='')
+            print('\rWarmup Q [{:d}]. MSE = {:f}'.format(ep_tmp+1, loss), end='')
             states, value = env.get_warmup_examples(num_warmup_samples)
             actions = self.genRandomActions(num_warmup_samples)
 
@@ -91,27 +89,25 @@ class TD3(ActorCritic):
 
         print(" --- Warmup Q Ends")
         if plotFigure or storeFigure:
-            env.visualize(self.critic.Q1, self.actor, vmin=vmin, vmax=vmax)
+            env.visualize(self.critic.Q1, self.actor, vmin=vmin, vmax=vmax, cmap='seismic')
             if storeFigure:
-                figureFolder = os.path.join(outFolder, 'figure')
+                figureFolder = '{:s}/figure/'.format(outFolder)
                 os.makedirs(figureFolder, exist_ok=True)
-                figurePath = os.path.join(figureFolder, 'initQ.png')
-                plt.savefig(figurePath)
-            if plotFigure:
-                plt.show()
-                plt.pause(0.001)
-                plt.close()
+                plt.savefig('{:s}initQ.png'.format(figureFolder))
+            # if plotFigure:
+            #     plt.show()
+            #     plt.pause(0.001)
+            #     plt.close()
 
         # hard replace
         self.criticTarget.load_state_dict(self.critic.state_dict())
         del self.criticOptimizer
         self.build_optimizer()
 
-
     def update_critic(self, batch, addBias=False):
 
         (non_final_mask, non_final_state_nxt, state,
-         action, reward, g_x, l_x) = self.unpack_batch(batch)
+         action, reward, g_x, l_x, g_x_nxt, l_x_nxt) = self.unpack_batch(batch)
 
         #== get Q(s,a) ==
         q1, q2 = self.critic(state, action)  # Used to compute loss (non-target part).
@@ -121,20 +117,16 @@ class TD3(ActorCritic):
 
         #== compute actorTarget next_actions and feed to criticTarget ==
         with torch.no_grad():
-            _, next_actions = self.actorTarget.sample(non_final_state_nxt)  # clip(pi_targ(s')+clip(eps,-c,c),a_low, a_high)
+            next_actions, log_prob = self.actor.sample(non_final_state_nxt)
             next_q1, next_q2 = self.criticTarget(non_final_state_nxt, next_actions)
             q_max = torch.max(next_q1, next_q2).view(-1)  # max because we are doing reach-avoid.
+            entropy = -self.alpha * log_prob.view(-1)
 
         target_q[non_final_mask] =  (
-            (1.0 - self.GAMMA) * torch.max(l_x[non_final_mask], g_x[non_final_mask]) +
-            self.GAMMA * torch.max( g_x[non_final_mask], torch.min(l_x[non_final_mask], q_max)))
-        # done_target = torch.logical_and(torch.logical_not(non_final_mask), l_x_nxt <= 0)
-        # done_obstac = torch.logical_and(torch.logical_not(non_final_mask), g_x_nxt > 0)
-        # target_q[done_target] = l_x_nxt[done_target]
-        # target_q[done_obstac] = g_x_nxt[done_obstac]
-        target_q[torch.logical_not(non_final_mask)] = g_x[torch.logical_not(non_final_mask)]
-        # torch.max(
-        #     l_x[torch.logical_not(non_final_mask)], g_x[torch.logical_not(non_final_mask)])
+            (1.0 - self.GAMMA) * torch.max(l_x_nxt[non_final_mask] - entropy[non_final_mask], g_x_nxt[non_final_mask]) +
+            self.GAMMA * torch.max( g_x_nxt[non_final_mask], torch.min(l_x_nxt[non_final_mask] - entropy[non_final_mask], q_max)))
+        target_q[torch.logical_not(non_final_mask)] = torch.max(
+            l_x_nxt[torch.logical_not(non_final_mask)] - entropy[torch.logical_not(non_final_mask)], g_x_nxt[torch.logical_not(non_final_mask)])
 
         #== MSE update for both Q1 and Q2 ==
         loss_q1 = mse_loss(input=q1.view(-1), target=target_q)
@@ -153,15 +145,17 @@ class TD3(ActorCritic):
     def update_actor(self, batch):
 
         (non_final_mask, non_final_state_nxt, state,
-         action, reward, g_x, l_x) = self.unpack_batch(batch)
+         action, reward, g_x, l_x, g_x_nxt, l_x_nxt) = self.unpack_batch(batch)
 
         for p in self.critic.parameters():
             p.requires_grad = False
 
-        q_pi_1, q_pi_2 = self.critic(state, self.actor(state))
+        action_next, log_prob = self.actor.sample(non_final_state_nxt)
+        q_pi_1, q_pi_2 = self.critic(state, action_next)
         q_pi = torch.max(q_pi_1, q_pi_2)#q_pi_1 if np.random.randint(2) == 0 else q_pi_2  # Kai-Chieh: why randomly decide instead of pick 1.
 
-        loss_pi = q_pi.mean()
+        # entropy = -self.alpha * log_prob.view(-1)
+        loss_pi = (q_pi - self.alpha * log_prob.view(-1)).mean() # This performs gradient descent.
         self.actorOptimizer.zero_grad()
         loss_pi.backward()
         # nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
@@ -179,10 +173,12 @@ class TD3(ActorCritic):
             dtype=torch.bool).to(self.device)
         non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None]).to(self.device)
         state  = torch.FloatTensor(batch.s).to(self.device)
-        action = torch.LongTensor(batch.a).to(self.device).view(-1, self.actionSpace.shape[0])
+        action = torch.LongTensor(batch.a).to(self.device).view(-1,1)
         reward = torch.FloatTensor(batch.r).to(self.device)
 
         g_x = torch.FloatTensor([info['g_x'] for info in batch.info]).to(self.device).view(-1)
         l_x = torch.FloatTensor([info['l_x'] for info in batch.info]).to(self.device).view(-1)
+        g_x_nxt = torch.FloatTensor([info['g_x_nxt'] for info in batch.info]).to(self.device).view(-1)
+        l_x_nxt = torch.FloatTensor([info['l_x_nxt'] for info in batch.info]).to(self.device).view(-1)
 
-        return non_final_mask, non_final_state_nxt, state, action, reward, g_x, l_x
+        return non_final_mask, non_final_state_nxt, state, action, reward, g_x, l_x, g_x_nxt, l_x_nxt

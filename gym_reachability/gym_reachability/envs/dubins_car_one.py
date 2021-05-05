@@ -500,17 +500,19 @@ class DubinsCarOneEnv(gym.Env):
         v = self.get_value(q_func, theta, nx, ny, addBias=addBias)
 
         if boolPlot:
-            im = ax.imshow(v.T>0., interpolation='none', extent=axStyle[0], origin="lower", cmap=cmap)
+            im = ax.imshow(v.T>0., interpolation='none', extent=axStyle[0],
+                origin="lower", cmap=cmap, zorder=-1)
         else:
             im = ax.imshow( v.T, interpolation='none', extent=axStyle[0], origin="lower",
-                            cmap=cmap, vmin=vmin, vmax=vmax)
+                            cmap=cmap, vmin=vmin, vmax=vmax, zorder=-1)
             if cbarPlot:
                 cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95, ticks=[vmin, 0, vmax])
                 cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=16)
 
 
-    def plot_trajectories(  self, q_func, T=10, num_rnd_traj=None, states=None, theta=None,
-                            keepOutOf=False, toEnd=False, ax=None, c='y', lw=1.5, orientation=0):
+    def plot_trajectories(  self, q_func, T=10, num_rnd_traj=None, states=None,
+        theta=None, keepOutOf=False, toEnd=False, ax=None, c='y', lw=1.5,
+        orientation=0, zorder=2):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -526,21 +528,21 @@ class DubinsCarOneEnv(gym.Env):
                 tmpStates.append(np.array([xtilde, ytilde, thetatilde]))
             states = tmpStates
 
-        trajectories, results, minVs = self.simulate_trajectories( q_func, T=T, num_rnd_traj=num_rnd_traj, 
-                                                            states=states, theta=theta, 
-                                                            keepOutOf=keepOutOf, toEnd=toEnd)
+        trajectories, results, minVs = self.simulate_trajectories( q_func,
+            T=T, num_rnd_traj=num_rnd_traj, states=states, theta=theta, 
+            keepOutOf=keepOutOf, toEnd=toEnd)
         if ax == None:
             ax = plt.gca()
         for traj in trajectories:
             traj_x = traj[:,0]
             traj_y = traj[:,1]
-            ax.scatter(traj_x[0], traj_y[0], s=48, c=c)
-            ax.plot(traj_x, traj_y, color=c,  linewidth=lw)
+            ax.scatter(traj_x[0], traj_y[0], s=48, c=c, zorder=zorder)
+            ax.plot(traj_x, traj_y, color=c,  linewidth=lw, zorder=zorder)
 
         return results, minVs
 
 
-    def plot_reach_avoid_set(self, ax, c='g', lw=3, orientation=0):
+    def plot_reach_avoid_set(self, ax, c='g', lw=3, orientation=0, zorder=1):
         r = self.target_radius
         R = self.constraint_radius
         R_turn = self.R_turn
@@ -550,32 +552,43 @@ class DubinsCarOneEnv(gym.Env):
             tmpX = np.sqrt(r**2 - tmpY**2)
             tmpTheta = np.arcsin(tmpX / (R-R_turn))
             # two sides
-            self.plot_arc((0.,  R_turn), R-R_turn, (tmpTheta-np.pi/2, np.pi/2),  ax, c=c, lw=lw, orientation=orientation)
-            self.plot_arc((0., -R_turn), R-R_turn, (-np.pi/2, np.pi/2-tmpTheta), ax, c=c, lw=lw, orientation=orientation)
+            self.plot_arc((0.,  R_turn), R-R_turn, (tmpTheta-np.pi/2, np.pi/2),
+                ax, c=c, lw=lw, orientation=orientation, zorder=zorder)
+            self.plot_arc((0., -R_turn), R-R_turn, (-np.pi/2, np.pi/2-tmpTheta),
+                ax, c=c, lw=lw, orientation=orientation, zorder=zorder)
             # middle
             tmpPhi = np.arcsin(tmpX/r)
-            self.plot_arc((0., 0), r, (tmpPhi - np.pi/2, np.pi/2-tmpPhi), ax, c=c, lw=lw, orientation=orientation)
+            self.plot_arc((0., 0), r, (tmpPhi - np.pi/2, np.pi/2-tmpPhi), ax,
+                c=c, lw=lw, orientation=orientation, zorder=zorder)
             # outer boundary
-            self.plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c=c, lw=lw, orientation=orientation)
+            self.plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c=c, lw=lw,
+                orientation=orientation, zorder=zorder)
         else:
             # two sides
             tmpY = (R**2 + 2*R_turn*r - r**2) / (2*R_turn)
             tmpX = np.sqrt(R**2 - tmpY**2)
             tmpTheta = np.arcsin( tmpX / (R_turn-r))
-            self.plot_arc((0.,  R_turn), R_turn-r, (np.pi/2+tmpTheta, 3*np.pi/2), ax, c=c, lw=lw, orientation=orientation)
-            self.plot_arc((0., -R_turn), R_turn-r, (np.pi/2, 3*np.pi/2-tmpTheta), ax, c=c, lw=lw, orientation=orientation)
+            self.plot_arc((0.,  R_turn), R_turn-r, (np.pi/2+tmpTheta, 3*np.pi/2),
+                ax, c=c, lw=lw, orientation=orientation, zorder=zorder)
+            self.plot_arc((0., -R_turn), R_turn-r, (np.pi/2, 3*np.pi/2-tmpTheta),
+                ax, c=c, lw=lw, orientation=orientation, zorder=zorder)
             # middle
-            self.plot_arc((0., 0), r, (np.pi/2, -np.pi/2), ax, c=c, lw=lw, orientation=orientation)
+            self.plot_arc((0., 0), r, (np.pi/2, -np.pi/2), ax, c=c, lw=lw,
+                orientation=orientation, zorder=zorder)
             # outer boundary
-            self.plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c=c, lw=lw, orientation=orientation)
+            self.plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c=c, lw=lw,
+                orientation=orientation, zorder=zorder)
 
 
-    def plot_target_failure_set(self, ax):
-        self.plot_circle(self.constraint_center, self.constraint_radius, ax, c='k', lw=3)
-        self.plot_circle(self.target_center,     self.target_radius, ax, c='m', lw=3)
+    def plot_target_failure_set(self, ax, c_c='m', c_t='y', lw=3, zorder=0):
+        self.plot_circle(self.constraint_center, self.constraint_radius, ax,
+            c=c_c, lw=lw, zorder=zorder)
+        self.plot_circle(self.target_center, self.target_radius, ax, c=c_t,
+            lw=lw, zorder=zorder)
 
 
-    def plot_arc(self, p, r, thetaParam, ax, c='b', lw=1.5, orientation=0):
+    def plot_arc(self, p, r, thetaParam, ax, c='b', lw=1.5, orientation=0,
+        zorder=0):
         x, y = p
         thetaInit, thetaFinal = thetaParam
 
@@ -586,10 +599,11 @@ class DubinsCarOneEnv(gym.Env):
         xs = xtilde + r * np.cos(theta)
         ys = ytilde + r * np.sin(theta)
 
-        ax.plot(xs, ys, c=c, lw=lw)
+        ax.plot(xs, ys, c=c, lw=lw, zorder=zorder)
 
 
-    def plot_circle(self, center, r, ax, c='b', lw=1.5, orientation=0, scatter=False):
+    def plot_circle(self, center, r, ax, c='b', lw=1.5, orientation=0,
+        scatter=False, zorder=0):
         x, y = center
         xtilde = x*np.cos(orientation) - y*np.sin(orientation)
         ytilde = y*np.cos(orientation) + x*np.sin(orientation)
@@ -597,8 +611,8 @@ class DubinsCarOneEnv(gym.Env):
         theta = np.linspace(0, 2*np.pi, 200)
         xs = xtilde + r * np.cos(theta)
         ys = ytilde + r * np.sin(theta)
-        ax.plot(xs, ys, c=c, lw=lw)
+        ax.plot(xs, ys, c=c, lw=lw, zorder=zorder)
         if scatter:
-            ax.scatter(xtilde+r, ytilde, c=c, s=80)
-            ax.scatter(xtilde-r, ytilde, c=c, s=80)
-            print(xtilde+r, ytilde, xtilde-r, ytilde)
+            ax.scatter(xtilde+r, ytilde, c=c, s=80, zorder=zorder)
+            ax.scatter(xtilde-r, ytilde, c=c, s=80, zorder=zorder)
+            print(xtilde+r, ytilde, xtilde-r, ytilde, zorder=zorder)

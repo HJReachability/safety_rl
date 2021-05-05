@@ -676,11 +676,12 @@ class DubinsCarPEEnv(gym.Env):
 
     # ? Plot evader's target, constraint and pursuer's capture range
     def plot_target_failure_set(self, ax, xPursuer=.5, yPursuer=.5,
-        lw=3, showCapture=True):
+        lw=3, showCapture=True, c_c='m', c_t='y', zorder=1):
+
         plot_circle(self.evader.constraint_center, self.evader.constraint_radius,
-            ax, c='k', lw=lw, zorder=1)
+            ax, c=c_c, lw=lw, zorder=zorder)
         plot_circle(self.evader.target_center,     self.evader.target_radius,
-            ax, c='m', lw=lw, zorder=1)
+            ax, c=c_t, lw=lw, zorder=zorder)
         if showCapture:
             plot_circle(np.array([xPursuer, yPursuer]), self.capture_range,
-                ax, c='k', lw=lw, ls='--', zorder=1)
+                ax, c=c_c, lw=lw, ls='--', zorder=zorder)

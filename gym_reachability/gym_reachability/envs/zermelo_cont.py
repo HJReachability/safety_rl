@@ -48,7 +48,7 @@ class ZermeloContEnv(gym.Env):
         self.upward_speed = 2.0
 
         # Control parameters.
-        self.horizontal_rate = np.array([1.])
+        self.horizontal_rate = np.array([1.], dtype=np.float32)
 
         # Constraint set parameters.
         # X,Y position and Side Length.
@@ -60,8 +60,8 @@ class ZermeloContEnv(gym.Env):
         self.box4_x_y_length = np.array([0, 9.25, 1.5])  # Top.
 
         # Gym variables.
-        self.action_space = gym.spaces.Box(-self.horizontal_rate,
-                                           self.horizontal_rate)
+        self.action_space = gym.spaces.Box(
+            -self.horizontal_rate, self.horizontal_rate)
         self.midpoint = (self.low + self.high)/2.0
         self.interval = self.high - self.low
         self.observation_space = gym.spaces.Box(
@@ -577,7 +577,7 @@ class ZermeloContEnv(gym.Env):
         return trajectories, results
 
 
-    def visualize(  self, q_func, policy, show=True,
+    def visualize(  self, q_func, policy,
                     vmin=-1, vmax=1, nx=81, ny=241, cmap='seismic',
                     labels=['', ''], boolPlot=False, addBias=False):
         """ Overlays analytic safe set on top of state value function.
@@ -607,10 +607,6 @@ class ZermeloContEnv(gym.Env):
 
         #== Formatting ==
         self.plot_formatting(ax=ax, labels=labels)
-
-        if show:
-            # plt.show()
-            plt.pause(0.1)
 
 
     def plot_v_values(self, q_func, policy, ax=None, fig=None,

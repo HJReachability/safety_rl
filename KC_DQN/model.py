@@ -220,7 +220,7 @@ class DeterministicPolicy(nn.Module):
         action_target = mean + noise_clipped
         action_target = torch.clamp(action_target, self.a_min, self.a_max)
 
-        return action.numpy(), action_target
+        return action.cpu().numpy(), action_target
 
 
 #== Scheduler ==

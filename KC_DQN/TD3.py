@@ -44,7 +44,8 @@ class TD3(ActorCritic):
     def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.2,
         noiseClamp=0.5):
         self.actor = DeterministicPolicy(dimListActor, self.actionSpace,
-            actType=actType, noiseStd=noiseStd, noiseClamp=noiseClamp)
+            actType=actType, noiseStd=noiseStd, noiseClamp=noiseClamp,
+            device=self.device)
         self.actorTarget = deepcopy(self.actor)
         for p in self.actorTarget.parameters():
             p.requires_grad = False
@@ -57,6 +58,7 @@ class TD3(ActorCritic):
             cnt += 1
             print('\rWarmup Buffer [{:d}]'.format(cnt), end='')
             a = env.action_space.sample()
+            # a = self.genRandomActions(1)[0]
             s_, r, done, info = env.step(a)
             s_ = None if done else s_
             self.store_transition(s, a, r, s_, info)
@@ -70,8 +72,8 @@ class TD3(ActorCritic):
     def initQ(self, env, warmupIter, outFolder, num_warmup_samples=200,
                 vmin=-1, vmax=1, plotFigure=True, storeFigure=True):
         loss = 0.0
+        lossList = np.empty(warmupIter, dtype=float)
         for ep_tmp in range(warmupIter):
-            print('\rWarmup Q [{:d}]. MSE = {:f}'.format(ep_tmp+1, loss),end='')
             states, value = env.get_warmup_examples(num_warmup_samples)
             actions = self.genRandomActions(num_warmup_samples)
 
@@ -80,14 +82,18 @@ class TD3(ActorCritic):
             stateTensor = torch.from_numpy(states).float().to(self.device)
             actionTensor = torch.from_numpy(actions).float().to(self.device)
             q1, q2 = self.critic(stateTensor, actionTensor)
-            q1Loss = mse_loss(input=q1, target=value)
-            q2Loss = mse_loss(input=q2, target=value)
+            q1Loss = mse_loss(input=q1, target=value, reduction='sum')
+            q2Loss = mse_loss(input=q2, target=value, reduction='sum')
             loss = q1Loss + q2Loss
 
             self.criticOptimizer.zero_grad()
             loss.backward()
             # clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
             self.criticOptimizer.step()
+
+            lossList[ep_tmp] = loss.detach().cpu().numpy()
+            print('\rWarmup Q [{:d}]. MSE = {:f}'.format(
+                ep_tmp+1, loss.detach()), end='')
 
         print(" --- Warmup Q Ends")
         if plotFigure or storeFigure:
@@ -107,11 +113,16 @@ class TD3(ActorCritic):
         del self.criticOptimizer
         self.build_optimizer()
 
+        return lossList
+
 
     def update_critic(self, batch, addBias=False):
 
-        (non_final_mask, non_final_state_nxt, state,
-         action, reward, g_x, l_x) = self.unpack_batch(batch)
+        (non_final_mask, non_final_state_nxt, state, action, reward,
+            g_x, l_x, g_x_nxt, l_x_nxt) = self.unpack_batch(batch)
+        self.critic.train()
+        self.criticTarget.eval()
+        self.actorTarget.eval()
 
         #== get Q(s,a) ==
         q1, q2 = self.critic(state, action)  # Used to compute loss (non-target part).
@@ -152,9 +163,11 @@ class TD3(ActorCritic):
 
     def update_actor(self, batch):
 
-        (non_final_mask, non_final_state_nxt, state,
-         action, reward, g_x, l_x) = self.unpack_batch(batch)
+        (non_final_mask, non_final_state_nxt, state, action, reward,
+            g_x, l_x, g_x_nxt, l_x_nxt) = self.unpack_batch(batch)
 
+        self.critic.eval()
+        self.actor.train()
         for p in self.critic.parameters():
             p.requires_grad = False
 

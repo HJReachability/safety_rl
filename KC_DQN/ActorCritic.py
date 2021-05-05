@@ -204,7 +204,7 @@ class ActorCritic(object):
         loss_pi = 0.0
         if timer % update_period == 0:
             loss_pi = self.update_actor(batch)
-            print('\r{:d}: ({:3.5f}/{:3.5f}): This episode.'.format(
+            print('\r{:d}: (q, pi) = ({:3.5f}/{:3.5f}).'.format(
                 self.cntUpdate, loss_q, loss_pi), end=' ')
 
         self.update_target_networks()
@@ -269,6 +269,7 @@ class ActorCritic(object):
                             torch.from_numpy(s).float().to(self.device))
                 else:
                     a = env.action_space.sample()
+                    # a = self.genRandomActions(1)[0]
 
                 # Interact with env
                 s_, r, done, info = env.step(a)
@@ -326,6 +327,7 @@ class ActorCritic(object):
                 if self.cntUpdate % update_every == 0:
                     for timer in range(update_every):
                         loss_q, loss_pi = self.update(timer)
+                        trainingRecords.append([loss_q, loss_pi])
                 self.cntUpdate += 1
                 # Update gamma, lr etc.
                 self.updateHyperParam()
@@ -355,6 +357,9 @@ class ActorCritic(object):
         self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
         print('\nInitBuffer: {:.1f}, InitQ: {:.1f}, Learning: {:.1f}'.format(
             timeInitBuffer, timeInitQ, timeLearning))
+
+        trainingRecords = np.array(trainingRecords)
+        trainProgress = np.array(trainProgress)
         return trainingRecords, trainProgress
     # * LEARN ENDS
 

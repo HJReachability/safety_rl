@@ -41,14 +41,19 @@ register(
 )
 
 
-register(
-    id="dubins_car-v0",
-    entry_point="gym_reachability.gym_reachability.envs:DubinsCarEnv"
-)
+# register(
+#     id="dubins_car-v0",
+#     entry_point="gym_reachability.gym_reachability.envs:DubinsCarEnv"
+# )
 
 register(
     id="dubins_car-v1",
     entry_point="gym_reachability.gym_reachability.envs:DubinsCarOneEnv"
+)
+
+register(
+    id="dubins_car_cont-v0",
+    entry_point="gym_reachability.gym_reachability.envs:DubinsCarOneContEnv"
 )
 
 register(

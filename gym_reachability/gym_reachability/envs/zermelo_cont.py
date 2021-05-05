@@ -182,59 +182,55 @@ class ZermeloContEnv(gym.Env):
         else:
             x, y = self.state
 
-        state, [l_x, g_x] = self.integrate_forward(self.state, action)
+        l_x_cur = self.target_margin(self.state[:2])
+        g_x_cur = self.safety_margin(self.state[:2])
+
+        state, [l_x_nxt, g_x_nxt] = self.integrate_forward(self.state, action)
         self.state = state
 
-        fail = g_x > 0
-        success = l_x <= 0
-        done = fail
-        # if fail:
-        #     cost = self.penalty
-        # elif success:
-        #     cost = self.reward
-        # else:
-        #     cost = 0.
-        cost = 0.
-
-        # done = False
-        # if self.doneType is 'toFailureOrSuccess':
-        #     if fail:
-        #         done = True
-        #         info = {"g_x": self.penalty, "l_x": l_x_cur,
-        #                 "g_x_nxt": self.penalty, "l_x_nxt": l_x_nxt}
-        #     # if success:
-        #     #     done = True
-        #     #     info = {"g_x": g_x_cur, "l_x": self.reward,
-        #     #             "g_x_nxt": g_x_nxt, "l_x_nxt": self.reward}
-        # elif self.doneType is 'toDone':
-        #     if fail:
-        #         done = True
-        #         self.state = state_old
-        #         info = {"g_x": g_x_cur,  "l_x": l_x_cur,
-        #                 "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
-        #     # if success:
-        #     #     done = True
-        #     #     info = {"g_x": g_x_cur, "l_x": self.reward,
-        #     #             "g_x_nxt": g_x_nxt, "l_x_nxt": self.reward}
-        # elif self.doneType is 'toThreshold':
-        #     if g_x_cur > self.penalty:  # or success:
-        #         done = True
-        #         info = {"g_x": g_x_cur,  "l_x": l_x_cur,
-        #                 "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
-        # elif self.doneType is 'toEnd':
-        #     # Not implemented.
-        #     assert False, "Not implemented yet!"
-
-        # If done flag has not triggered, just collect normal info.
-        if not done:
-            info = {"g_x": g_x, "l_x": l_x}
+        # cost
+        if self.mode == 'RA':
+            fail = g_x_cur > 0
+            success = l_x_cur <= 0
+            if fail:
+                cost = self.penalty
+            elif success:
+                cost = self.reward
+            else:
+                cost = 0.
         else:
-            info = {"g_x": self.penalty, "l_x": l_x}            
-
-        # done = fail # or success
+            fail = g_x_nxt > 0
+            success = l_x_nxt <= 0
+            if g_x_nxt > 0 or g_x_cur > 0:
+                cost = self.penalty
+            elif l_x_nxt <= 0 or l_x_cur <= 0:
+                cost = self.reward
+            else:
+                if self.costType == 'dense_ell':
+                    cost = l_x_nxt
+                elif self.costType == 'dense_ell_g':
+                    cost = l_x_nxt + g_x_nxt
+                elif self.costType == 'imp_ell_g':
+                    cost = (l_x_nxt-l_x_cur) + (g_x_nxt-g_x_cur)
+                elif self.costType == 'imp_ell':
+                    cost = (l_x_nxt-l_x_cur)
+                elif self.costType == 'sparse':
+                    cost = 0. * self.scaling
+                elif self.costType == 'max_ell_g':
+                    cost = max(l_x_nxt, g_x_nxt)
+                else:
+                    cost = 0.
+        # done
+        # if self.doneType == 'toEnd':
+        #     outsideTop   = (self.state[1] >= self.bounds[1,1])
+        #     outsideLeft  = (self.state[0] <= self.bounds[0,0])
+        #     outsideRight = (self.state[0] >= self.bounds[0,1])
+        #     done = outsideTop or outsideLeft or outsideRight
+        # else:
+        done = fail # or success
         # assert self.doneType == 'TF', 'invalid doneType'
 
-        # info = {"g_x": g_x_cur, "l_x": l_x_cur, "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
+        info = {"g_x": g_x_cur, "l_x": l_x_cur, "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
         return np.copy(self.state), cost, done, info
 
 

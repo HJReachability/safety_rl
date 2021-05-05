@@ -136,16 +136,22 @@ class TD3(ActorCritic):
             next_q1, next_q2 = self.criticTarget(non_final_state_nxt, next_actions)
             q_max = torch.max(next_q1, next_q2).view(-1)  # max because we are doing reach-avoid.
 
-        target_q[non_final_mask] =  (
-            (1.0 - self.GAMMA) * torch.max(l_x[non_final_mask], g_x[non_final_mask]) +
-            self.GAMMA * torch.max( g_x[non_final_mask], torch.min(l_x[non_final_mask], q_max)))
+        # target_q[non_final_mask] =  (
+        #     (1.0 - self.GAMMA) * torch.max(l_x[non_final_mask], g_x[non_final_mask]) +
+        #     self.GAMMA * torch.max( g_x[non_final_mask], torch.min(l_x[non_final_mask], q_max)))
         # done_target = torch.logical_and(torch.logical_not(non_final_mask), l_x_nxt <= 0)
         # done_obstac = torch.logical_and(torch.logical_not(non_final_mask), g_x_nxt > 0)
         # target_q[done_target] = l_x_nxt[done_target]
         # target_q[done_obstac] = g_x_nxt[done_obstac]
-        target_q[torch.logical_not(non_final_mask)] = g_x[torch.logical_not(non_final_mask)]
+        # target_q[torch.logical_not(non_final_mask)] = g_x[torch.logical_not(non_final_mask)]
         # torch.max(
         #     l_x[torch.logical_not(non_final_mask)], g_x[torch.logical_not(non_final_mask)])
+
+        target_q[non_final_mask] =  (
+            (1.0 - self.GAMMA) * torch.max(l_x_nxt[non_final_mask], g_x_nxt[non_final_mask]) +
+            self.GAMMA * torch.max( g_x_nxt[non_final_mask], torch.min(l_x_nxt[non_final_mask], q_max)))
+        target_q[torch.logical_not(non_final_mask)] = torch.max(
+            l_x_nxt[torch.logical_not(non_final_mask)], g_x_nxt[torch.logical_not(non_final_mask)])
 
         #== MSE update for both Q1 and Q2 ==
         loss_q1 = mse_loss(input=q1.view(-1), target=target_q)
@@ -192,10 +198,12 @@ class TD3(ActorCritic):
             dtype=torch.bool).to(self.device)
         non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None]).to(self.device)
         state  = torch.FloatTensor(batch.s).to(self.device)
-        action = torch.LongTensor(batch.a).to(self.device).view(-1, self.actionSpace.shape[0])
+        action = torch.FloatTensor(batch.a).to(self.device).view(-1, self.actionSpace.shape[0])
         reward = torch.FloatTensor(batch.r).to(self.device)
 
         g_x = torch.FloatTensor([info['g_x'] for info in batch.info]).to(self.device).view(-1)
         l_x = torch.FloatTensor([info['l_x'] for info in batch.info]).to(self.device).view(-1)
+        g_x_nxt = torch.FloatTensor([info['g_x_nxt'] for info in batch.info]).to(self.device).view(-1)
+        l_x_nxt = torch.FloatTensor([info['l_x_nxt'] for info in batch.info]).to(self.device).view(-1)
 
-        return non_final_mask, non_final_state_nxt, state, action, reward, g_x, l_x
+        return non_final_mask, non_final_state_nxt, state, action, reward, g_x, l_x, g_x_nxt, l_x_nxt

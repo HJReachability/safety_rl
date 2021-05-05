@@ -302,9 +302,12 @@ class ActorCritic(object):
                             success, failure, unfinish))
 
                     if storeModel:
-                        # if success > checkPointSucc:
-                        #     checkPointSucc = success
-                        self.save(self.cntUpdate, 'models/{:s}/model/'.format(outFolder))
+                        if saveBest:
+                            if success > checkPointSucc:
+                                checkPointSucc = success
+                                self.save(self.cntUpdate, modelFolder)
+                        else:
+                            self.save(self.cntUpdate, modelFolder)
 
                     if plotFigure or storeFigure:
                         if showBool:

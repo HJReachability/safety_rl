@@ -30,6 +30,7 @@ class ZermeloContEnv(gym.Env):
 
         self.low = self.bounds[:, 0]
         self.high = self.bounds[:, 1]
+        # self.sample_inside_obs = False
         self.sample_inside_obs = sample_inside_obs
 
         # Time step parameter.
@@ -90,7 +91,7 @@ class ZermeloContEnv(gym.Env):
                 self.visual_initial_states)
 
         print("Env: mode-{:s}; doneType-{:s}; sample_inside_obs-{}".format(
-            mode, doneType, sample_inside_obs))
+            self.mode, self.doneType, self.sample_inside_obs))
 
         # for torch
         self.device = device
@@ -183,6 +184,7 @@ class ZermeloContEnv(gym.Env):
         success = l_x <= 0
 
         #= `cost` signal
+        # cost = 0.
         if self.mode == 'RA':
             if fail:
                 cost = self.penalty
@@ -212,6 +214,7 @@ class ZermeloContEnv(gym.Env):
                     cost = 0.
 
         #= `done` signal
+        # done = fail
         if self.doneType == 'toEnd':
             done = self.check_within_env(self.state)
         elif self.doneType == 'fail':
@@ -222,6 +225,10 @@ class ZermeloContEnv(gym.Env):
             raise ValueError("invalid doneType")
 
         #= `info`
+        # if not done:
+        #     info = {"g_x": g_x, "l_x": l_x}
+        # else:
+        #     info = {"g_x": self.penalty, "l_x": l_x} 
         if done and self.doneType == 'fail':
             info = {"g_x": self.penalty, "l_x": l_x}
         else:

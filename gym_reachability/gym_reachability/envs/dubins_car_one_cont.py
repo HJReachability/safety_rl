@@ -19,13 +19,16 @@ from .dubins_car_dyn_cont import DubinsCarDynCont
 
 
 class DubinsCarOneContEnv(gym.Env):
-    def __init__(self, device, mode='normal', doneType='toEnd', seed=0):
+    def __init__(self, device, mode='normal', doneType='toEnd',
+        sample_inside_obs=False, sample_inside_tar=True, seed=0):
         # State bounds.
         self.bounds = np.array([[-1.1, 1.1],
                                 [-1.1, 1.1],
                                 [0, 2*np.pi]])
         self.low = self.bounds[:, 0]
         self.high = self.bounds[:, 1]
+        self.sample_inside_obs = sample_inside_obs
+        self.sample_inside_tar = sample_inside_tar
 
         # Gym variables.
         midpoint = (self.low + self.high)/2.0
@@ -70,7 +73,9 @@ class DubinsCarOneContEnv(gym.Env):
         self.costType = 'sparse'
         self.device = device
 
-        print("Env: mode---{:s}; doneType---{:s}".format(mode, doneType))
+        print("Env: mode-{:s}; doneType-{:s}".format(self.mode, self.doneType))
+        print("Sample Type: inside obs-{}; inside tar-{}".format(
+            self.sample_inside_obs, self.sample_inside_tar))
 
 
     def init_car(self):
@@ -94,12 +99,14 @@ class DubinsCarOneContEnv(gym.Env):
         Returns:
             The state the environment has been reset to.
         """
-        self.state = self.car.reset(start=start)
+        self.state = self.car.reset(start=start, sample_inside_obs=self.sample_inside_obs,
+            sample_inside_tar=self.sample_inside_tar)
         return np.copy(self.state)
 
 
-    def sample_random_state(self, keepOutOf=False, theta=None):
-        state = self.car.sample_random_state(keepOutOf=keepOutOf, theta=theta)
+    def sample_random_state(self, sample_inside_obs=False, sample_inside_tar=True, theta=None):
+        state = self.car.sample_random_state(sample_inside_obs=sample_inside_obs,
+            sample_inside_tar=sample_inside_tar, theta=theta)
         return state
 
 
@@ -118,22 +125,20 @@ class DubinsCarOneContEnv(gym.Env):
         if distance >= 1e-8:
             raise "There is a mismatch between the env state and car state: {:.2e}".format(distance)
 
-        l_x_cur = self.target_margin(self.state[:2])
-        g_x_cur = self.safety_margin(self.state[:2])
-
         if not np.isscalar(action):
             action = action[0]
 
-        state_nxt, done = self.car.step(action)
+        state_nxt = self.car.step(action)
         self.state = state_nxt
-        l_x_nxt = self.target_margin(self.state[:2])
-        g_x_nxt = self.safety_margin(self.state[:2])
-        info = {"g_x": g_x_cur, "l_x": l_x_cur, "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt} 
+        l_x = self.target_margin(self.state[:2])
+        g_x = self.safety_margin(self.state[:2])
 
-        # cost
+        fail = g_x > 0
+        success = l_x <= 0
+
+        #= `cost` signal
+        # cost = 0.
         if self.mode == 'RA':
-            fail = g_x_cur > 0
-            success = l_x_cur <= 0
             if fail:
                 cost = self.penalty
             elif success:
@@ -141,21 +146,38 @@ class DubinsCarOneContEnv(gym.Env):
             else:
                 cost = 0.
         else:
-            fail = g_x_nxt > 0
-            success = l_x_nxt <= 0
-            if g_x_nxt > 0 or g_x_cur > 0:
+            if fail:
                 cost = self.penalty
-            elif l_x_nxt <= 0 or l_x_cur <= 0:
+            elif success:
                 cost = self.reward
             else:
                 if self.costType == 'dense_ell':
-                    cost = l_x_nxt
+                    cost = l_x
                 elif self.costType == 'dense_ell_g':
-                    cost = l_x_nxt + g_x_nxt
+                    cost = l_x + g_x
                 elif self.costType == 'sparse':
                     cost = 0. * self.scaling
+                elif self.costType == 'max_ell_g':
+                    cost = max(l_x, g_x)
                 else:
                     cost = 0.
+
+        #= `done` signal
+        # done = fail
+        if self.doneType == 'toEnd':
+            done = not self.car.check_within_bounds(self.state)
+        elif self.doneType == 'fail':
+            done = fail
+        elif self.doneType == 'TF':
+            done = fail or success
+        else:
+            raise ValueError("invalid doneType")
+
+        #= `info`
+        if done and self.doneType == 'fail':
+            info = {"g_x": self.penalty, "l_x": l_x}
+        else:
+            info = {"g_x": g_x, "l_x": l_x}
         return np.copy(self.state), cost, done, info
 
 
@@ -240,6 +262,15 @@ class DubinsCarOneContEnv(gym.Env):
         self.car.set_bounds(bounds)
 
 
+    def set_sample_type(self, sample_inside_obs=True, sample_inside_tar=True,
+        verbose=False):
+        self.sample_inside_obs = sample_inside_obs
+        self.sample_inside_tar = sample_inside_tar
+        if verbose:
+            print("Sample Type: inside obs-{}; inside tar-{}".format(
+                self.sample_inside_obs, self.sample_inside_tar))
+
+
 #== Margin Functions ==
     def safety_margin(self, s):
         """ Computes the margin (e.g. distance) between state and failue set.
@@ -267,16 +298,19 @@ class DubinsCarOneContEnv(gym.Env):
 
 #== Getting Functions ==
     def get_warmup_examples(self, num_warmup_samples=100):
-        rv = np.random.uniform( low=self.low,
-                                high=self.high,
-                                size=(num_warmup_samples,3))
-        x_rnd, y_rnd, theta_rnd = rv[:,0], rv[:,1], rv[:,2]
+        # rv = np.random.uniform( low=self.low,
+        #                         high=self.high,
+        #                         size=(num_warmup_samples,3))
+        # x_rnd, y_rnd, theta_rnd = rv[:,0], rv[:,1], rv[:,2]
 
         heuristic_v = np.zeros((num_warmup_samples, 1))
         states = np.zeros((num_warmup_samples, self.observation_space.shape[0]))
 
         for i in range(num_warmup_samples):
-            x, y, theta = x_rnd[i], y_rnd[i], theta_rnd[i]
+            x, y, theta = self.car.sample_random_state(
+                sample_inside_obs=self.sample_inside_obs,
+                sample_inside_tar=self.sample_inside_tar)
+            # x, y, theta = x_rnd[i], y_rnd[i], theta_rnd[i]
             l_x = self.target_margin(np.array([x, y]))
             g_x = self.safety_margin(np.array([x, y]))
             heuristic_v[i,:] = np.maximum(l_x, g_x)
@@ -357,10 +391,11 @@ class DubinsCarOneContEnv(gym.Env):
 
 #== Trajectory Functions ==
     def simulate_one_trajectory(self, policy, T=10, state=None, theta=None,
-                                keepOutOf=False, toEnd=False):
+        sample_inside_obs=True, sample_inside_tar=True, toEnd=False):
         # reset
         if state is None:
-            state = self.car.sample_random_state(keepOutOf=keepOutOf, theta=theta)
+            state = self.car.sample_random_state(sample_inside_obs=sample_inside_obs,
+                sample_inside_tar=sample_inside_tar, theta=theta)
         traj = []
         result = 0 # not finished
         valueList = []
@@ -411,8 +446,11 @@ class DubinsCarOneContEnv(gym.Env):
 
 
     def simulate_trajectories(  self, policy, T=10,
-                                num_rnd_traj=None, states=None, theta=None,
-                                keepOutOf=False, toEnd=False):
+        num_rnd_traj=None, states=None, theta=None,
+        keepOutOf=False, toEnd=False):
+
+        sample_inside_obs = not keepOutOf
+        sample_inside_tar = not keepOutOf
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -424,7 +462,8 @@ class DubinsCarOneContEnv(gym.Env):
             minVs = np.empty(shape=(num_rnd_traj,), dtype=float)
             for idx in range(num_rnd_traj):
                 traj, result, minV, _ = self.simulate_one_trajectory(policy,
-                    T=T, theta=theta, keepOutOf=keepOutOf, toEnd=toEnd)
+                    T=T, theta=theta, sample_inside_obs=sample_inside_obs,
+                    sample_inside_tar=sample_inside_tar, toEnd=toEnd)
                 trajectories.append(traj)
                 results[idx] = result
                 minVs[idx] = minV
@@ -443,9 +482,10 @@ class DubinsCarOneContEnv(gym.Env):
 
 #== Plotting Functions ==
     def visualize(  self, q_func, policy,
-                    vmin=-1, vmax=1, nx=101, ny=101, cmap='seismic',
-                    labels=None, boolPlot=False, addBias=False, theta=np.pi/2,
-                    rndTraj=False, num_rnd_traj=10, keepOutOf=False):
+        vmin=-1, vmax=1, nx=51, ny=51, cmap='seismic',
+        labels=None, boolPlot=False, addBias=False, theta=np.pi/2,
+        rndTraj=False, num_rnd_traj=10,
+        sample_inside_obs=True, sample_inside_tar=True):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
@@ -488,7 +528,8 @@ class DubinsCarOneContEnv(gym.Env):
             #== Plot Trajectories ==
             if rndTraj:
                 self.plot_trajectories(policy, T=200, num_rnd_traj=num_rnd_traj,
-                    theta=theta, toEnd=False, keepOutOf=keepOutOf,
+                    theta=theta, toEnd=False, sample_inside_obs=sample_inside_obs,
+                    sample_inside_tar=sample_inside_tar,
                     ax=ax, c='k', lw=2, orientation=0)
             else:
                 # `visual_initial_states` are specified for theta = pi/2. Thus,
@@ -544,8 +585,8 @@ class DubinsCarOneContEnv(gym.Env):
 
 
     def plot_trajectories(  self, policy, T=10, num_rnd_traj=None, states=None,
-        theta=None, keepOutOf=False, toEnd=False, ax=None, c='k', lw=2,
-        orientation=0, zorder=2):
+        theta=None, sample_inside_obs=True, sample_inside_tar=True, toEnd=False,
+        ax=None, c='k', lw=2, orientation=0, zorder=2):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -563,7 +604,7 @@ class DubinsCarOneContEnv(gym.Env):
 
         trajectories, results, minVs = self.simulate_trajectories(policy,
             T=T, num_rnd_traj=num_rnd_traj, states=states, theta=theta, 
-            keepOutOf=keepOutOf, toEnd=toEnd)
+            keepOutOf=False, toEnd=toEnd)
         if ax == None:
             ax = plt.gca()
         for traj in trajectories:

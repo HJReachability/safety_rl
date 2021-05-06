@@ -22,14 +22,12 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 #== ARGS ==
 # test
-    # python3 sim_car_one_cont.py -w -wi 5 -mu 200 -ut 2 -cp 100 -arc 100 20 -of scratch/tmp -sf
+    # python3 sim_car_one_cont.py -w -wi 5 -mu 200 -ut 2 -cp 100 -arc 100 20 -of scratch/tmp -sf -dt fail -tt g
 # default
     # python3 sim_car_one_cont.py -w -sf -of scratch/tmp
 parser = argparse.ArgumentParser()
 
 # training scheme
-# parser.add_argument("-te",  "--toEnd",          help="stop until reaching boundary",    action="store_true")
-# parser.add_argument("-ab",  "--addBias",        help="add bias term for RA",            action="store_true")
 parser.add_argument("-w",   "--warmup",         help="warmup Q-network",            action="store_true")
 parser.add_argument("-rnd", "--randomSeed",     help="random seed",                 default=0,          type=int)
 parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",   default=2400000,    type=int)
@@ -37,6 +35,8 @@ parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",          
 parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",         default=12,         type=int)
 parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",            default=5000,       type=int)
 parser.add_argument("-cp",  "--checkPeriod",    help="check period",                default=200000,     type=int)
+parser.add_argument("-dt",  "--doneType",       help="when to raise done flag",     default='fail',     type=str)
+parser.add_argument("-tt",  "--terminalType",   help="terminal value",              default='g',        type=str)
 
 # hyper-parameters
 parser.add_argument("-arc", "--architecture",   help="NN architecture",         default=[100, 20],          nargs="*", type=int)
@@ -44,7 +44,6 @@ parser.add_argument("-act", "--actType",        help="activation type",         
 parser.add_argument("-lrA", "--lrA",            help="learning rate actor",     default=1e-3,   type=float)
 parser.add_argument("-lrC", "--lrC",            help="learning rate critic",    default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",      default=0.8,    type=float)
-
 
 # car dynamics
 parser.add_argument("-cr",      "--constraintRadius",   help="constraint radius",   default=1., type=float)
@@ -79,7 +78,7 @@ os.makedirs(figureFolder, exist_ok=True)
 
 #== Environment ==
 print("\n== Environment Information ==")
-env = gym.make(env_name, device=device, mode='RA', doneType='toEnd')
+env = gym.make(env_name, device=device, mode='RA', doneType=args.doneType)
 
 stateDim = env.state.shape[0]
 actionDim = env.action_space.shape[0]
@@ -107,7 +106,7 @@ else:
     print("Type I Reach-Avoid Set")
 
 env.set_seed(args.randomSeed)
-print(env.seed_val, env.car.seed_val)
+print('env seed:{}, car seed: {}'.format(env.seed_val, env.car.seed_val))
 
 
 #== Get and Plot max{l_x, g_x} ==
@@ -190,9 +189,9 @@ CONFIG = actorCriticConfig(
     SKIP=False,
     REWARD=-1.,
     PENALTY=1.)
-picklePath = outFolder+'/CONFIG.pkl'
-with open(picklePath, 'wb') as handle:
-    pickle.dump(CONFIG, handle, protocol=pickle.HIGHEST_PROTOCOL)
+# picklePath = outFolder+'/CONFIG.pkl'
+# with open(picklePath, 'wb') as handle:
+#     pickle.dump(CONFIG, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 #== AGENT ==
@@ -203,10 +202,12 @@ dimListActor = [stateDim] + args.architecture + [actionDim]
 dimListCritic = [stateDim + actionDim] + args.architecture + [1]
 dimLists = [dimListCritic, dimListActor]
 agent = TD3(CONFIG, env.action_space, dimLists,
-    actType={'critic': args.actType[0], 'actor': args.actType[1]}, verbose=True)
-print(device, agent.device)
-print(next(agent.critic.parameters()).is_cuda)
-print(next(agent.actor.parameters()).is_cuda)
+    actType={'critic': args.actType[0], 'actor': args.actType[1]}, verbose=True,
+    terminalType=args.terminalType)
+print('Agent has terminal type:', agent.terminalType)
+print("We want to use: {}, and Agent uses: {}".format(device, agent.device))
+print("Critic is using cuda: ", next(agent.critic.parameters()).is_cuda)
+print("Actor is using cuda: ", next(agent.actor.parameters()).is_cuda)
 
 if args.warmup:
     lossList = agent.initQ(env, args.warmupIter, outFolder,

@@ -453,6 +453,12 @@ class ZermeloContEnv(gym.Env):
         return (x_box4_pos, y_box4_pos)
 
 
+    def set_sample_type(self, sample_inside_obs=False, verbose=False):
+        self.sample_inside_obs = sample_inside_obs
+        if verbose:
+            print("sample_inside_obs-{}".format(self.sample_inside_obs))
+
+
 #== Getting Information ==
     def check_within_env(self, state):
         outsideTop   = (state[1] >= self.bounds[1,1])
@@ -502,16 +508,17 @@ class ZermeloContEnv(gym.Env):
 
 
     def get_warmup_examples(self, num_warmup_samples=100):
-        x_min, x_max = self.bounds[0,:]
-        y_min, y_max = self.bounds[1,:]
+        # x_min, x_max = self.bounds[0,:]
+        # y_min, y_max = self.bounds[1,:]
+        # xs = np.random.uniform(x_min, x_max, num_warmup_samples)
+        # ys = np.random.uniform(y_min, y_max, num_warmup_samples)
 
-        xs = np.random.uniform(x_min, x_max, num_warmup_samples)
-        ys = np.random.uniform(y_min, y_max, num_warmup_samples)
         heuristic_v = np.zeros((num_warmup_samples, self.action_space.shape[0]))
         states = np.zeros((num_warmup_samples, self.observation_space.shape[0]))
 
         for i in range(num_warmup_samples):
-            x, y = xs[i], ys[i]
+            x, y = self.sample_random_state(self.sample_inside_obs)
+            # x, y = xs[i], ys[i]
             l_x = self.target_margin(np.array([x, y]))
             g_x = self.safety_margin(np.array([x, y]))
             heuristic_v[i,:] = np.maximum(l_x, g_x)

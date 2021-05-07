@@ -30,20 +30,20 @@ parser = argparse.ArgumentParser()
 # training scheme
 parser.add_argument("-w",   "--warmup",         help="warmup Q-network",            action="store_true")
 parser.add_argument("-rnd", "--randomSeed",     help="random seed",                 default=0,          type=int)
-parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",   default=2400000,    type=int)
-parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",              default=1e4,        type=int)
+parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",   default=1200000,    type=int)
+parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",              default=50000,      type=int)
 parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",         default=12,         type=int)
 parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",            default=5000,       type=int)
-parser.add_argument("-cp",  "--checkPeriod",    help="check period",                default=200000,     type=int)
+parser.add_argument("-cp",  "--checkPeriod",    help="check period",                default=100000,     type=int)
 parser.add_argument("-dt",  "--doneType",       help="when to raise done flag",     default='fail',     type=str)
 parser.add_argument("-tt",  "--terminalType",   help="terminal value",              default='g',        type=str)
 
 # hyper-parameters
-parser.add_argument("-arc", "--architecture",   help="NN architecture",         default=[100, 20],          nargs="*", type=int)
-parser.add_argument("-act", "--actType",        help="activation type",         default=['Tanh', 'ReLU'],   nargs=2, type=str)
+parser.add_argument("-arc", "--architecture",   help="NN architecture",         default=[100, 100, 100],    nargs="*", type=int)
+parser.add_argument("-act", "--actType",        help="activation type",         default=['Tanh', 'ReLU'],   nargs=2,   type=str)
 parser.add_argument("-lrA", "--lrA",            help="learning rate actor",     default=1e-3,   type=float)
 parser.add_argument("-lrC", "--lrC",            help="learning rate critic",    default=1e-3,   type=float)
-parser.add_argument("-g",   "--gamma",          help="contraction coeff.",      default=0.8,    type=float)
+parser.add_argument("-g",   "--gamma",          help="contraction coeff.",      default=0.9,    type=float)
 
 # car dynamics
 parser.add_argument("-cr",      "--constraintRadius",   help="constraint radius",   default=1., type=float)

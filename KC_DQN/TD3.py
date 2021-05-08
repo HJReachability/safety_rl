@@ -182,7 +182,7 @@ class TD3(ActorCritic):
         loss_pi = q_pi.mean()
         self.actorOptimizer.zero_grad()
         loss_pi.backward()
-        # nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
+        nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
         self.actorOptimizer.step()
 
         for p in self.critic.parameters():
@@ -202,7 +202,5 @@ class TD3(ActorCritic):
 
         g_x = torch.FloatTensor([info['g_x'] for info in batch.info]).to(self.device).view(-1)
         l_x = torch.FloatTensor([info['l_x'] for info in batch.info]).to(self.device).view(-1)
-        # g_x_nxt = torch.FloatTensor([info['g_x_nxt'] for info in batch.info]).to(self.device).view(-1)
-        # l_x_nxt = torch.FloatTensor([info['l_x_nxt'] for info in batch.info]).to(self.device).view(-1)
 
         return non_final_mask, non_final_state_nxt, state, action, reward, g_x, l_x

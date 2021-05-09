@@ -1,5 +1,4 @@
 # Kai-Chieh's branch
 
 ## Implementation
-
-* actor-critic methods for RA
+This branch wants to solve the bugs in the implementation of RA-SAC.

@@ -15,7 +15,9 @@
 #       + target networks
 #   - Actor Model
 #       + SAC: GaussianPolicy,      without target, care entropy loss
+#           when update_actor, use samples action
 #       + TD3: DeterministicPolicy, with target
+#           when update_actor, use the deterministic action
 #       + select_action() calls self.actor.sample()
 #   - Replay Buffer
 #       + (extension) prioritized experience replay
@@ -267,6 +269,7 @@ class ActorCritic(object):
                     with torch.no_grad():
                         a, _ = self.actor.sample(
                             torch.from_numpy(s).float().to(self.device))
+                        a = a.cpu().numpy()
                 else:
                     a = env.action_space.sample()
                     # a = self.genRandomActions(1)[0]

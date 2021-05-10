@@ -110,7 +110,7 @@ class GaussianPolicy(nn.Module):
     def __init__(self, dimList, actionSpace, actType='Tanh', device='cpu'):
         super(GaussianPolicy, self).__init__()
         self.device = device
-        self.mean = model(dimList, actType, verbose=True).to(device)
+        self.mean = model(dimList, actType, output_activation=nn.Tanh, verbose=True).to(device)
         self.log_std = model(dimList, actType, verbose=True).to(device)
 
         self.actionSpace = actionSpace
@@ -120,35 +120,32 @@ class GaussianPolicy(nn.Module):
         self.bias = (self.a_max + self.a_min) / 2.0
 
         self.LOG_STD_MAX = 1
-        self.LOG_STD_MIN = -5
-        self.log_scale = (self.LOG_STD_MAX - self.LOG_STD_MIN) / 2.0
-        self.log_bias = (self.LOG_STD_MAX + self.LOG_STD_MIN) / 2.0
+        self.LOG_STD_MIN = -10
+        # self.log_scale = (self.LOG_STD_MAX - self.LOG_STD_MIN) / 2.0
+        # self.log_bias = (self.LOG_STD_MAX + self.LOG_STD_MIN) / 2.0
         self.eps = 1e-8
-        # Action Scale and Bias
-        # if actionSpace is None:
-        #     self.actionScale = torch.tensor(1.)
-        #     self.actionBias = torch.tensor(0.)
-        # else:
-        #     self.actionScale = torch.FloatTensor(
-        #         (actionSpace.high - actionSpace.low) / 2.).to(device)
-        #     self.actionBias = torch.FloatTensor(
-        #         (actionSpace.high + actionSpace.low) / 2.).to(device)
+
+
+    # def forward(self, state):
+    #     stateTensor = state.to(self.device)
+    #     mean = self.mean(stateTensor)
+    #     log_std = self.log_std(stateTensor)
+    #     log_std = torch.tanh(log_std) * self.log_scale + self.log_bias
+    #     return mean, log_std
 
 
     def forward(self, state):
         stateTensor = state.to(self.device)
         mean = self.mean(stateTensor)
-        log_std = self.log_std(stateTensor)
-        # log_std = torch.clamp(log_std, min=self.LOG_STD_MIN, max=self.LOG_STD_MAX)
-        log_std = torch.tanh(log_std) * self.log_scale + self.log_bias
-        return mean, log_std
+        return mean * self.scale + self.bias
 
 
-    def sample(self, state, deterministic=False):
+    def sample(self, state):
         stateTensor = state.to(self.device)
-        mean, log_std = self.forward(stateTensor)
-        if deterministic:
-            return torch.tanh(mean) * self.scale + self.bias
+        mean = self.mean(stateTensor)
+        log_std = self.log_std(stateTensor)
+        log_std = torch.clamp(log_std, self.LOG_STD_MIN, self.LOG_STD_MAX)
+
         std = torch.exp(log_std)
         normalRV = Normal(mean, std)
 
@@ -163,15 +160,15 @@ class GaussianPolicy(nn.Module):
         # log p(a) = log p(x) - log |det(da/dx)|
         # log |det(da/dx)| = sum log (d a_i / d x_i)
         # d a_i / d x_i = c * ( 1 - y_i^2 )
-        # TODO(vrubies): Understand this!
-        log_prob -= torch.log(self.scale * (1 - y.pow(2)) + self.eps).sum(-1, keepdim=True)
-        # log_prob -= (2*(np.log(2) - x - F.softplus(-2*x)))
-        # if log_prob.dim() > 1:
-        #     log_prob = log_prob.sum(1, keepdim=True)
-        # else:
-        #     log_prob = log_prob.sum()
+        log_prob -= torch.log(self.scale * (1 - y.pow(2)) + self.eps)
+        # log_prob = log_prob.sum(1, keepdim=True)
+        if log_prob.dim() > 1:
+            log_prob = log_prob.sum(1, keepdim=True)
+        else:
+            log_prob = log_prob.sum()
         # mean = torch.tanh(mean) * self.scale + self.bias
         return action, log_prob
+
 
 class DeterministicPolicy(nn.Module):
     def __init__(self, dimList, actionSpace, actType='Tanh', device='cpu',
@@ -179,7 +176,7 @@ class DeterministicPolicy(nn.Module):
         super(DeterministicPolicy, self).__init__()
         self.device = device
         self.mean = model(dimList, actType, output_activation=nn.Tanh, verbose=True).to(device)
-        self.noise = Normal(0., noiseStd)
+        # self.noise = Normal(0., noiseStd)
         self.noiseClamp = noiseClamp
         self.actionSpace = actionSpace
         self.noiseStd = noiseStd
@@ -188,15 +185,6 @@ class DeterministicPolicy(nn.Module):
         self.a_min = self.actionSpace.low[0]  
         self.scale = (self.a_max - self.a_min) / 2.0
         self.bias = (self.a_max + self.a_min) / 2.0
-        # action rescaling
-        # if actionSpace is None:
-        #     self.actionScale = 1.
-        #     self.actionBias = 0.
-        # else:
-        #     self.actionScale = torch.FloatTensor(
-        #         (actionSpace.high - actionSpace.low) / 2.).to(device)
-        #     self.actionBias = torch.FloatTensor(
-        #         (actionSpace.high + actionSpace.low) / 2.).to(device)
 
 
     def forward(self, state):
@@ -208,9 +196,9 @@ class DeterministicPolicy(nn.Module):
     def sample(self, state):
         stateTensor = state.to(self.device)
         mean = self.forward(stateTensor)
-        noise = self.noise.sample().to(self.device)
-        noise_clipped = torch.randn_like(mean) * self.noiseStd
-        noise_clipped = torch.clamp(noise_clipped, -self.noiseClamp, self.noiseClamp)
+        # noise = self.noise.sample().to(self.device)
+        noise = torch.randn_like(mean) * self.noiseStd
+        noise_clipped = torch.clamp(noise, -self.noiseClamp, self.noiseClamp)
 
         # Action.
         action = mean + noise
@@ -220,7 +208,7 @@ class DeterministicPolicy(nn.Module):
         action_target = mean + noise_clipped
         action_target = torch.clamp(action_target, self.a_min, self.a_max)
 
-        return action.cpu().numpy(), action_target
+        return action, action_target
 
 
 #== Scheduler ==

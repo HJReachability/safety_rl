@@ -114,7 +114,7 @@ class SAC(ActorCritic):
 
     def update_critic(self, batch, addBias=False):
 
-        non_final_mask, non_final_state_nxt, state, action, reward, g_x, l_x = \
+        non_final_mask, non_final_state_nxt, state, action, _, g_x, l_x = \
             self.unpack_batch(batch)
         self.critic.train()
         self.criticTarget.eval()
@@ -178,7 +178,7 @@ class SAC(ActorCritic):
         loss_pi.backward()
         self.actorOptimizer.step()
 
-        for p in self.critic.parameters():
+        for p in self.critic.parameters(): 
             p.requires_grad = True
 
         return loss_pi.item(), loss_entropy.item()

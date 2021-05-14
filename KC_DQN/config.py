@@ -174,7 +174,7 @@ class actorCriticConfig(config):
                         RENDER=False,
                         MAX_MODEL=10,
                         ARCHITECTURE=[512, 512, 512],
-                        ACTIVATION='Tanh',
+                        ACTIVATION={'critic':'Sin', 'actor':'ReLU'},
                         SKIP=False,
                         REWARD=-1,
                         PENALTY=1):
@@ -229,3 +229,44 @@ class actorCriticConfig(config):
         self.ALPHA=ALPHA
 
         self.TAU = TAU
+
+
+class SACConfig(actorCriticConfig):
+    def __init__(self,  ENV_NAME='Pendulum-v0', DEVICE='cpu', SEED=0,
+        MAX_UPDATES=2000000, MAX_EP_STEPS=200,
+        LR_C=1e-3, LR_C_END=1e-4, LR_C_PERIOD=1, LR_C_DECAY=0.5,
+        LR_A=1e-3, LR_A_END=1e-4, LR_A_PERIOD=1, LR_A_DECAY=0.5,
+        LR_Al=1e-4, LR_Al_END=1e-5, LR_Al_PERIOD=1, LR_Al_DECAY=0.5,
+        GAMMA=0.9, GAMMA_END=0.99999999, GAMMA_PERIOD=200, GAMMA_DECAY=0.5,
+        ALPHA=0.2, LEARN_ALPHA=True,
+        TAU=0.01, HARD_UPDATE=1, SOFT_UPDATE=True,
+        MEMORY_CAPACITY=10000,
+        BATCH_SIZE=32,
+        RENDER=False,
+        MAX_MODEL=10,
+        ARCHITECTURE=[512, 512, 512], ACTIVATION={'critic':'Sin', 'actor':'ReLU'},
+        SKIP=False,
+        REWARD=-1,
+        PENALTY=1):
+
+        super().__init__(ENV_NAME=ENV_NAME, DEVICE=DEVICE, SEED=SEED,
+            MAX_UPDATES=MAX_UPDATES, MAX_EP_STEPS=MAX_EP_STEPS,
+            LR_C=LR_C, LR_C_END=LR_C_END, LR_C_PERIOD=LR_C_PERIOD, LR_C_DECAY=LR_C_DECAY,
+            LR_A=LR_A, LR_A_END=LR_A_END, LR_A_PERIOD=LR_A_PERIOD, LR_A_DECAY=LR_A_DECAY,
+            GAMMA=GAMMA, GAMMA_END=GAMMA_END, GAMMA_PERIOD=GAMMA_PERIOD, GAMMA_DECAY=GAMMA_DECAY,
+            ALPHA=ALPHA,
+            TAU=TAU, HARD_UPDATE=HARD_UPDATE, SOFT_UPDATE=SOFT_UPDATE,
+            MEMORY_CAPACITY=MEMORY_CAPACITY,
+            BATCH_SIZE=BATCH_SIZE,
+            RENDER=RENDER,
+            MAX_MODEL=MAX_MODEL,
+            ARCHITECTURE=ARCHITECTURE, ACTIVATION=ACTIVATION,
+            SKIP=SKIP,
+            REWARD=REWARD,
+            PENALTY=PENALTY)
+
+        self.LR_Al=LR_Al
+        self.LR_Al_END=LR_Al_END
+        self.LR_Al_PERIOD=LR_Al_PERIOD
+        self.LR_Al_DECAY=LR_Al_DECAY
+        self.LEARN_ALPHA=LEARN_ALPHA

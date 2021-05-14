@@ -3,16 +3,15 @@
 #          Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
 import torch
-import torch.nn as nn
-from torch.nn.functional import mse_loss, smooth_l1_loss
-from torch.nn.utils import clip_grad_norm_
+from torch.nn.functional import mse_loss
+# from torch.nn.utils import clip_grad_norm_
+from torch.optim import AdamW, Adam
+from torch.optim import lr_scheduler
 
-from collections import namedtuple
 import numpy as np
 import matplotlib.pyplot as plt
 import os
 import time
-from copy import deepcopy
 
 from .model import GaussianPolicy
 from .ActorCritic import ActorCritic, Transition
@@ -32,19 +31,67 @@ class SAC(ActorCritic):
             verbose (bool, optional): print info or not. Defaults to True.
         """
         super(SAC, self).__init__('SAC', CONFIG, actionSpace)
-        self.alpha = CONFIG.ALPHA
-        self.terminalType = terminalType
 
-        #== Build NN for (D)DQN ==
+        #= alpha-related hyper-parameters
+        self.init_alpha = CONFIG.ALPHA
+        self.LEARN_ALPHA = CONFIG.LEARN_ALPHA
+        self.log_alpha = torch.tensor(np.log(self.init_alpha)).to(self.device)
+        self.target_entropy = -dimLists[1][-1]
+        self.LR_Al = CONFIG.LR_Al
+        self.LR_Al_PERIOD = CONFIG.LR_Al_PERIOD
+        self.LR_Al_DECAY = CONFIG.LR_Al_DECAY
+        self.LR_Al_END = CONFIG.LR_Al_END
+        self.GAMMA_PERIOD = CONFIG.GAMMA_PERIOD
+        if self.LEARN_ALPHA:
+            print("SAC with learnable alpha and target entropy = {:.1e}".format(
+                self.target_entropy))
+        else:
+            print("SAC with fixed alpha = {:.1e}".format(self.init_alpha))
+
+        #= critic/actor-related hyper-parameters
         assert dimLists is not None, "Define the architectures"
         self.dimListCritic = dimLists[0]
         self.dimListActor = dimLists[1]
         self.actType = actType
+        self.terminalType = terminalType
         self.build_network(dimLists, actType)
 
 
     def build_actor(self, dimListActor, actType='Tanh'):
         self.actor = GaussianPolicy(dimListActor, self.actionSpace, actType=actType)
+
+
+    def build_optimizer(self):
+        print("Build critic, actor, log_alpha optimizers and lr_schedulers")
+        self.criticOptimizer = Adam(self.critic.parameters(), lr=self.LR_C)
+        self.actorOptimizer = Adam(self.actor.parameters(), lr=self.LR_A)
+
+        self.criticScheduler = lr_scheduler.StepLR(self.criticOptimizer,
+            step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
+        self.actorScheduler = lr_scheduler.StepLR(self.actorOptimizer,
+            step_size=self.LR_A_PERIOD, gamma=self.LR_A_DECAY)
+        
+        if self.LEARN_ALPHA:
+            self.log_alpha.requires_grad = True
+            self.log_alphaOptimizer = Adam([self.log_alpha], lr=self.LR_Al)
+            self.log_alphaScheduler = lr_scheduler.StepLR(self.log_alphaOptimizer,
+                step_size=self.LR_Al_PERIOD, gamma=self.LR_Al_DECAY)
+
+        self.max_grad_norm = .1
+        self.cntUpdate = 0
+
+
+    def reset_alpha(self):
+        self.log_alpha = torch.tensor(np.log(self.init_alpha)).to(self.device)
+        self.log_alpha.requires_grad = True
+        self.log_alphaOptimizer = Adam([self.log_alpha], lr=self.LR_Al)
+        self.log_alphaScheduler = lr_scheduler.StepLR(self.log_alphaOptimizer,
+            step_size=self.LR_Al_PERIOD, gamma=self.LR_Al_DECAY)
+
+
+    @property
+    def alpha(self):
+        return self.log_alpha.exp()
 
 
     def initBuffer(self, env, ratio=1.):
@@ -84,7 +131,6 @@ class SAC(ActorCritic):
 
             self.criticOptimizer.zero_grad()
             loss.backward()
-            # clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
             self.criticOptimizer.step()
 
             lossList[ep_tmp] = loss.detach().cpu().numpy()
@@ -112,7 +158,22 @@ class SAC(ActorCritic):
         return lossList
 
 
-    def update_critic(self, batch, addBias=False):
+    def update_alpha_hyperParam(self):
+        if self.log_alphaOptimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_Al_END:
+            for param_group in self.log_alphaOptimizer.param_groups:
+                param_group['lr'] = self.LR_Al_END
+        else:
+            self.log_alphaScheduler.step()
+
+
+    def updateHyperParam(self):
+        self.update_critic_hyperParam()
+        self.update_actor_hyperParam()
+        if self.LEARN_ALPHA:
+            self.update_alpha_hyperParam()
+
+
+    def update_critic(self, batch):
 
         non_final_mask, non_final_state_nxt, state, action, _, g_x, l_x = \
             self.unpack_batch(batch)
@@ -150,7 +211,6 @@ class SAC(ActorCritic):
         #== backpropagation ==
         self.criticOptimizer.zero_grad()
         loss_q.backward()
-        # nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
         self.criticOptimizer.step()
 
         return loss_q.item()
@@ -176,12 +236,23 @@ class SAC(ActorCritic):
         loss_pi = loss_q_eval + self.alpha * loss_entropy
         self.actorOptimizer.zero_grad()
         loss_pi.backward()
+        # clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
         self.actorOptimizer.step()
 
         for p in self.critic.parameters(): 
             p.requires_grad = True
 
-        return loss_pi.item(), loss_entropy.item()
+        # Automatic temperature tuning
+        if self.LEARN_ALPHA:
+            self.log_alphaOptimizer.zero_grad()
+            loss_alpha = (self.alpha *
+                (-log_prob - self.target_entropy).detach()).mean()
+            loss_alpha.backward()
+            self.log_alphaOptimizer.step()
+        else:
+            loss_alpha = (self.alpha *
+                (-log_prob - self.target_entropy).detach()).mean()
+        return loss_pi.item(), loss_entropy.item(), loss_alpha.item()
 
 
     def update(self, timer, update_period=2):
@@ -193,22 +264,20 @@ class SAC(ActorCritic):
         batch = Transition(*zip(*transitions))
 
         loss_q = self.update_critic(batch)
-        loss_pi = 0.
-        loss_entropy = 0.
+        loss_pi, loss_entropy, loss_alpha = 0, 0, 0
         if timer % update_period == 0:
-            loss_pi, loss_entropy = self.update_actor(batch)
-            print('\r{:d}: (q, pi, ent) = ({:3.5f}/{:3.5f}/{:3.5f}).'.format(
-                self.cntUpdate, loss_q, loss_pi, loss_entropy), end=' ')
+            loss_pi, loss_entropy, loss_alpha = self.update_actor(batch)
+            print('\r{:d}: (q, pi, ent, alpha) = ({:3.5f}/{:3.5f}/{:3.5f}/{:3.5f}).'.format(
+                self.cntUpdate, loss_q, loss_pi, loss_entropy, loss_alpha), end=' ')
 
         self.update_target_networks()
 
-        return loss_q, loss_pi, loss_entropy
+        return loss_q, loss_pi, loss_entropy, loss_alpha
 
 
     def learn(  self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100,
                 warmupBuffer=True, warmupQ=False, warmupIter=10000,
-                addBias=False, doneTerminate=True, runningCostThr=None,
-                curUpdates=None, checkPeriod=50000,
+                addBias=False, curUpdates=None, checkPeriod=50000,
                 plotFigure=True, storeFigure=False,
                 showBool=False, vmin=-1, vmax=1, numRndTraj=200,
                 storeModel=True, saveBest=True, outFolder='RA', verbose=True):
@@ -229,10 +298,7 @@ class SAC(ActorCritic):
 
         # == Main Training ==
         startLearning = time.time()
-        TrainingRecord = namedtuple('TrainingRecord',
-            ['ep', 'runningCost', 'cost', 'loss_q', 'loss_pi'])
         trainingRecords = []
-        runningCost = 0.
         trainProgress = []
         checkPointSucc = 0.
         ep = 0
@@ -240,6 +306,7 @@ class SAC(ActorCritic):
         if storeModel:
             modelFolder = os.path.join(outFolder, 'model')
             os.makedirs(modelFolder, exist_ok=True)
+
         if storeFigure:
             figureFolder = os.path.join(outFolder, 'figure')
             os.makedirs(figureFolder, exist_ok=True)
@@ -254,7 +321,7 @@ class SAC(ActorCritic):
             ep += 1
 
             # Rollout
-            for step_num in range(MAX_EP_STEPS):
+            for _ in range(MAX_EP_STEPS):
                 # Select action
                 if warmupBuffer or self.cntUpdate > max(warmupIter, self.start_updates):
                     with torch.no_grad():
@@ -286,8 +353,8 @@ class SAC(ActorCritic):
                     if verbose:
                         lr = self.actorOptimizer.state_dict()['param_groups'][0]['lr']
                         print('\nAfter [{:d}] updates:'.format(self.cntUpdate))
-                        print('  - gamma={:.6f}, lr={:.1e}.'.format(
-                            self.GAMMA, lr))
+                        print('  - gamma={:.6f}, lr={:.1e}, alpha={:.1e}.'.format(
+                            self.GAMMA, lr, self.alpha))
                         print('  - success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(
                             success, failure, unfinish))
 
@@ -315,15 +382,18 @@ class SAC(ActorCritic):
                             plt.close()
 
                 # Perform one step of the optimization (on the target network)
-                loss_q, loss_pi, loss_entropy = 0, 0, 0
+                loss_q, loss_pi, loss_entropy, loss_alpha = 0, 0, 0, 0
                 update_every = 100
                 if self.cntUpdate % update_every == 0:
                     for timer in range(update_every):
-                        loss_q, loss_pi, loss_entropy = self.update(timer)
-                        trainingRecords.append([loss_q, loss_pi, loss_entropy])
+                        loss_q, loss_pi, loss_entropy, loss_alpha = self.update(timer)
+                        trainingRecords.append([loss_q, loss_pi, loss_entropy, loss_alpha])
                 self.cntUpdate += 1
+
                 # Update gamma, lr etc.
                 self.updateHyperParam()
+                if self.cntUpdate % self.GAMMA_PERIOD == 0 and self.LEARN_ALPHA:
+                    self.reset_alpha()
 
                 # Terminate early
                 if done:

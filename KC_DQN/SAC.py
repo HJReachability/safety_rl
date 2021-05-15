@@ -58,7 +58,8 @@ class SAC(ActorCritic):
 
 
     def build_actor(self, dimListActor, actType='Tanh'):
-        self.actor = GaussianPolicy(dimListActor, self.actionSpace, actType=actType)
+        self.actor = GaussianPolicy(dimListActor, self.actionSpace,
+            actType=actType, device=self.device)
 
 
     def build_optimizer(self):

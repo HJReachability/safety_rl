@@ -20,9 +20,9 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 #== ARGS ==
 # test
-    # python3 sim_car_one_SAC.py -w -wi 5 -mu 200 -ut 2 -cp 100 -arc 100 20 -of scratch/tmp -sf -dt fail -tt g
+    # python3 sim_car_one_SAC.py -la -w -wi 5 -mu 2400 -ut 12 -cp 100 -arc 100 20 -of scratch/tmp -sf
 # default
-    # python3 sim_car_one_SAC.py -w -sf -of scratch/tmp
+    # python3 sim_car_one_SAC.py -w -la -sf -of scratch/tmp
 parser = argparse.ArgumentParser()
 
 # training scheme
@@ -32,7 +32,7 @@ parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates"
 parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",              default=50000,      type=int)
 parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",         default=12,         type=int)
 parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",            default=5000,       type=int)
-parser.add_argument("-cp",  "--checkPeriod",    help="check period",                default=100000,     type=int)
+parser.add_argument("-cp",  "--checkPeriod",    help="check period",                default=50000,      type=int)
 parser.add_argument("-dt",  "--doneType",       help="when to raise done flag",     default='fail',     type=str)
 parser.add_argument("-tt",  "--terminalType",   help="terminal value",              default='g',        type=str)
 
@@ -42,7 +42,8 @@ parser.add_argument("-act",  "--actType",       help="activation type",         
 parser.add_argument("-lrA",  "--lrA",           help="learning rate actor",     default=1e-3,   type=float)
 parser.add_argument("-lrC",  "--lrC",           help="learning rate critic",    default=1e-3,   type=float)
 parser.add_argument("-lrAl", "--lrAl",          help="learning rate alpha",     default=5e-4,   type=float)
-parser.add_argument("-g",    "--gamma",         help="contraction coeff.",      default=0.99,    type=float)
+parser.add_argument("-g",    "--gamma",         help="contraction coeff.",      default=0.98,    type=float)
+parser.add_argument("-a",    "--alpha",         help="initial temperature",     default=0.05,    type=float)
 parser.add_argument("-la",   "--learnAlpha",    help="learnable temperature",   action="store_true")
 
 # car dynamics
@@ -71,7 +72,7 @@ maxSteps = 100
 storeFigure = args.storeFigure
 plotFigure = args.plotFigure
 
-outFolder = os.path.join(args.outFolder, 'car-TD3', args.name + timestr)
+outFolder = os.path.join(args.outFolder, 'car-SAC', args.name + timestr)
 figureFolder = os.path.join(outFolder, 'figure/')
 os.makedirs(figureFolder, exist_ok=True)
 
@@ -179,8 +180,9 @@ CONFIG = SACConfig(
             GAMMA_PERIOD=updatePeriod,
             GAMMA_DECAY=0.5,
             # ===================
-            ALPHA=0.05,
+            ALPHA=args.alpha,
             LEARN_ALPHA=args.learnAlpha,
+            # ===================
             TAU=0.05,
             HARD_UPDATE=1,
             SOFT_UPDATE=True,

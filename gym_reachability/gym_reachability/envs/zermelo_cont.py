@@ -321,8 +321,7 @@ class ZermeloContEnv(gym.Env):
 
 
 #== Setting Hyper-Parameters ==
-    def set_costParam(self, penalty=1, reward=-1, costType='normal',
-        scaling=4.):
+    def set_costParam(self, penalty=1, reward=-1, costType='normal', scaling=1.):
         self.penalty = penalty
         self.reward = reward
         self.costType = costType

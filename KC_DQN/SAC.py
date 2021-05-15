@@ -74,7 +74,8 @@ class SAC(ActorCritic):
         if self.LEARN_ALPHA:
             self.log_alpha.requires_grad = True
             self.log_alphaOptimizer = Adam([self.log_alpha], lr=self.LR_Al)
-            self.log_alphaScheduler = lr_scheduler.StepLR(self.log_alphaOptimizer,
+            self.log_alphaScheduler = lr_scheduler.StepLR(
+                self.log_alphaOptimizer,
                 step_size=self.LR_Al_PERIOD, gamma=self.LR_Al_DECAY)
 
         self.max_grad_norm = .1
@@ -159,7 +160,8 @@ class SAC(ActorCritic):
 
 
     def update_alpha_hyperParam(self):
-        if self.log_alphaOptimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_Al_END:
+        lr = self.log_alphaOptimizer.state_dict()['param_groups'][0]['lr']
+        if lr <= self.LR_Al_END:
             for param_group in self.log_alphaOptimizer.param_groups:
                 param_group['lr'] = self.LR_Al_END
         else:
@@ -229,7 +231,7 @@ class SAC(ActorCritic):
         q_pi_1, q_pi_2 = self.critic(state, action_sample)
         q_pi = torch.max(q_pi_1, q_pi_2)
 
-        # Obj: min_theta E [ Q(s, pi_theta(s, \xi)) + alpha * log(pi_theta(s, \xi)) ]
+        # Obj: min_theta E[ Q(s, pi_theta(s, \xi)) + alpha * log(pi_theta(s, \xi))]
         # loss_pi = (q_pi - self.alpha * log_prob.view(-1)).mean()
         loss_entropy = log_prob.view(-1).mean()
         loss_q_eval = q_pi.mean()

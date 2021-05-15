@@ -207,12 +207,12 @@ dimLists = [dimListCritic, dimListActor]
 agent = SAC(CONFIG, env.action_space, dimLists,
     actType={'critic':'Sin', 'actor':'ReLU'}, verbose=True)
 
-print('Agent has terminal type:', agent.terminalType)
-print("We want to use: {}, and Agent uses: {}".format(device, agent.device))
+print("\nWe want to use: {}, and Agent uses: {}".format(device, agent.device))
 print("Critic is using cuda: ", next(agent.critic.parameters()).is_cuda)
 print("Actor is using cuda: ", next(agent.actor.parameters()).is_cuda)
 
 if args.warmup:
+    print("\n== Warmup Q ==")
     lossList = agent.initQ(env, args.warmupIter, outFolder,
         num_warmup_samples=200, vmin=vmin, vmax=vmax,
         plotFigure=plotFigure, storeFigure=storeFigure)
@@ -234,6 +234,7 @@ if args.warmup:
         plt.close()
 
 print("\n== Training Information ==")
+print('Agent has terminal type:', agent.terminalType)
 trainRecords, trainProgress = agent.learn(env,
     MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps,
     warmupQ=False, warmupIter=args.warmupIter,

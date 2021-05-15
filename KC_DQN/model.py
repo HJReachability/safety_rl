@@ -88,7 +88,7 @@ class model(nn.Module):
 class TwinnedQNetwork(nn.Module):
     def __init__(self, dimList, actType='Tanh', device='cpu'):
         super(TwinnedQNetwork, self).__init__()
-
+        print("The neural networks for CRITIC have the architecture as below:")
         self.Q1 = model(dimList, actType, verbose=True).to(device)
         self.Q2 = model(dimList, actType, verbose=False).to(device)
 
@@ -110,7 +110,9 @@ class GaussianPolicy(nn.Module):
     def __init__(self, dimList, actionSpace, actType='Tanh', device='cpu'):
         super(GaussianPolicy, self).__init__()
         self.device = device
+        print("The neural network for MEAN has the architecture as below:")
         self.mean = model(dimList, actType, output_activation=nn.Tanh, verbose=True).to(device)
+        print("The neural network for LOG_STD has the architecture as below:")
         self.log_std = model(dimList, actType, verbose=True).to(device)
 
         self.actionSpace = actionSpace
@@ -175,6 +177,7 @@ class DeterministicPolicy(nn.Module):
         noiseStd=0.1, noiseClamp=0.5):
         super(DeterministicPolicy, self).__init__()
         self.device = device
+        print("The neural network for MEAN has the architecture as below:")
         self.mean = model(dimList, actType, output_activation=nn.Tanh, verbose=True).to(device)
         # self.noise = Normal(0., noiseStd)
         self.noiseClamp = noiseClamp

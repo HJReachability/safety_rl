@@ -62,8 +62,7 @@ class SAC(ActorCritic):
             actType=actType, device=self.device)
 
 
-    def build_optimizer(self):
-        print("Build critic, actor, log_alpha optimizers and lr_schedulers")
+    def build_optimizer(self, verbose=True):
         self.criticOptimizer = Adam(self.critic.parameters(), lr=self.LR_C)
         self.actorOptimizer = Adam(self.actor.parameters(), lr=self.LR_A)
 
@@ -73,6 +72,8 @@ class SAC(ActorCritic):
             step_size=self.LR_A_PERIOD, gamma=self.LR_A_DECAY)
         
         if self.LEARN_ALPHA:
+            if verbose:
+                print("Make log_alpha learnable.")
             self.log_alpha.requires_grad = True
             self.log_alphaOptimizer = Adam([self.log_alpha], lr=self.LR_Al)
             self.log_alphaScheduler = lr_scheduler.StepLR(
@@ -155,7 +156,7 @@ class SAC(ActorCritic):
         # hard replace
         self.criticTarget.load_state_dict(self.critic.state_dict())
         del self.criticOptimizer
-        self.build_optimizer()
+        self.build_optimizer(verbose=False)
 
         return lossList
 

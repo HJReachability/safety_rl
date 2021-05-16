@@ -116,18 +116,19 @@ class ActorCritic(object):
 
 
     # * BUILD NETWORK BEGINS
-    def build_network(self, dimLists, actType={'critic':'Tanh', 'actor':'Tanh'}):
-        self.build_critic(dimLists[0], actType['critic'])
-        self.build_actor(dimLists[1], actType['actor'])
+    def build_network(self, dimLists, actType={'critic':'Tanh', 'actor':'Tanh'},
+        verbose=True):
+        self.build_critic(dimLists[0], actType['critic'], verbose=verbose)
+        self.build_actor(dimLists[1], actType['actor'], verbose=verbose)
         self.build_optimizer()
 
 
-    def build_actor(self, dimList, actType='Tanh'):
+    def build_actor(self):
         raise NotImplementedError
 
 
-    def build_critic(self, dimList, actType='Tanh'):
-        self.critic = TwinnedQNetwork(dimList, actType, self.device)
+    def build_critic(self, dimList, actType='Tanh', verbose=True):
+        self.critic = TwinnedQNetwork(dimList, actType, self.device, verbose=verbose)
         self.criticTarget = deepcopy(self.critic)
         for p in self.criticTarget.parameters():
             p.requires_grad = False

@@ -39,14 +39,14 @@ class TD3(ActorCritic):
         self.dimListCritic = dimLists[0]
         self.dimListActor = dimLists[1]
         self.actType = actType
-        self.build_network(dimLists, actType)
+        self.build_network(dimLists, actType, verbose=verbose)
 
 
     def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.2,
-        noiseClamp=0.5):
+        noiseClamp=0.5, verbose=True):
         self.actor = DeterministicPolicy(dimListActor, self.actionSpace,
             actType=actType, noiseStd=noiseStd, noiseClamp=noiseClamp,
-            device=self.device)
+            device=self.device, verbose=verbose)
         self.actorTarget = deepcopy(self.actor)
         for p in self.actorTarget.parameters():
             p.requires_grad = False

@@ -54,12 +54,12 @@ class SAC(ActorCritic):
         self.dimListActor = dimLists[1]
         self.actType = actType
         self.terminalType = terminalType
-        self.build_network(dimLists, actType)
+        self.build_network(dimLists, actType, verbose=verbose)
 
 
-    def build_actor(self, dimListActor, actType='Tanh'):
+    def build_actor(self, dimListActor, actType='Tanh', verbose=True):
         self.actor = GaussianPolicy(dimListActor, self.actionSpace,
-            actType=actType, device=self.device)
+            actType=actType, device=self.device, verbose=verbose)
 
 
     def build_optimizer(self, verbose=True):

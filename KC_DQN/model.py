@@ -86,10 +86,11 @@ class model(nn.Module):
 
 # TODO == Twinned Q-Network ==
 class TwinnedQNetwork(nn.Module):
-    def __init__(self, dimList, actType='Tanh', device='cpu'):
+    def __init__(self, dimList, actType='Tanh', device='cpu', verbose=True):
         super(TwinnedQNetwork, self).__init__()
-        print("The neural networks for CRITIC have the architecture as below:")
-        self.Q1 = model(dimList, actType, verbose=True).to(device)
+        if verbose:
+            print("The neural networks for CRITIC have the architecture as below:")
+        self.Q1 = model(dimList, actType, verbose=verbose).to(device)
         self.Q2 = model(dimList, actType, verbose=False).to(device)
 
         if device == torch.device('cuda'):
@@ -106,14 +107,17 @@ class TwinnedQNetwork(nn.Module):
 
 # TODO == Policy (Actor) Model ==
 class GaussianPolicy(nn.Module):
-
-    def __init__(self, dimList, actionSpace, actType='Tanh', device='cpu'):
+    def __init__(self, dimList, actionSpace, actType='Tanh', device='cpu', verbose=True):
         super(GaussianPolicy, self).__init__()
         self.device = device
-        print("The neural network for MEAN has the architecture as below:")
-        self.mean = model(dimList, actType, output_activation=nn.Tanh, verbose=True).to(device)
-        print("The neural network for LOG_STD has the architecture as below:")
-        self.log_std = model(dimList, actType, verbose=True).to(device)
+        if verbose:
+            print("The neural network for MEAN has the architecture as below:")
+        self.mean = model(dimList, actType, output_activation=nn.Tanh,
+            verbose=verbose).to(device)
+        if verbose:
+            print("The neural network for LOG_STD has the architecture as below:")
+        self.log_std = model(dimList, actType, output_activation=nn.Identity,
+            verbose=verbose).to(device)
 
         self.actionSpace = actionSpace
         self.a_max = self.actionSpace.high[0]
@@ -174,11 +178,13 @@ class GaussianPolicy(nn.Module):
 
 class DeterministicPolicy(nn.Module):
     def __init__(self, dimList, actionSpace, actType='Tanh', device='cpu',
-        noiseStd=0.1, noiseClamp=0.5):
+        noiseStd=0.1, noiseClamp=0.5, verbose=True):
         super(DeterministicPolicy, self).__init__()
         self.device = device
-        print("The neural network for MEAN has the architecture as below:")
-        self.mean = model(dimList, actType, output_activation=nn.Tanh, verbose=True).to(device)
+        if verbose:
+            print("The neural network for MEAN has the architecture as below:")
+        self.mean = model(dimList, actType, output_activation=nn.Tanh,
+            verbose=verbose).to(device)
         # self.noise = Normal(0., noiseStd)
         self.noiseClamp = noiseClamp
         self.actionSpace = actionSpace

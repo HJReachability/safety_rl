@@ -158,44 +158,37 @@ if plotFigure or storeFigure:
 #== Agent CONFIG ==
 print("\n== Agent Information ==")
 CONFIG = SACConfig(
-            ENV_NAME=env_name,
-            DEVICE=device,
-            MAX_UPDATES=maxUpdates,
-            MAX_EP_STEPS=maxSteps,
-            # =================== LEARNING RATE PARAMS.
-            LR_C=args.lrC,
-            LR_C_END=args.lrC/10,
-            LR_C_PERIOD=updatePeriod,
-            LR_C_DECAY=0.9,
-            LR_A=args.lrA,
-            LR_A_END=args.lrA/10,
-            LR_A_PERIOD=updatePeriod,
-            LR_A_DECAY=0.9,
-            LR_Al=5e-4, 
-            LR_Al_END=1e-5,
-            LR_Al_PERIOD=updatePeriod,
-            LR_Al_DECAY=0.9,
-            # =================== LEARNING RATE .
-            GAMMA=0.98,
-            GAMMA_END=0.9999,
-            GAMMA_PERIOD=updatePeriod,
-            GAMMA_DECAY=0.5,
-            # ===================
-            ALPHA=args.alpha,
-            LEARN_ALPHA=args.learnAlpha,
-            # ===================
-            TAU=0.05,
-            HARD_UPDATE=1,
-            SOFT_UPDATE=True,
-            MEMORY_CAPACITY=args.memoryCapacity,
-            BATCH_SIZE=64,
-            RENDER=False,
-            MAX_MODEL=50,
-            ARCHITECTURE=args.architecture,
-            ACTIVATION=args.actType,
-            SKIP=False,
-            REWARD=-1.,
-            PENALTY=1.)
+    ENV_NAME=env_name,
+    DEVICE=device,
+    MAX_UPDATES=maxUpdates,
+    MAX_EP_STEPS=maxSteps,
+    # =================== LEARNING RATE PARAMS.
+    LR_C=args.lrC,
+    LR_C_END=args.lrC/10,
+    LR_C_PERIOD=updatePeriod,
+    LR_C_DECAY=0.9,
+    LR_A=args.lrA,
+    LR_A_END=args.lrA/10,
+    LR_A_PERIOD=updatePeriod,
+    LR_A_DECAY=0.9,
+    LR_Al=5e-4, 
+    LR_Al_END=1e-5,
+    LR_Al_PERIOD=updatePeriod,
+    LR_Al_DECAY=0.9,
+    # =================== LEARNING RATE .
+    GAMMA=args.gamma,
+    GAMMA_END=0.9999,
+    GAMMA_PERIOD=updatePeriod,
+    GAMMA_DECAY=0.5,
+    # ===================
+    ALPHA=args.alpha,
+    LEARN_ALPHA=args.learnAlpha,
+    # ===================
+    MEMORY_CAPACITY=args.memoryCapacity,
+    ARCHITECTURE=args.architecture,
+    ACTIVATION=args.actType,
+    REWARD=args.reward,
+    PENALTY=args.penalty)
 
 
 #== AGENT ==

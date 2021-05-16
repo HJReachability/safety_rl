@@ -158,40 +158,28 @@ print("\n== Agent Information ==")
 CONFIG = actorCriticConfig(
     ENV_NAME=env_name,
     DEVICE=device,
-    MAX_UPDATES=maxUpdates,  # Number of grad updates.
-    MAX_EP_STEPS=maxSteps,   # Max number of steps per episode.
+    MAX_UPDATES=maxUpdates,
+    MAX_EP_STEPS=maxSteps,
     # =================== LEARNING RATE PARAMS.
-    LR_C=args.lrC,  # Learning rate.
-    LR_C_END=args.lrC/10,           # Final learning rate.
-    LR_C_PERIOD=updatePeriod,  # How often to update lr.
-    LR_C_DECAY=0.9,          # Learning rate decay rate.
+    LR_C=args.lrC,
+    LR_C_END=args.lrC/10,
+    LR_C_PERIOD=updatePeriod,
+    LR_C_DECAY=0.9,
     LR_A=args.lrA,
     LR_A_END=args.lrA/10,
     LR_A_PERIOD=updatePeriod,
     LR_A_DECAY=0.9,
     # =================== LEARNING RATE .
-    GAMMA=0.8,# args.gamma,         # Inital gamma
-    GAMMA_END=0.9999,    # Final gamma.
-    GAMMA_PERIOD=updatePeriod,  # How often to update gamma.
-    GAMMA_DECAY=0.5,         # Rate of decay of gamma.
+    GAMMA=args.gamma,
+    GAMMA_END=0.9999,
+    GAMMA_PERIOD=updatePeriod,
+    GAMMA_DECAY=0.5,
     # ===================
-    ALPHA=0.2,
-    TAU=0.05,
-    HARD_UPDATE=1,
-    SOFT_UPDATE=True,
-    MEMORY_CAPACITY=args.memoryCapacity,   # Number of transitions in replay buffer.
-    BATCH_SIZE=128,          # Number of examples to use to update Q.
-    RENDER=False,
-    MAX_MODEL=50,            # How many models to store while training.
-    # ADDED by vrubies
+    MEMORY_CAPACITY=args.memoryCapacity,
     ARCHITECTURE=args.architecture,
     ACTIVATION=args.actType,
-    SKIP=False,
-    REWARD=-1.,
-    PENALTY=1.)
-# picklePath = outFolder+'/CONFIG.pkl'
-# with open(picklePath, 'wb') as handle:
-#     pickle.dump(CONFIG, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    REWARD=args.reward,
+    PENALTY=args.penalty)
 
 
 #== AGENT ==

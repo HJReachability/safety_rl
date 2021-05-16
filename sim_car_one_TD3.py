@@ -40,7 +40,7 @@ parser.add_argument("-tt",  "--terminalType",   help="terminal value",          
 
 # hyper-parameters
 parser.add_argument("-arc", "--architecture",   help="NN architecture",         default=[100, 100, 100],    nargs="*", type=int)
-parser.add_argument("-act", "--actType",        help="activation type",         default=['Tanh', 'ReLU'],   nargs=2,   type=str)
+parser.add_argument("-act", "--actType",        help="activation type",         default=['Sin', 'ReLU'],   nargs=2,   type=str)
 parser.add_argument("-lrA", "--lrA",            help="learning rate actor",     default=1e-3,   type=float)
 parser.add_argument("-lrC", "--lrC",            help="learning rate critic",    default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",      default=0.9,    type=float)
@@ -155,6 +155,7 @@ if plotFigure or storeFigure:
 
 #== Agent CONFIG ==
 print("\n== Agent Information ==")
+actType={'critic': args.actType[0], 'actor': args.actType[1]}
 CONFIG = actorCriticConfig(
     ENV_NAME=env_name,
     DEVICE=device,
@@ -177,7 +178,7 @@ CONFIG = actorCriticConfig(
     # ===================
     MEMORY_CAPACITY=args.memoryCapacity,
     ARCHITECTURE=args.architecture,
-    ACTIVATION=args.actType,
+    ACTIVATION=actType,
     REWARD=args.reward,
     PENALTY=args.penalty)
 
@@ -189,9 +190,7 @@ vmax = 1
 dimListActor = [stateDim] + args.architecture + [actionDim]
 dimListCritic = [stateDim + actionDim] + args.architecture + [1]
 dimLists = [dimListCritic, dimListActor]
-agent = TD3(CONFIG, env.action_space, dimLists,
-    actType={'critic': args.actType[0], 'actor': args.actType[1]}, verbose=True,
-    terminalType=args.terminalType)
+agent = TD3(CONFIG, env.action_space, dimLists, terminalType=args.terminalType)
 print('Agent has terminal type:', agent.terminalType)
 print("We want to use: {}, and Agent uses: {}".format(device, agent.device))
 print("Critic is using cuda: ", next(agent.critic.parameters()).is_cuda)

@@ -17,8 +17,7 @@ from .model import GaussianPolicy
 from .ActorCritic import ActorCritic, Transition
 
 class SAC(ActorCritic):
-    def __init__(self, CONFIG, actionSpace, dimLists, terminalType='g', 
-        actType={'critic':'Tanh', 'actor':'Tanh'}, verbose=True):
+    def __init__(self, CONFIG, actionSpace, dimLists, terminalType='g', verbose=True):
         """
         __init__: initialization.
 
@@ -52,9 +51,9 @@ class SAC(ActorCritic):
         assert dimLists is not None, "Define the architectures"
         self.dimListCritic = dimLists[0]
         self.dimListActor = dimLists[1]
-        self.actType = actType
+        self.actType = CONFIG.ACTIVATION
         self.terminalType = terminalType
-        self.build_network(dimLists, actType, verbose=verbose)
+        self.build_network(dimLists, self.actType, verbose=verbose)
 
 
     def build_actor(self, dimListActor, actType='Tanh', verbose=True):

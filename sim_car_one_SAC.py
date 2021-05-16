@@ -39,7 +39,7 @@ parser.add_argument("-tt",  "--terminalType",   help="terminal value",          
 
 # hyper-parameters
 parser.add_argument("-arc",  "--architecture",  help="NN architecture",         default=[100, 100, 100],    nargs="*", type=int)
-parser.add_argument("-act",  "--actType",       help="activation type",         default=['Tanh', 'ReLU'],   nargs=2,   type=str)
+parser.add_argument("-act",  "--actType",       help="activation type",         default=['Sin', 'ReLU'],   nargs=2,   type=str)
 parser.add_argument("-lrA",  "--lrA",           help="learning rate actor",     default=1e-3,   type=float)
 parser.add_argument("-lrC",  "--lrC",           help="learning rate critic",    default=1e-3,   type=float)
 parser.add_argument("-lrAl", "--lrAl",          help="learning rate alpha",     default=5e-4,   type=float)
@@ -157,6 +157,7 @@ if plotFigure or storeFigure:
 
 #== Agent CONFIG ==
 print("\n== Agent Information ==")
+actType={'critic': args.actType[0], 'actor': args.actType[1]}
 CONFIG = SACConfig(
     ENV_NAME=env_name,
     DEVICE=device,
@@ -186,7 +187,7 @@ CONFIG = SACConfig(
     # ===================
     MEMORY_CAPACITY=args.memoryCapacity,
     ARCHITECTURE=args.architecture,
-    ACTIVATION=args.actType,
+    ACTIVATION=actType,
     REWARD=args.reward,
     PENALTY=args.penalty)
 
@@ -198,8 +199,7 @@ vmax = 1
 dimListActor = [stateDim] + args.architecture + [actionDim]
 dimListCritic = [stateDim + actionDim] + args.architecture + [1]
 dimLists = [dimListCritic, dimListActor]
-agent = SAC(CONFIG, env.action_space, dimLists,
-    actType={'critic':'Sin', 'actor':'ReLU'}, verbose=True)
+agent = SAC(CONFIG, env.action_space, dimLists)
 
 print("\nWe want to use: {}, and Agent uses: {}".format(device, agent.device))
 print("Critic is using cuda: ", next(agent.critic.parameters()).is_cuda)
@@ -226,6 +226,7 @@ if args.warmup:
             plt.show()
             plt.pause(0.001)
         plt.close()
+
 
 print("\n== Training Information ==")
 print('Agent has terminal type:', agent.terminalType)

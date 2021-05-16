@@ -18,8 +18,7 @@ from .model import DeterministicPolicy
 from .ActorCritic import ActorCritic, Transition
 
 class TD3(ActorCritic):
-    def __init__(self, CONFIG, actionSpace, dimLists, actType={'critic':'Tanh', 'actor':'Tanh'},
-        terminalType='g', verbose=True):
+    def __init__(self, CONFIG, actionSpace, dimLists, terminalType='g', verbose=True):
         """
         __init__: initialization.
 
@@ -38,8 +37,8 @@ class TD3(ActorCritic):
         assert dimLists is not None, "Define the architectures"
         self.dimListCritic = dimLists[0]
         self.dimListActor = dimLists[1]
-        self.actType = actType
-        self.build_network(dimLists, actType, verbose=verbose)
+        self.actType = CONFIG.ACTIVATION
+        self.build_network(dimLists, self.actType, verbose=verbose)
 
 
     def build_actor(self, dimListActor, actType='Tanh', noiseStd=0.2,

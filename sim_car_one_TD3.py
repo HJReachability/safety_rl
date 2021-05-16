@@ -22,9 +22,9 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 #== ARGS ==
 # test
-    # python3 sim_car_one_cont.py -w -wi 5 -mu 200 -ut 2 -cp 100 -arc 100 20 -of scratch/tmp -sf -dt fail -tt g
+    # python3 sim_car_one_TD3.py -w -wi 5 -mu 2400 -ut 12 -cp 100 -arc 20 -of scratch/tmp -sf
 # default
-    # python3 sim_car_one_cont.py -w -sf -of scratch/tmp
+    # python3 sim_car_one_TD3.py -w -sf -of scratch/tmp
 parser = argparse.ArgumentParser()
 
 # training scheme
@@ -34,22 +34,27 @@ parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates"
 parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",              default=50000,      type=int)
 parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",         default=12,         type=int)
 parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",            default=5000,       type=int)
-parser.add_argument("-cp",  "--checkPeriod",    help="check period",                default=100000,     type=int)
+parser.add_argument("-cp",  "--checkPeriod",    help="check period",                default=50000,      type=int)
 parser.add_argument("-dt",  "--doneType",       help="when to raise done flag",     default='fail',     type=str)
 parser.add_argument("-tt",  "--terminalType",   help="terminal value",              default='g',        type=str)
 
 # hyper-parameters
 parser.add_argument("-arc", "--architecture",   help="NN architecture",         default=[100, 100, 100],    nargs="*", type=int)
-parser.add_argument("-act", "--actType",        help="activation type",         default=['Sin', 'ReLU'],   nargs=2,   type=str)
+parser.add_argument("-act", "--actType",        help="activation type",         default=['Sin', 'ReLU'],    nargs=2,   type=str)
 parser.add_argument("-lrA", "--lrA",            help="learning rate actor",     default=1e-3,   type=float)
 parser.add_argument("-lrC", "--lrC",            help="learning rate critic",    default=1e-3,   type=float)
-parser.add_argument("-g",   "--gamma",          help="contraction coeff.",      default=0.9,    type=float)
+parser.add_argument("-g",   "--gamma",          help="contraction coeff.",      default=0.99,   type=float)
 
 # car dynamics
 parser.add_argument("-cr",      "--constraintRadius",   help="constraint radius",   default=1., type=float)
 parser.add_argument("-tr",      "--targetRadius",       help="target radius",       default=.5, type=float)
 parser.add_argument("-turn",    "--turnRadius",         help="turning radius",      default=.6, type=float)
 parser.add_argument("-s",       "--speed",              help="speed",               default=.5, type=float)
+
+# Lagrange RL
+parser.add_argument("-r",   "--reward",         help="when entering target set",    default=-1,     type=float)
+parser.add_argument("-p",   "--penalty",        help="when entering failure set",   default=1,      type=float)
+parser.add_argument("-sc",  "--scaling",        help="scaling of ell/g",            default=4,      type=float)
 
 # file
 parser.add_argument("-n",   "--name",           help="extra name",      default='',                         type=str)
@@ -241,6 +246,64 @@ if plotFigure or storeFigure:
     if storeFigure:
         figurePath = os.path.join(figureFolder, 'training_Loss.png')
         fig.savefig(figurePath)
+    if plotFigure:
+        plt.show()
+        plt.pause(0.001)
+    plt.close()
+
+    #= Rollout Reach-Avoid Set
+    nx=201
+    ny=201
+    orientation = 0.
+
+    resultMtx = np.empty((nx, ny), dtype=int)
+    xs = np.linspace(env.bounds[0,0], env.bounds[0,1], nx)
+    ys = np.linspace(env.bounds[1,0], env.bounds[1,1], ny)
+    it = np.nditer(resultMtx, flags=['multi_index'])
+
+    while not it.finished:
+        idx = it.multi_index
+        print(idx, end='\r')
+        x = xs[idx[0]]
+        y = ys[idx[1]]
+
+        state = np.array([x, y, orientation])
+        _, result, _, _ = env.simulate_one_trajectory(agent.actor, T=100, state=state, toEnd=False)
+        resultMtx[idx] = result
+        it.iternext()
+
+    figRoVal, axes = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True)
+
+    #= Rollout
+    ax = axes[0]
+    axStyle = env.get_axes()
+    im = ax.imshow(resultMtx.T != 1, interpolation='none', extent=axStyle[0],
+        origin="lower", cmap='coolwarm', vmin=0, vmax=1, zorder=-1)
+    ax.set_xlabel('Rollout', fontsize=24)
+
+    #= Value
+    ax = axes[1]
+    v = env.get_value(agent.critic.Q1, agent.actor, orientation, nx, ny)
+    # Plot V
+    im = ax.imshow(v.T, interpolation='none', extent=axStyle[0],
+        origin="lower", cmap='seismic', vmin=vmin, vmax=vmax, zorder=-1)
+    cbar = figRoVal.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95,
+        ticks=[vmin, 0, vmax])
+    cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
+    CS = ax.contour(xs, ys, v.T, levels=[0], colors='k', linewidths=2,
+        linestyles='dashed')
+    # Plot Trajectories
+    env.plot_trajectories(agent.actor, states=env.visual_initial_states, toEnd=False, ax=ax)
+    ax.set_xlabel('Value', fontsize=24)
+    # Formatting
+    for ax in axes:
+        env.plot_target_failure_set(ax=ax)
+        env.plot_reach_avoid_set(ax)
+        env.plot_formatting(ax=ax)
+
+    if storeFigure:
+        figurePath = os.path.join(figureFolder, 'rollout.png')
+        figRoVal.savefig(figurePath)
     if plotFigure:
         plt.show()
         plt.pause(0.001)

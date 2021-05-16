@@ -1,5 +1,6 @@
 from warnings import simplefilter 
 simplefilter(action='ignore', category=FutureWarning)
+simplefilter(action='ignore', category=UserWarning)
 
 from gym_reachability import gym_reachability  # Custom Gym env.
 import gym
@@ -241,20 +242,24 @@ trainRecords, trainProgress = agent.learn(env,
     vmin=vmin, vmax=vmax, checkPeriod=args.checkPeriod, outFolder=outFolder,
     plotFigure=plotFigure, storeFigure=storeFigure, saveBest=False)
 
-
 if plotFigure or storeFigure:
-    cList = ['b', 'r']
-    fig, axes = plt.subplots(1, 2, figsize=(6,3))
+    cList = ['b', 'r', 'g', 'k']
+    nList = ['loss_q', 'loss_pi', 'loss_entropy', 'loss_alpha']
+    fig, axes = plt.subplots(1, 4, figsize=(16, 4))
 
-    for i in range(2):
+    for i in range(4):
         ax = axes[i]
         data = trainRecords[:, i]
         c = cList[i]
-        
-        ax.plot(data, '-', color=c)
-        ax.set_xlabel('Iteration', fontsize=18)
-        ax.set_ylabel('Loss', fontsize=18)
 
+        ax.plot(data, ':', color=c)
+        ax.set_xlabel('Iteration (x 1e5)', fontsize=18)
+        ax.set_xticks(np.linspace(0, maxUpdates, 5))
+        ax.set_xticklabels(np.linspace(0, maxUpdates, 5) / 1e5)
+        ax.set_title(nList[i], fontsize=18)
+        ax.set_xlim(left=0, right=maxUpdates)
+
+    fig.tight_layout()
     if storeFigure:
         figurePath = os.path.join(figureFolder, 'training_Loss.png')
         fig.savefig(figurePath)

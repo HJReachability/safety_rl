@@ -482,7 +482,7 @@ class DubinsCarOneContEnv(gym.Env):
 
 #== Plotting Functions ==
     def visualize(  self, q_func, policy,
-        vmin=-1, vmax=1, nx=51, ny=51, cmap='seismic',
+        vmin=-1, vmax=1, nx=101, ny=101, cmap='seismic',
         labels=None, boolPlot=False, addBias=False, theta=np.pi/2,
         rndTraj=False, num_rnd_traj=10,
         sample_inside_obs=True, sample_inside_tar=True):
@@ -493,11 +493,6 @@ class DubinsCarOneContEnv(gym.Env):
         """
         axStyle = self.get_axes()
         thetaList = [np.pi/6, np.pi/3, np.pi/2]
-        # numX = 1
-        # numY = 3
-        # if self.axes is None:
-        #     self.fig, self.axes = plt.subplots(
-        #         numX, numY, figsize=(4*numY, 4*numX), sharex=True, sharey=True)
         fig = plt.figure(figsize=(12,4))
         ax1 = fig.add_subplot(131)
         ax2 = fig.add_subplot(132)
@@ -520,15 +515,16 @@ class DubinsCarOneContEnv(gym.Env):
 
             #== Plot V ==
             self.plot_v_values( q_func, policy, ax=ax, fig=fig, theta=theta,
-                                vmin=vmin, vmax=vmax, nx=nx, ny=ny, cmap=cmap,
-                                boolPlot=boolPlot, cbarPlot=cbarPlot, addBias=addBias)
+                vmin=vmin, vmax=vmax, nx=nx, ny=ny, cmap=cmap,
+                boolPlot=boolPlot, cbarPlot=cbarPlot, addBias=addBias)
             #== Formatting ==
             self.plot_formatting(ax=ax, labels=labels)
 
             #== Plot Trajectories ==
             if rndTraj:
                 self.plot_trajectories(policy, T=200, num_rnd_traj=num_rnd_traj,
-                    theta=theta, toEnd=False, sample_inside_obs=sample_inside_obs,
+                    theta=theta, toEnd=False,
+                    sample_inside_obs=sample_inside_obs,
                     sample_inside_tar=sample_inside_tar,
                     ax=ax, c='k', lw=2, orientation=0)
             else:
@@ -537,8 +533,8 @@ class DubinsCarOneContEnv(gym.Env):
                 self.plot_trajectories(policy, T=200,
                     states=self.visual_initial_states, toEnd=False, 
                     ax=ax, c='k', lw=2, orientation=theta-np.pi/2)
-
-            ax.set_xlabel(r'$\theta={:.0f}^\circ$'.format(theta*180/np.pi), fontsize=28)
+            theta = theta*180/np.pi
+            ax.set_xlabel(r'$\theta={:.0f}^\circ$'.format(theta), fontsize=28)
 
         plt.tight_layout()
 

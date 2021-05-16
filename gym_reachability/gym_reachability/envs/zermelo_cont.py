@@ -597,7 +597,6 @@ class ZermeloContEnv(gym.Env):
         """
         plt.close()
         fig, ax = plt.subplots(1, 1, figsize=(4, 4))
-        axStyle = self.get_axes()
         cbarPlot = True
 
         #== Plot failure / target set ==

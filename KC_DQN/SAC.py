@@ -182,6 +182,7 @@ class SAC(ActorCritic):
             self.unpack_batch(batch)
         self.critic.train()
         self.criticTarget.eval()
+        self.actor.eval()
 
         #== get Q(s,a) ==
         q1, q2 = self.critic(state, action)  # Used to compute loss (non-target part).
@@ -345,6 +346,12 @@ class SAC(ActorCritic):
 
                 # Check after fixed number of gradient updates
                 if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
+                    self.actor.eval()
+                    self.critic.eval()
+                    # if self.actorType == 'SAC':
+                    #     actor_sim = lambda x: self.actor.sample(x)[0]
+                    # else:
+                    #     actor_sim = self.actor
                     actor_sim = self.actor
                     results= env.simulate_trajectories(actor_sim,
                         T=MAX_EP_STEPS, num_rnd_traj=numRndTraj,
@@ -360,6 +367,8 @@ class SAC(ActorCritic):
                             self.GAMMA, lr, self.alpha))
                         print('  - success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(
                             success, failure, unfinish))
+                    self.actor.train()
+                    self.critic.train()
 
                     if storeModel:
                         if saveBest:

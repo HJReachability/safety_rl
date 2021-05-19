@@ -405,6 +405,14 @@ class ActorCritic(object):
         print('  <= Restore {}' .format(logs_path))
 
 
+    def genRandomActions(self, num_actions):
+        UB = self.actionSpace.high
+        LB = self.actionSpace.low
+        dim = UB.shape[0]
+        actions = (UB - LB) * np.random.rand(num_actions, dim) + LB
+        return actions
+
+
     def unpack_batch(self, batch):
         # `non_final_mask` is used for environments that have next state to be None
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)),

@@ -422,18 +422,3 @@ class SAC(ActorCritic):
         trainingRecords = np.array(trainingRecords)
         trainProgress = np.array(trainProgress)
         return trainingRecords, trainProgress
-
-
-    def unpack_batch(self, batch):
-        # `non_final_mask` is used for environments that have next state to be None
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)),
-            dtype=torch.bool).to(self.device)
-        non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None]).to(self.device)
-        state  = torch.FloatTensor(batch.s).to(self.device)
-        action = torch.FloatTensor(batch.a).to(self.device).view(-1, self.actionSpace.shape[0])
-        reward = torch.FloatTensor(batch.r).to(self.device)
-
-        g_x = torch.FloatTensor([info['g_x'] for info in batch.info]).to(self.device).view(-1)
-        l_x = torch.FloatTensor([info['l_x'] for info in batch.info]).to(self.device).view(-1)
-
-        return non_final_mask, non_final_state_nxt, state, action, reward, g_x, l_x

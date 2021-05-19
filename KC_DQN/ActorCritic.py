@@ -57,7 +57,6 @@ from collections import namedtuple
 import numpy as np
 import os
 import time
-import glob
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import pickle
@@ -406,19 +405,17 @@ class ActorCritic(object):
         print('  <= Restore {}' .format(logs_path))
 
 
-    # def select_action(self, state, explore=False):
-    #     stateTensor = torch.from_numpy(state).float().to(self.device).unsqueeze(0)
-    #     if explore:
-    #         action, _, _ = self.actor.sample(stateTensor)
-    #     else:
-    #         _, _, action = self.actor.sample(stateTensor)
-    #     return action.detach().cpu().numpy()[0]
+    def unpack_batch(self, batch):
+        # `non_final_mask` is used for environments that have next state to be None
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)),
+            dtype=torch.bool).to(self.device)
+        non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None]).to(self.device)
+        state  = torch.FloatTensor(batch.s).to(self.device)
+        action = torch.FloatTensor(batch.a).to(self.device).view(-1, self.actionSpace.shape[0])
+        reward = torch.FloatTensor(batch.r).to(self.device)
 
+        g_x = torch.FloatTensor([info['g_x'] for info in batch.info]).to(self.device).view(-1)
+        l_x = torch.FloatTensor([info['l_x'] for info in batch.info]).to(self.device).view(-1)
 
-    def genRandomActions(self, num_actions):
-        UB = self.actionSpace.high
-        LB = self.actionSpace.low
-        dim = UB.shape[0]
-        actions = (UB - LB) * np.random.rand(num_actions, dim) + LB
-        return actions
+        return non_final_mask, non_final_state_nxt, state, action, reward, g_x, l_x
     # * OTHERS ENDS

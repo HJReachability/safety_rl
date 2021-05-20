@@ -20,8 +20,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-n",  "--n", default=201,  type=int)
 parser.add_argument("-o",   "--orientation",    default=0.,     type=float)
 parser.add_argument("-f",   "--figname",        default='value_rollout_action',     type=str)
-
-
 args = parser.parse_args()
 print(args)
 
@@ -50,6 +48,7 @@ def getModelInfo(path):
 
 
 #== ENVIRONMENT ==
+print("\n== Get environments ==")
 env_name = "dubins_car_cont-v0"
 
 envHigh = gym.make(env_name, device='cpu', mode='RA')
@@ -66,6 +65,7 @@ stateDim = envHigh.state.shape[0]
 actionDim = envHigh.action_space.shape[0]
 
 #== AGENT ==
+print("\n== Get agents ==")
 dataFolder, config, dimLists = getModelInfo(os.path.join('car-TD3', 'H0-2021-05-16-03_42'))
 agentT_H = TD3(config, envHigh.action_space, dimLists, verbose=False)
 agentT_H.restore(1200000, dataFolder)
@@ -95,6 +95,7 @@ agentArray = [  [agentT_H, agentS_H_A, agentS_H_F],
 
 
 #== Rollout Reach-Avoid Set ==
+print("\n== Get rollout reach-avoid set and action distribution ==")
 nx=args.n
 ny=args.n
 orientation = args.orientation / 180 * np.pi 
@@ -107,7 +108,7 @@ for i in range(2):
     env = envList[i]
 
     for j in range(3):
-        print("== {}, {} ==".format(i, j))
+        print("= {}, {}".format(i, j))
         agent = agentArray[i][j]
 
         resultMtx  = np.empty((nx, ny), dtype=int)
@@ -136,6 +137,7 @@ for i in range(2):
 
 
 #== FIGURE ==
+print("\n== Plot figure ==")
 vmin = -1
 vmax = 1
 
@@ -179,9 +181,9 @@ for i in range(2):
         # Plot V
         im = ax.imshow(v.T, interpolation='none', extent=axStyle[0],
             origin="lower", cmap='seismic', vmin=vmin, vmax=vmax, zorder=-1)
-#         cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95,
-#             ticks=[vmin, 0, vmax])
-#         cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
+        # cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95,
+        #     ticks=[vmin, 0, vmax])
+        # cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
         CS = ax.contour(xs, ys, v.T, levels=[0], colors='k', linewidths=2,
             linestyles='dashed')
         if idx == 0:
@@ -194,4 +196,4 @@ for i in range(2):
             env.plot_formatting(ax=axes[k][idx])
 
 fig.tight_layout()
-fig.savefig(os.path.join(figureFolder,  args.figname + '.png'), doi=200)
+fig.savefig(os.path.join(figureFolder, args.figname + '.png'), doi=200)

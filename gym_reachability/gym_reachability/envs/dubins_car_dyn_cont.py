@@ -214,7 +214,7 @@ class DubinsCarDynCont(object):
     def set_radius(self, target_radius=.3, constraint_radius=1., R_turn=.6):
         self.target_radius = target_radius
         self.constraint_radius = constraint_radius
-        self.set_radius_rotation(R_turn=.6)
+        self.set_radius_rotation(R_turn=R_turn)
 
 
 #== Getting Functions ==

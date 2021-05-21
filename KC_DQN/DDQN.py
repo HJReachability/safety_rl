@@ -116,9 +116,10 @@ class DDQN():
             self.saved = True
 
 
-    def restore(self, logs_path):
+    def restore(self, step, logs_path):
+        logs_path = os.path.join(logs_path, 'model', 'Q-{}.pth'.format(step))
         self.Q_network.load_state_dict(
-            torch.load(logs_path, map_location=torch.device('cpu')))
+            torch.load(logs_path, map_location=self.device))
         self.target_network.load_state_dict(
-            torch.load(logs_path, map_location=torch.device('cpu')))
+            torch.load(logs_path, map_location=self.device))
         print('  => Restore {}' .format(logs_path))

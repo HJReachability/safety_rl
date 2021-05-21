@@ -12,7 +12,6 @@ import torch
 import torch.nn as nn
 from torch.nn.functional import mse_loss, smooth_l1_loss
 
-from collections import namedtuple
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -276,7 +275,7 @@ class DDQNSingle(DDQN):
 
         # == Main Training ==
         startLearning = time.time()
-        TrainingRecord = namedtuple('TrainingRecord', ['ep', 'runningCost', 'cost', 'lossC'])
+        TrainingRecord = []
         trainingRecords = []
         runningCost = 0.
         trainProgress = []
@@ -339,9 +338,11 @@ class DDQNSingle(DDQN):
                     if plotFigure or storeFigure:
                         self.Q_network.eval()
                         if showBool:
-                            env.visualize(self.Q_network, vmin=0, boolPlot=True, addBias=addBias)
+                            env.visualize(self.Q_network, vmin=0,
+                                boolPlot=True, addBias=addBias)
                         else:
-                            env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
+                            env.visualize(self.Q_network, vmin=vmin,
+                                vmax=vmax, cmap='seismic', addBias=addBias)
                         if storeFigure:
                             figurePath = os.path.join(figureFolder,
                                 '{:d}.png'.format(self.cntUpdate))
@@ -349,10 +350,11 @@ class DDQNSingle(DDQN):
                         if plotFigure:
                             plt.show()
                             plt.pause(0.001)
-                            plt.close()
+                        plt.close()
 
                 # Perform one step of the optimization (on the target network)
                 lossC = self.update(addBias=addBias)
+                trainingRecords.append(lossC)
                 self.cntUpdate += 1
                 self.updateHyperParam()
 
@@ -362,7 +364,6 @@ class DDQNSingle(DDQN):
 
             # Rollout report
             runningCost = runningCost * 0.9 + epCost * 0.1
-            trainingRecords.append(TrainingRecord(ep, runningCost, epCost, lossC))
             if verbose:
                 print('\r[{:d}-{:d}]: This episode gets running/episode cost = ({:3.2f}/{:.2f}) after {:d} steps.'.format(\
                     ep, self.cntUpdate, runningCost, epCost, step_num+1), end='')
@@ -380,6 +381,7 @@ class DDQNSingle(DDQN):
         self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
         print('\nInitBuffer: {:.1f}, InitQ: {:.1f}, Learning: {:.1f}'.format(
             timeInitBuffer, timeInitQ, timeLearning))
+        trainingRecords = np.array(trainingRecords)
         return trainingRecords, trainProgress
 
 

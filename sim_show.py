@@ -1,8 +1,10 @@
 # Examples:
     # RA:
-        # python3 sim_show.py -w -sf -of scratch -g 0.9999 -n 9999-s-
+        # python3 sim_show.py -w -sf -of scratch -g 0.9999 -n 9999-s-end-
+        # python3 sim_show.py -w -sf -of scratch -g 0.999 -dt fail -n 999-s-fail-
     # Lagrange:
-        # python3 sim_show.py -w -sf -m lagrange -of scratch -dt TF -g 0.99 -n mg-s-TF-
+        # python3 sim_show.py -w -sf -m lagrange -of scratch -dt TF -g 0.99 -n 99-s-TF-
+        # python3 sim_show.py -w -sf -m lagrange -of scratch -dt TF -g 0.99 -n 99-s-TF- -e
     # test: python3 sim_show.py -w -sf -of scratch -wi 100 -mu 1000
 
 
@@ -37,6 +39,8 @@ parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",          
 parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",         default=10,         type=int)
 parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",            default=2000,       type=int)
 parser.add_argument("-cp",  "--checkPeriod",    help="check period",                default=25000,      type=int)
+
+parser.add_argument("-e",   "--easy",           help="easy show env",               action="store_true")
 parser.add_argument("-dt",  "--doneType",       help="when to raise done flag",     default='toEnd',    type=str)
 
 # hyper-parameters
@@ -74,7 +78,10 @@ maxSteps = 250
 storeFigure = args.storeFigure
 plotFigure = args.plotFigure
 
-outFolder = os.path.join(args.outFolder, 'show', args.mode, args.name+timestr)
+if args.easy:
+    outFolder = os.path.join(args.outFolder, 'show-easy', args.mode, args.name+timestr)
+else:
+    outFolder = os.path.join(args.outFolder, 'show', args.mode, args.name+timestr)
 print(outFolder)
 figureFolder = os.path.join(outFolder, 'figure/')
 os.makedirs(figureFolder, exist_ok=True)
@@ -98,7 +105,7 @@ elif args.mode == 'RA':
 #== Environment ==
 print("\n== Environment Information ==")
 env = gym.make(env_name, device=device, mode=envMode, doneType=args.doneType,
-    thickness=args.thickness, sample_inside_obs=True)
+    thickness=args.thickness, sample_inside_obs=True, easy=args.easy)
 
 stateDim = env.state.shape[0]
 actionNum = env.action_space.n

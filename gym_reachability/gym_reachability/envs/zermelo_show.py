@@ -22,7 +22,7 @@ import random
 class ZermeloShowEnv(gym.Env):
 
     def __init__(self, device, mode='RA', doneType='toEnd', thickness=.1,
-        sample_inside_obs=False):
+        sample_inside_obs=False, easy=False):
 
         # State Bounds.
         self.bounds = np.array([[-3., 3.],
@@ -43,10 +43,14 @@ class ZermeloShowEnv(gym.Env):
             [self.horizontal_rate, self.upward_speed] ])
 
         # Constraint Set Parameters.
-        # [X-position, Y-position, width, height].
-        self.constraint_x_y_w_h = np.array([
-            [0., 1.5, 4., 0.5],
-            [0., 4., 4., thickness] ])
+        # [X-position, Y-position, width, height]
+        if easy:
+            self.constraint_x_y_w_h = np.array([
+                [0., 1.5, 4., 0.5]])
+        else:
+            self.constraint_x_y_w_h = np.array([
+                [0., 1.5, 4., 0.5],
+                [0., 4., 4., thickness] ])
 
         # Target Set Parameters.
         self.target_x_y_w_h = np.array([[0., 5.5, 1., 1.]])

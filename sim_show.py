@@ -1,10 +1,11 @@
 # Examples:
     # RA:
-        # python3 sim_show.py -w -sf -of scratch -g 0.9999 -n 9999-s-end-
+        # python3 sim_show.py -w -sf -of scratch -a -g 0.99 -n anneal-s-end-
+        # python3 sim_show.py -w -sf -of scratch -g 0.999 -n 999-s-end-
         # python3 sim_show.py -w -sf -of scratch -g 0.999 -dt fail -n 999-s-fail-
     # Lagrange:
-        # python3 sim_show.py -w -sf -m lagrange -of scratch -dt TF -g 0.99 -n 99-s-TF-
-        # python3 sim_show.py -w -sf -m lagrange -of scratch -dt TF -g 0.99 -n 99-s-TF- -e
+        # python3 sim_show.py -w -sf -m lagrange -of scratch -dt TF -g 0.95 -n 95-s-TF-
+        # python3 sim_show.py -w -sf -m lagrange -of scratch -dt TF -g 0.95 -n 95-s-TF- -e
     # test: python3 sim_show.py -w -sf -of scratch -wi 100 -mu 1000
 
 
@@ -31,31 +32,33 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 #== ARGS ==
 parser = argparse.ArgumentParser()
 
-# training scheme
-parser.add_argument("-w",   "--warmup",         help="warmup Q-network",            action="store_true")
-parser.add_argument("-rnd", "--randomSeed",     help="random seed",                 default=0,          type=int)
-parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",   default=500000,     type=int)
-parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",              default=10000,      type=int)
-parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",         default=10,         type=int)
-parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",            default=2000,       type=int)
-parser.add_argument("-cp",  "--checkPeriod",    help="check period",                default=25000,      type=int)
-
+# environment parameters
 parser.add_argument("-e",   "--easy",           help="easy show env",               action="store_true")
 parser.add_argument("-dt",  "--doneType",       help="when to raise done flag",     default='toEnd',    type=str)
+parser.add_argument("-ct",  "--costType",       help="cost type",                   default='sparse',   type=str)
+parser.add_argument("-rnd", "--randomSeed",     help="random seed",                 default=0,          type=int)
+parser.add_argument("-t",   "--thickness",      help="thickness of the obstacle",   default=0.1,        type=float)
+parser.add_argument("-r",   "--reward",         help="when entering target set",    default=-1,         type=float)
+parser.add_argument("-p",   "--penalty",        help="when entering failure set",   default=1,          type=float)
+parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",            default=4,          type=float)
 
-# hyper-parameters
+# training scheme
+parser.add_argument("-w",   "--warmup",         help="warmup Q-network",            action="store_true")
+parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",            default=2000,       type=int)
+parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",   default=500000,     type=int)
+parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",         default=10,         type=int)
+parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",              default=10000,      type=int)
+parser.add_argument("-cp",  "--checkPeriod",    help="check period",                default=25000,      type=int)
+
+# NN hyper-parameters
+parser.add_argument("-a",   "--annealing",      help="gamma annealing",             action="store_true")
 parser.add_argument("-arc", "--architecture",   help="NN architecture",             default=[100, 20],  nargs="*", type=int)
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-3,   type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",          default=0.999,  type=float)
-parser.add_argument("-t",   "--thickness",      help="thickness of the obstacle",   default=0.1,    type=float)
-parser.add_argument("-r",   "--reward",         help="when entering target set",    default=-1,     type=float)
-parser.add_argument("-p",   "--penalty",        help="when entering failure set",   default=1,      type=float)
-parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",            default=4,      type=float)
-parser.add_argument("-act", "--actType",        help="activation type",             default='Sin', type=str)
+parser.add_argument("-act", "--actType",        help="activation type",             default='Sin',  type=str)
 
 # RL type
 parser.add_argument("-m",   "--mode",           help="mode",            default='RA',       type=str)
-parser.add_argument("-ct",  "--costType",       help="cost type",       default='sparse',   type=str)
 parser.add_argument("-tt",  "--terminalType",   help="terminal value",  default='g',        type=str)
 
 # file
@@ -95,12 +98,14 @@ if args.mode == 'lagrange':
 elif args.mode == 'RA':
     envMode = 'RA'
     agentMode = 'RA'
-    # GAMMA_END = 0.9999
-    # EPS_PERIOD = int(updatePeriod/10)
-    # EPS_RESET_PERIOD = updatePeriod
-    GAMMA_END = args.gamma
-    EPS_PERIOD = updatePeriod
-    EPS_RESET_PERIOD = maxUpdates
+    if args.annealing:
+        GAMMA_END = 0.9999
+        EPS_PERIOD = int(updatePeriod/10)
+        EPS_RESET_PERIOD = updatePeriod
+    else:
+        GAMMA_END = args.gamma
+        EPS_PERIOD = updatePeriod
+        EPS_RESET_PERIOD = maxUpdates
 
 #== Environment ==
 print("\n== Environment Information ==")
@@ -243,20 +248,30 @@ trainRecords, trainProgress = agent.learn(env,
 
 if plotFigure or storeFigure:
     #= loss
-    fig, ax = plt.subplots(1, 1, figsize=(4, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(8, 4))
 
     data = trainRecords
-    c = 'b'
-    ax.plot(data, ':', color=c)
+    ax = axes[0]
+    ax.plot(data, 'b:')
     ax.set_xlabel('Iteration (x 1e5)', fontsize=18)
     ax.set_xticks(np.linspace(0, maxUpdates, 5))
     ax.set_xticklabels(np.linspace(0, maxUpdates, 5) / 1e5)
     ax.set_title('loss_critic', fontsize=18)
     ax.set_xlim(left=0, right=maxUpdates)
 
+    data = trainProgress[:, 0]
+    ax = axes[1]
+    x = (np.arange(data.shape[0]) + 1) * args.checkPeriod
+    ax.plot(x, data, 'b-o')
+    ax.set_xlabel('Index', fontsize=18)
+    ax.set_xticks(x)
+    ax.set_xticklabels(np.arange(data.shape[0]) + 1)
+    ax.set_title('Success Rate', fontsize=18)
+    ax.set_xlim(left=0, right=maxUpdates)
+
     fig.tight_layout()
     if storeFigure:
-        figurePath = os.path.join(figureFolder, 'training_Loss.png')
+        figurePath = os.path.join(figureFolder, 'train_loss_success.png')
         fig.savefig(figurePath)
     if plotFigure:
         plt.show()

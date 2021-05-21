@@ -85,7 +85,7 @@ os.makedirs(figureFolder, exist_ok=True)
 
 #== Environment ==
 print("\n== Environment Information ==")
-env = gym.make(env_name, device=device, mode="RA", doneType='fail')
+env = gym.make(env_name, device=device, mode="RA", doneType=args.doneType)
 env.set_costParam(penalty=args.penalty, reward=args.reward, scaling=args.scaling)
 
 stateDim = env.observation_space.shape[0]
@@ -254,8 +254,8 @@ if args.warmup:
 
     if plotFigure or storeFigure:
         fig, ax = plt.subplots(1,1, figsize=(4, 4))
-
-        ax.plot(lossList, 'b-')
+        tmp = np.arange(500, 2000)
+        ax.plot(tmp, lossList[tmp], 'b-')
         ax.set_xlabel('Iteration', fontsize=18)
         ax.set_ylabel('Loss', fontsize=18)
         plt.tight_layout()

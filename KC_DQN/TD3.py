@@ -11,11 +11,10 @@ from collections import namedtuple
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-import time
 from copy import deepcopy
 
 from .model import DeterministicPolicy
-from .ActorCritic import ActorCritic, Transition
+from .ActorCritic import ActorCritic
 
 class TD3(ActorCritic):
     def __init__(self, CONFIG, actionSpace, dimLists, terminalType='g', verbose=True):

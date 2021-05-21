@@ -14,7 +14,6 @@
 import gym.spaces
 import numpy as np
 import gym
-import matplotlib
 import matplotlib.pyplot as plt
 import torch
 import random

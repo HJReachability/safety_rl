@@ -46,10 +46,10 @@ class ZermeloShowEnv(gym.Env):
         # [X-position, Y-position, width, height]
         if easy:
             self.constraint_x_y_w_h = np.array([
-                [0., 1.5, 4., 0.5]])
+                [0., 1.5, 4., thickness]])
         else:
             self.constraint_x_y_w_h = np.array([
-                [0., 1.5, 4., 0.5],
+                [0., 1.5, 4., thickness],
                 [0., 4., 4., thickness] ])
 
         # Target Set Parameters.

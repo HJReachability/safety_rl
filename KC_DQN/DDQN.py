@@ -3,18 +3,14 @@
 
 
 import torch
-import torch.nn as nn
 from torch.nn.functional import mse_loss, smooth_l1_loss
-from torch.autograd import Variable
 import torch.optim as optim
 
 from collections import namedtuple
-import numpy as np
 import os
-import glob
 import pickle
 
-from .model import StepLR, StepLRMargin, StepResetLR
+from .model import StepLRMargin, StepResetLR
 from .ReplayMemory import ReplayMemory
 from .utils import soft_update, save_model
 

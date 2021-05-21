@@ -23,23 +23,25 @@ from .DDQN import DDQN, Transition
 
 class DDQNSingle(DDQN):
     def __init__(self, CONFIG, numAction, actionList, dimList,
-                    mode='normal', actType='Tanh', verbose=True):
+        mode='normal', terminalType='g', verbose=True):
         super(DDQNSingle, self).__init__(CONFIG)
-        
+
         self.mode = mode # 'normal' or 'RA'
+        self.terminalType = terminalType
 
         #== ENV PARAM ==
         self.numAction = numAction
         self.actionList = actionList
 
         #== Build NN for (D)DQN ==
-        assert dimList is not None, "Define the architecture"
         self.dimList = dimList
-        self.actType = actType
-        self.build_network(dimList, actType, verbose)
+        self.actType = CONFIG.ACTIVATION
+        self.build_network(dimList, self.actType, verbose)
+        print("DDQN with mode-{} and terminalType-{}".format(
+            self.mode, self.terminalType))
 
 
-    def build_network(self, dimList=None, actType='Tanh', verbose=True):
+    def build_network(self, dimList, actType='Tanh', verbose=True):
         self.Q_network = model(dimList, actType, verbose=verbose)
         self.target_network = model(dimList, actType)
 
@@ -59,19 +61,8 @@ class DDQNSingle(DDQN):
         # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for detailed explanation).
         # This converts batch-array of Transitions to Transition of batch-arrays.
         batch = Transition(*zip(*transitions))
-
-        # `non_final_mask` is used for environments that have next state to be None
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)),
-            dtype=torch.bool).to(self.device)
-        non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None]).to(self.device)
-        state  = torch.FloatTensor(batch.s).to(self.device)
-        action = torch.LongTensor(batch.a).to(self.device).view(-1,1)
-        reward = torch.FloatTensor(batch.r).to(self.device)
-        if self.mode == 'RA':
-            g_x = torch.FloatTensor([info['g_x'] for info in batch.info]).to(self.device).view(-1)
-            l_x = torch.FloatTensor([info['l_x'] for info in batch.info]).to(self.device).view(-1)
-            g_x_nxt = torch.FloatTensor([info['g_x_nxt'] for info in batch.info]).to(self.device).view(-1)
-            l_x_nxt = torch.FloatTensor([info['l_x_nxt'] for info in batch.info]).to(self.device).view(-1)
+        non_final_mask, non_final_state_nxt, state, action, reward, g_x, l_x = \
+            self.unpack_batch(batch)
 
         #== get Q(s,a) ==
         # `gather` reguires idx to be Long, input and index should have the same shape
@@ -104,7 +95,7 @@ class DDQNSingle(DDQN):
             expected_state_action_values = torch.zeros(self.BATCH_SIZE).float().to(self.device)
             if addBias: # Bias version: V(s) = gamma ( max{ g(s), min{ l(s), V_diff(s') } } - max{ g(s), l(s) } ),
                         # where V_diff(s') = V(s') + max{ g(s'), l(s') }
-                min_term = torch.min(l_x, state_value_nxt+torch.max(l_x_nxt, g_x_nxt))
+                min_term = torch.min(l_x, state_value_nxt+torch.max(l_x, g_x))
                 terminal = torch.max(l_x, g_x)
                 non_terminal = torch.max(min_term, g_x) - terminal
                 expected_state_action_values[non_final_mask] = self.GAMMA * non_terminal[non_final_mask]
@@ -115,23 +106,28 @@ class DDQNSingle(DDQN):
                 # where V_better(s') = max{ g(s'), min{ l(s'), V(s') } }
                 # Another version (discussed on Feb. 22, 2021):
                     # we want Q(s, u) = V( f(s,u) )
-                V_better = torch.max( g_x_nxt, torch.min(l_x_nxt, state_value_nxt))
-                non_terminal = V_better
-                terminal = torch.max(l_x_nxt, g_x_nxt)
-                # V_better = state_value_nxt
-                # min_term = torch.min(l_x, V_better)
-                # non_terminal = torch.max(min_term, g_x)
-                # terminal = torch.max(l_x, g_x)
+                non_terminal = torch.max(
+                    g_x[non_final_mask],
+                    torch.min(
+                        l_x[non_final_mask],
+                        state_value_nxt[non_final_mask]
+                    )
+                )
+                terminal = torch.max(l_x, g_x)
 
+                # normal state
                 expected_state_action_values[non_final_mask] = \
-                    non_terminal[non_final_mask] * self.GAMMA + \
+                    non_terminal * self.GAMMA + \
                     terminal[non_final_mask] * (1-self.GAMMA)
-                # if next state is None, we will use g(x) as the expected V(s)
+
+                # terminal state
                 final_mask = torch.logical_not(non_final_mask)
-                # expected_state_action_values[final_mask] = \
-                #     g_x[torch.logical_not(non_final_mask)]
-                expected_state_action_values[final_mask] = \
-                    g_x_nxt[torch.logical_not(non_final_mask)]
+                if self.terminalType == 'g':
+                    expected_state_action_values[final_mask] = g_x[final_mask]
+                elif self.terminalType == 'max':
+                    expected_state_action_values[final_mask] = terminal[final_mask]
+                else:
+                    raise ValueError("invalid terminalType")
         else: # V(s) = c(s, a) + gamma * V(s')
             expected_state_action_values = state_value_nxt * self.GAMMA + reward
 
@@ -157,14 +153,19 @@ class DDQNSingle(DDQN):
             s = env.reset()
             a, a_idx = self.select_action(s, explore=True)
             s_, r, done, info = env.step(a_idx)
+            s_ = None if done else s_
+            self.store_transition(s, a, r, s_, info)
             if done:
-                s_ = None
-            self.store_transition(s, a_idx, r, s_, info)
+                s = env.reset()
+            else:
+                s = s_
         print(" --- Warmup Buffer Ends")
 
 
     def initQ(  self, env, warmupIter, outFolder, num_warmup_samples=200,
                 vmin=-1, vmax=1, plotFigure=True, storeFigure=True):
+
+        lossList = np.empty(warmupIter, dtype=float)
         for ep_tmp in range(warmupIter):
             states, heuristic_v = env.get_warmup_examples(num_warmup_samples=num_warmup_samples)
 
@@ -172,12 +173,14 @@ class DDQNSingle(DDQN):
             heuristic_v = torch.from_numpy(heuristic_v).float().to(self.device)
             states = torch.from_numpy(states).float().to(self.device)
             v = self.Q_network(states)
-            loss = smooth_l1_loss(input=v, target=heuristic_v)
+            # loss = smooth_l1_loss(input=v, target=heuristic_v)
+            loss = mse_loss(input=v, target=heuristic_v, reduction='sum')
 
             self.optimizer.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm_(self.Q_network.parameters(), self.max_grad_norm)
             self.optimizer.step()
+            lossList[ep_tmp] = loss.detach().cpu().numpy()
             print('\rWarmup Q [{:d}]. MSE = {:f}'.format(ep_tmp+1, loss),end='')
 
         print(" --- Warmup Q Ends")
@@ -185,15 +188,18 @@ class DDQNSingle(DDQN):
             self.Q_network.eval()
             env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic')
             if storeFigure:
-                figureFolder = '{:s}/figure/'.format(outFolder)
+                figureFolder = os.path.join(outFolder, 'figure')
                 os.makedirs(figureFolder, exist_ok=True)
-                plt.savefig('{:s}initQ.png'.format(figureFolder))
+                figurePath = os.path.join(figureFolder, 'initQ.png')
+                plt.savefig(figurePath)
             if plotFigure:
                 plt.show()
                 plt.pause(0.001)
                 plt.close()
         self.target_network.load_state_dict(self.Q_network.state_dict()) # hard replace
         self.build_optimizer()
+
+        return lossList
 
 
     def learn(  self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100,
@@ -276,9 +282,18 @@ class DDQNSingle(DDQN):
         trainProgress = []
         checkPointSucc = 0.
         ep = 0
+
         if curUpdates is not None:
             self.cntUpdate = curUpdates
             print("starting from {:d} updates".format(self.cntUpdate))
+
+        if storeModel:
+            modelFolder = os.path.join(outFolder, 'model')
+            os.makedirs(modelFolder, exist_ok=True)
+        if storeFigure:
+            figureFolder = os.path.join(outFolder, 'figure')
+            os.makedirs(figureFolder, exist_ok=True)
+
         while self.cntUpdate <= MAX_UPDATES:
             s = env.reset()
             epCost = 0.
@@ -317,9 +332,9 @@ class DDQNSingle(DDQN):
                         if storeBest:
                             if success > checkPointSucc:
                                 checkPointSucc = success
-                                self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
+                                self.save(self.cntUpdate, modelFolder)
                         else:
-                            self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
+                            self.save(self.cntUpdate, modelFolder)
 
                     if plotFigure or storeFigure:
                         self.Q_network.eval()
@@ -328,9 +343,9 @@ class DDQNSingle(DDQN):
                         else:
                             env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
                         if storeFigure:
-                            figureFolder = '{:s}/figure/'.format(outFolder)
-                            os.makedirs(figureFolder, exist_ok=True)
-                            plt.savefig('{:s}{:d}.png'.format(figureFolder, self.cntUpdate))
+                            figurePath = os.path.join(figureFolder,
+                                '{:d}.png'.format(self.cntUpdate))
+                            plt.savefig(figurePath)
                         if plotFigure:
                             plt.show()
                             plt.pause(0.001)
@@ -349,9 +364,8 @@ class DDQNSingle(DDQN):
             runningCost = runningCost * 0.9 + epCost * 0.1
             trainingRecords.append(TrainingRecord(ep, runningCost, epCost, lossC))
             if verbose:
-                print('\r{:3.0f}: This episode gets running/episode cost = ({:3.2f}/{:.2f}) after {:d} steps.'.format(\
-                    ep, runningCost, epCost, step_num+1), end=' ')
-                print('The agent currently updates {:d} times.'.format(self.cntUpdate), end='\t\t')
+                print('\r[{:d}-{:d}]: This episode gets running/episode cost = ({:3.2f}/{:.2f}) after {:d} steps.'.format(\
+                    ep, self.cntUpdate, runningCost, epCost, step_num+1), end='')
 
             # Check stopping criteria
             if runningCostThr != None:
@@ -378,3 +392,18 @@ class DDQNSingle(DDQN):
         else:
             action_index = self.Q_network(state).min(dim=1)[1].item()
         return self.actionList[action_index], action_index
+
+
+    def unpack_batch(self, batch):
+        # `non_final_mask` is used for environments that have next state to be None
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)),
+            dtype=torch.bool).to(self.device)
+        non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None]).to(self.device)
+        state  = torch.FloatTensor(batch.s).to(self.device)
+        action = torch.LongTensor(batch.a).to(self.device).view(-1,1)
+        reward = torch.FloatTensor(batch.r).to(self.device)
+
+        g_x = torch.FloatTensor([info['g_x'] for info in batch.info]).to(self.device).view(-1)
+        l_x = torch.FloatTensor([info['l_x'] for info in batch.info]).to(self.device).view(-1)
+
+        return non_final_mask, non_final_state_nxt, state, action, reward, g_x, l_x

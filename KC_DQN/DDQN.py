@@ -16,6 +16,7 @@ import pickle
 
 from .model import StepLR, StepLRMargin, StepResetLR
 from .ReplayMemory import ReplayMemory
+from .utils import soft_update, save_model
 
 
 Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
@@ -84,10 +85,7 @@ class DDQN():
     def update_target_network(self):
         if self.SOFT_UPDATE:
             # Soft Replace
-            for module_tar, module_pol in zip(self.target_network.modules(), self.Q_network.modules()):
-                if isinstance(module_tar, nn.Linear):
-                    module_tar.weight.data = (1-self.TAU)*module_tar.weight.data + self.TAU*module_pol.weight.data
-                    module_tar.bias.data   = (1-self.TAU)*module_tar.bias.data   + self.TAU*module_pol.bias.data
+            soft_update(self.target_network, self.Q_network, self.TAU)
         elif self.cntUpdate % self.HARD_UPDATE == 0:
             # Hard Replace
             self.target_network.load_state_dict(self.Q_network.state_dict())
@@ -115,17 +113,9 @@ class DDQN():
 
 
     def save(self, step, logs_path):
-        os.makedirs(logs_path, exist_ok=True)
-        model_list =  glob.glob(os.path.join(logs_path, '*.pth'))
-        #print(model_list)
-        if len(model_list) > self.MAX_MODEL - 1 :
-            min_step = min([int(li.split('/')[-1][6:-4]) for li in model_list])
-            os.remove(os.path.join(logs_path, 'model-{}.pth' .format(min_step)))
-        logs_path = os.path.join(logs_path, 'model-{}.pth' .format(step))
-        torch.save(self.Q_network.state_dict(), logs_path)
-        print('  => Save {} after [{}] updates' .format(logs_path, step))
+        save_model(self.Q_network, step, logs_path, 'Q', self.MAX_MODEL)
         if not self.saved:
-            config_path = logs_path.split(logs_path.split("/")[-1])[0] + "CONFIG.pkl"
+            config_path = os.path.join(logs_path, "CONFIG.pkl")
             pickle.dump(self.CONFIG, open(config_path, "wb"))
             self.saved = True
 
@@ -136,15 +126,3 @@ class DDQN():
         self.target_network.load_state_dict(
             torch.load(logs_path, map_location=torch.device('cpu')))
         print('  => Restore {}' .format(logs_path))
-
-
-    # ! Deprecated method, do not use
-    def updateEpsilon(self):
-        if self.cntUpdate % self.EPS_PERIOD == 0 and self.cntUpdate != 0:
-            self.EPSILON = max(self.EPSILON*self.EPS_DECAY, self.EPS_END)
-
-
-    # ! Deprecated method, do not use
-    def updateGamma(self):
-        if self.cntUpdate % self.GAMMA_PERIOD == 0 and self.cntUpdate != 0:
-            self.GAMMA = min(1 - (1-self.GAMMA) * self.GAMMA_DECAY, self.GAMMA_END)

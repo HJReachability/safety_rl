@@ -168,14 +168,6 @@ class ZermeloContEnv(gym.Env):
                 4. info dictionary
         """
 
-        if self.mode == 'extend':
-            x, y, z = self.state
-        else:
-            x, y = self.state
-
-        # l_x_cur = self.target_margin(self.state[:2])
-        # g_x_cur = self.safety_margin(self.state[:2])
-
         state, [l_x, g_x] = self.integrate_forward(self.state, action)
         self.state = state
 

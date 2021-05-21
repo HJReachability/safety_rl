@@ -238,10 +238,7 @@ class ActorCritic(object):
 
         # == Main Training ==
         startLearning = time.time()
-        TrainingRecord = namedtuple('TrainingRecord',
-            ['ep', 'runningCost', 'cost', 'loss_q', 'loss_pi'])
         trainingRecords = []
-        runningCost = 0.
         trainProgress = []
         checkPointSucc = 0.
         ep = 0
@@ -360,7 +357,7 @@ class ActorCritic(object):
         timeInitBuffer = endInitBuffer - startInitBuffer
         timeInitQ = endInitQ - startInitQ
         timeLearning = endLearning - startLearning
-        self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
+        self.save(self.cntUpdate, modelFolder)
         print('\nInitBuffer: {:.1f}, InitQ: {:.1f}, Learning: {:.1f}'.format(
             timeInitBuffer, timeInitQ, timeLearning))
 

@@ -298,6 +298,11 @@ if plotFigure or storeFigure:
     plt.close()
 
     #= value_rollout_action
+    idx = np.argmax(trainProgress[:, 0]) + 1
+    successRate = np.amax(trainProgress[:, 0]) 
+    print('We pick model with success rate-{:.3f}'.format(successRate))
+    agent.restore(idx*args.checkPeriod, outFolder)
+
     nx=101
     ny=nx
     xs = np.linspace(env.bounds[0,0], env.bounds[0,1], nx)

@@ -85,6 +85,10 @@ dataFolder, CONFIG, dimList, idx = getModelInfo(os.path.join('show', 'RA', '9999
 agent_RA_F = DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList, mode='RA', verbose=False)
 agent_RA_F.restore(idx*25000, dataFolder)
 
+dataFolder, CONFIG, dimList, idx = getModelInfo(os.path.join('show', 'RA', '9999-s-TF'))
+agent_RA_TF = DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList, mode='RA', verbose=False)
+agent_RA_TF.restore(idx*25000, dataFolder)
+
 dataFolder, CONFIG, dimList, idx = getModelInfo(os.path.join('show', 'RA', '999-s-toEnd'))
 agent_RA_E_999 = DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList, mode='RA', verbose=False)
 agent_RA_E_999.restore(idx*25000, dataFolder)
@@ -92,6 +96,14 @@ agent_RA_E_999.restore(idx*25000, dataFolder)
 dataFolder, CONFIG, dimList, idx = getModelInfo(os.path.join('show', 'RA', '999-s-fail'))
 agent_RA_F_999 = DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList, mode='RA', verbose=False)
 agent_RA_F_999.restore(idx*25000, dataFolder)
+
+dataFolder, CONFIG, dimList, idx = getModelInfo(os.path.join('show', 'RA', '99-s-toEnd'))
+agent_RA_E_99 = DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList, mode='RA', verbose=False)
+agent_RA_E_99.restore(idx*25000, dataFolder)
+
+dataFolder, CONFIG, dimList, idx = getModelInfo(os.path.join('show', 'RA', '99-s-fail'))
+agent_RA_F_99 = DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList, mode='RA', verbose=False)
+agent_RA_F_99.restore(idx*25000, dataFolder)
 
 dataFolder, CONFIG, dimList, idx = getModelInfo(os.path.join('show', 'lagrange', '95-s-TF-sparse'))
 agent_L_TF_S = DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList, mode='normal', verbose=False)
@@ -117,11 +129,15 @@ dataFolder, CONFIG, dimList, idx = getModelInfo(os.path.join('show', 'lagrange',
 agent_L_F_S = DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList, mode='normal', verbose=False)
 agent_L_F_S.restore(idx*25000, dataFolder)
 
-agentList = [   agent_RA_E, agent_RA_F, agent_RA_E_999, agent_RA_F_999,
-                agent_L_TF_S, agent_L_TF_D, agent_L_TF_S_9, agent_L_TF_S_99,
+agentList = [   agent_RA_E, agent_RA_F, agent_RA_TF,
+                agent_RA_E_999, agent_RA_F_999, agent_RA_E_99, agent_RA_F_99,
+                agent_L_TF_S, agent_L_TF_D,
+                agent_L_TF_S_9, agent_L_TF_S_99,
                 agent_L_E_S, agent_L_F_S]
-nList = [   'RA_E_9999', 'RA_F_9999', 'RA_E_999', 'RA_F_999', 
-            'L_TF_S_95', 'L_TF_D_95', 'L_TF_S_9', 'L_TF_S_99',
+nList = [   'RA_E_9999', 'RA_F_9999', 'RA_TF_9999',
+            'RA_E_999', 'RA_F_999', 'RA_E_99', 'RA_F_99', 
+            'L_TF_S_95', 'L_TF_D_95',
+            'L_TF_S_9', 'L_TF_S_99',
             'L_E_S_95', 'L_F_S_95']
 
 numAgent = len(agentList)
@@ -139,7 +155,7 @@ resultMtxList  = np.empty((len(agentList), nx, ny), dtype=int)
 actDistMtxList = np.empty((len(agentList), nx, ny), dtype=int)
 
 for i, agent in enumerate(agentList):
-    print('== {} =='.format(i))
+    print('== {}/{} =='.format(i, numAgent))
     resultMtx  = np.empty((nx, ny), dtype=int)
     actDistMtx = np.empty((nx, ny), dtype=int)
 

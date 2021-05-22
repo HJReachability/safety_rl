@@ -1,3 +1,6 @@
+# Please contact the author(s) of this library if you have any questions.
+# Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
+
 # Examples:
     # RA:
         # python3 sim_show.py -w -sf -of scratch -a -g 0.99 -n anneal-s
@@ -261,7 +264,6 @@ trainDict = {}
 trainDict['trainRecords'] = trainRecords
 trainDict['trainProgress'] = trainProgress
 filePath = os.path.join(outFolder, 'train')
-save_obj(trainDict, filePath)
 
 if plotFigure or storeFigure:
     #= loss
@@ -321,9 +323,8 @@ if plotFigure or storeFigure:
         resultMtx[idx] = result
         it.iternext()
 
-    axStyle = env.get_axes()
-
     fig, axes = plt.subplots(1, 3, figsize=(12, 4), sharex=True, sharey=True)
+    axStyle = env.get_axes()
 
     #= Action
     ax = axes[2]
@@ -360,3 +361,8 @@ if plotFigure or storeFigure:
     if plotFigure:
         plt.show()
         plt.pause(0.001)
+
+    trainDict['resultMtx'] = resultMtx
+    trainDict['actDistMtx'] = actDistMtx
+
+save_obj(trainDict, filePath)

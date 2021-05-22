@@ -1,3 +1,24 @@
+# Please contact the author(s) of this library if you have any questions.
+# Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
+
+# This is the summary of different agent types, cost signal types, done signal
+# types and gamma choices.
+# The subtitles are composed of <agent_type>_<done_type>[_<cost type>]_<gamma>.
+# agent types:
+    # RA (reach-avoid)
+    # L (Lagrange)
+# done types:
+    # E (to end, stop the episode when going outside the world)
+    # F (fail, stop the episode when entering failure set)
+    # TF (target-fail, stop the episode when entering failure or target set)
+    # E: initial states are sampled over the whole environment
+    # F and TF: initial states are sampled outside the failure set
+# cost types:
+    # D (dense, ell + g)
+    # S (sparse, +1: failure; -1: target)
+    # no specification (reach-avoid)
+# gamma choices: 9 (0.9), 95 (0.95), 999 (0.999), 9999(0.9999)
+
 from warnings import simplefilter 
 simplefilter(action='ignore', category=FutureWarning)
 
@@ -7,11 +28,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 import pickle
+import argparse
 import os
 
 from KC_DQN.DDQNSingle import DDQNSingle
-from KC_DQN.config import dqnConfig
-from KC_DQN.utils import load_obj
+from KC_DQN.utils import save_obj, load_obj
+
+#== ARGS ==
+parser = argparse.ArgumentParser()
+parser.add_argument("-n",  "--n", default=101,  type=int)
+args = parser.parse_args()
+print(args)
 
 
 def getModelInfo(path):
@@ -86,17 +113,25 @@ dataFolder, CONFIG, dimList, idx = getModelInfo(os.path.join('show', 'lagrange',
 agent_L_E_S = DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList, mode='normal', verbose=False)
 agent_L_E_S.restore(idx*25000, dataFolder)
 
-agentList = [agent_RA_E, agent_RA_F, agent_RA_E_999, agent_RA_F_999,
-             agent_L_TF_S, agent_L_TF_D, agent_L_TF_S_9, agent_L_TF_S_99, agent_L_E_S]
-nList = ['RA_E_9999', 'RA_F_9999', 'RA_E_999', 'RA_F_999', 
-         'L_TF_S_95', 'L_TF_D_95', 'L_TF_S_9', 'L_TF_S_99', 'L_TF_E_S_95']
+dataFolder, CONFIG, dimList, idx = getModelInfo(os.path.join('show', 'lagrange', '95-s-fail-sparse'))
+agent_L_F_S = DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList, mode='normal', verbose=False)
+agent_L_F_S.restore(idx*25000, dataFolder)
+
+agentList = [   agent_RA_E, agent_RA_F, agent_RA_E_999, agent_RA_F_999,
+                agent_L_TF_S, agent_L_TF_D, agent_L_TF_S_9, agent_L_TF_S_99,
+                agent_L_E_S, agent_L_F_S]
+nList = [   'RA_E_9999', 'RA_F_9999', 'RA_E_999', 'RA_F_999', 
+            'L_TF_S_95', 'L_TF_D_95', 'L_TF_S_9', 'L_TF_S_99',
+            'L_E_S_95', 'L_F_S_95']
+
 numAgent = len(agentList)
 
 
 #== ROLLOUT RA ==
 print("\n== ROLLOUT REACH-AVOID ==")
-nx=101
-ny=nx
+nx=args.n
+ny=args.n
+print("Test on {}x{} grids".format(nx, ny))
 xs = np.linspace(env.bounds[0,0], env.bounds[0,1], nx)
 ys = np.linspace(env.bounds[1,0], env.bounds[1,1], ny)
 
@@ -119,7 +154,6 @@ for i, agent in enumerate(agentList):
         state = np.array([x, y])
         stateTensor = torch.FloatTensor(state).unsqueeze(0)
         action_index = agent.Q_network(stateTensor).min(dim=1)[1].item()
-        # u = env.discrete_controls[action_index]
         actDistMtx[idx] = action_index
 
         _, _, result = env.simulate_one_trajectory(agent.Q_network, T=250, state=state, toEnd=False)
@@ -130,11 +164,18 @@ for i, agent in enumerate(agentList):
     actDistMtxList[i] = actDistMtx
     print()
 
+outFolder = os.path.join('scratch', 'show', 'result')
+os.makedirs(outFolder, exist_ok=True)
+
+recordDict = {}
+recordDict['resultMtxList'] = resultMtxList
+recordDict['actDistMtxList'] = actDistMtxList
+filePath = os.path.join(outFolder, 'record')
+save_obj(recordDict, filePath)
+
 
 #== FIGURE ==
 print("\n== FIGURE ==")
-figureFolder = os.path.join('scratch', 'show', 'figure')
-os.makedirs(figureFolder, exist_ok=True)
 nRow = 3
 nCol = numAgent
 
@@ -186,5 +227,7 @@ axArray[0][0].set_ylabel('Value', fontsize=24)
 axArray[1][0].set_ylabel('Rollout', fontsize=24)
 axArray[2][0].set_ylabel('Action', fontsize=24) 
 fig.tight_layout()
-figurePath = os.path.join(figureFolder, 'value_rollout_action.png')
+figurePath = os.path.join(outFolder, 'value_rollout_action.png')
+fig.savefig(figurePath)
+figurePath = os.path.join(outFolder, 'value_rollout_action.eps')
 fig.savefig(figurePath)

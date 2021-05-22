@@ -180,14 +180,14 @@ class ZermeloShowEnv(gym.Env):
             else:
                 if self.costType == 'dense_ell':
                     cost = l_x
-                elif self.costType == 'dense_ell_g':
+                elif self.costType == 'dense':
                     cost = l_x + g_x
                 elif self.costType == 'sparse':
                     cost = 0. * self.scaling
                 elif self.costType == 'max_ell_g':
                     cost = max(l_x, g_x)
                 else:
-                    cost = 0.
+                    raise ValueError("invalid cost type!")
 
         #= `done` signal
         # done = fail
@@ -198,7 +198,7 @@ class ZermeloShowEnv(gym.Env):
         elif self.doneType == 'TF':
             done = fail or success
         else:
-            raise ValueError("invalid doneType")
+            raise ValueError("invalid done type!")
 
         #= `info`
         if done and self.doneType == 'fail':

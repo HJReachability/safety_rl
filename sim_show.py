@@ -1,12 +1,12 @@
 # Examples:
     # RA:
-        # python3 sim_show.py -w -sf -of scratch -a -g 0.99 -n anneal-s-end-
-        # python3 sim_show.py -w -sf -of scratch -g 0.999 -n 999-s-end-
-        # python3 sim_show.py -w -sf -of scratch -g 0.999 -dt fail -n 999-s-fail-
+        # python3 sim_show.py -w -sf -of scratch -a -g 0.99 -n anneal-s
+        # python3 sim_show.py -w -sf -of scratch -g 0.999 -n 999-s
+        # python3 sim_show.py -w -sf -of scratch -g 0.999 -dt fail -n 999-s
     # Lagrange:
-        # python3 sim_show.py -w -sf -m lagrange -of scratch -dt TF -g 0.95 -n 95-s-TF-
-        # python3 sim_show.py -w -sf -m lagrange -of scratch -dt TF -g 0.95 -n 95-s-TF- -e
-    # test: python3 sim_show.py -w -sf -of scratch -wi 100 -mu 1000
+        # python3 sim_show.py -w -sf -m lagrange -of scratch -dt TF -ct sparse -g 0.95 -n 95-s
+        # python3 sim_show.py -w -sf -m lagrange -of scratch -dt TF -ct dense -g 0.95 -n 95-s
+    # test: python3 sim_show.py -w -sf -of scratch -wi 100 -mu 1000 -cp 400
 
 
 from warnings import simplefilter 
@@ -24,6 +24,7 @@ import argparse
 
 from KC_DQN.DDQNSingle import DDQNSingle
 from KC_DQN.config import dqnConfig
+from KC_DQN.utils import save_obj
 
 import time
 timestr = time.strftime("%Y-%m-%d-%H_%M")
@@ -81,10 +82,15 @@ maxSteps = 250
 storeFigure = args.storeFigure
 plotFigure = args.plotFigure
 
-if args.easy:
-    outFolder = os.path.join(args.outFolder, 'show-easy', args.mode, args.name+timestr)
+if args.mode == 'lagrange':
+    fn = args.name + '-' + args.doneType + '-' + args.costType + '-' + timestr
 else:
-    outFolder = os.path.join(args.outFolder, 'show', args.mode, args.name+timestr)
+    fn = args.name + '-' + args.doneType + '-' + timestr
+
+if args.easy:
+    outFolder = os.path.join(args.outFolder, 'show-easy', args.mode, fn)
+else:
+    outFolder = os.path.join(args.outFolder, 'show', args.mode, fn)
 print(outFolder)
 figureFolder = os.path.join(outFolder, 'figure/')
 os.makedirs(figureFolder, exist_ok=True)
@@ -107,10 +113,15 @@ elif args.mode == 'RA':
         EPS_PERIOD = updatePeriod
         EPS_RESET_PERIOD = maxUpdates
 
+if args.doneType == 'toEnd':
+    sample_inside_obs=True
+elif args.doneType == 'TF' or args.doneType == 'fail':
+    sample_inside_obs=False
+
 #== Environment ==
 print("\n== Environment Information ==")
 env = gym.make(env_name, device=device, mode=envMode, doneType=args.doneType,
-    thickness=args.thickness, sample_inside_obs=True, easy=args.easy)
+    thickness=args.thickness, sample_inside_obs=sample_inside_obs, easy=args.easy)
 
 stateDim = env.state.shape[0]
 actionNum = env.action_space.n
@@ -246,6 +257,12 @@ trainRecords, trainProgress = agent.learn(env,
     checkPeriod=checkPeriod, outFolder=outFolder,
     plotFigure=args.plotFigure, storeFigure=args.storeFigure)
 
+trainDict = {}
+trainDict['trainRecords'] = trainRecords
+trainDict['trainProgress'] = trainProgress
+filePath = os.path.join(outFolder, 'train')
+save_obj(trainDict, filePath)
+
 if plotFigure or storeFigure:
     #= loss
     fig, axes = plt.subplots(1, 2, figsize=(8, 4))
@@ -261,13 +278,13 @@ if plotFigure or storeFigure:
 
     data = trainProgress[:, 0]
     ax = axes[1]
-    x = (np.arange(data.shape[0]) + 1) * args.checkPeriod
+    x = np.arange(data.shape[0]) + 1
     ax.plot(x, data, 'b-o')
     ax.set_xlabel('Index', fontsize=18)
     ax.set_xticks(x)
-    ax.set_xticklabels(np.arange(data.shape[0]) + 1)
+    # ax.set_xticklabels(np.arange(data.shape[0]) + 1)
     ax.set_title('Success Rate', fontsize=18)
-    ax.set_xlim(left=0, right=maxUpdates)
+    ax.set_xlim(left=1, right=data.shape[0])
 
     fig.tight_layout()
     if storeFigure:
@@ -318,8 +335,9 @@ if plotFigure or storeFigure:
     ax = axes[1]
     im = ax.imshow(resultMtx.T != 1, interpolation='none', extent=axStyle[0],
         origin="lower", cmap='seismic', vmin=0, vmax=1, zorder=-1)
+    env.plot_trajectories(agent.Q_network, states=env.visual_initial_states,
+        toEnd=True, ax=ax, c='w', lw=1.5)
     ax.set_xlabel('Rollout RA', fontsize=24)
-
 
     #= Value
     ax = axes[0]

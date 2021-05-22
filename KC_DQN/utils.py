@@ -5,6 +5,7 @@
 import torch
 import os
 import glob
+import pickle
 
 def soft_update(target, source, tau):
     for target_param, param in zip(target.parameters(), source.parameters()):
@@ -21,3 +22,13 @@ def save_model(model, step, logs_path, types, MAX_MODEL):
     logs_path = os.path.join(logs_path, '{}-{}.pth'.format(types, step))
     torch.save(model.state_dict(), logs_path)
     print('  => Save {} after [{}] updates' .format(logs_path, step))
+
+
+def save_obj(obj, filename):
+    with open(filename + '.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+
+def load_obj(filename):
+    with open(filename + '.pkl', 'rb') as f:
+        return pickle.load(f)

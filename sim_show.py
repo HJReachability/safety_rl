@@ -4,7 +4,7 @@
 # Examples:
     # RA:
         # python3 sim_show.py -w -sf -of scratch -a -g 0.99 -n anneal-s
-        # python3 sim_show.py -w -sf -of scratch -g 0.999 -n 999-s
+        # python3 sim_show.py -w -sf -of scratch -n 9999-s
         # python3 sim_show.py -w -sf -of scratch -g 0.999 -dt fail -n 999-s
     # Lagrange:
         # python3 sim_show.py -w -sf -m lagrange -of scratch -dt TF -ct sparse -g 0.95 -n 95-s
@@ -58,7 +58,7 @@ parser.add_argument("-cp",  "--checkPeriod",    help="check period",            
 parser.add_argument("-a",   "--annealing",      help="gamma annealing",             action="store_true")
 parser.add_argument("-arc", "--architecture",   help="NN architecture",             default=[100, 20],  nargs="*", type=int)
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-3,   type=float)
-parser.add_argument("-g",   "--gamma",          help="contraction coeff.",          default=0.999,  type=float)
+parser.add_argument("-g",   "--gamma",          help="contraction coeff.",          default=0.9999, type=float)
 parser.add_argument("-act", "--actType",        help="activation type",             default='Sin',  type=str)
 
 # RL type
@@ -130,6 +130,7 @@ stateDim = env.state.shape[0]
 actionNum = env.action_space.n
 action_list = np.arange(actionNum)
 print("State Dimension: {:d}, ActionSpace Dimension: {:d}".format(stateDim, actionNum))
+print(env.discrete_controls)
 
 env.set_costParam(args.penalty, args.reward, args.costType, args.scaling)
 env.set_seed(args.randomSeed)

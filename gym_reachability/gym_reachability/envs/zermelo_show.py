@@ -39,7 +39,7 @@ class ZermeloShowEnv(gym.Env):
         self.horizontal_rate = 1.
         self.discrete_controls = np.array([
             [-self.horizontal_rate, self.upward_speed],
-            [0, self.upward_speed*2],
+            [0, self.upward_speed],
             [self.horizontal_rate, self.upward_speed] ])
 
         # Constraint Set Parameters.

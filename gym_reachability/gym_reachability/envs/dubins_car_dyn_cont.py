@@ -228,7 +228,8 @@ class DubinsCarDynCont(object):
 
 
 #== Compute Margin ==
-    def _calculate_margin_rect(self, s, x_y_w_h, negativeInside=True):
+    @staticmethod
+    def _calculate_margin_rect(s, x_y_w_h, negativeInside=True):
         x, y, w, h = x_y_w_h
         delta_x = np.abs(s[0] - x)
         delta_y = np.abs(s[1] - y)
@@ -239,8 +240,8 @@ class DubinsCarDynCont(object):
         else:
             return - margin
 
-
-    def _calculate_margin_circle(self, s, c_r, negativeInside=True):
+    @staticmethod
+    def _calculate_margin_circle(s, c_r, negativeInside=True):
         center, radius = c_r
         dist_to_center = np.linalg.norm(s[:2] - center)
         margin = dist_to_center - radius

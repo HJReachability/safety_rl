@@ -5,10 +5,8 @@
 # included in this repository.
 #
 # Please contact the author(s) of this library if you have any questions.
-# Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
-
-
-#from gym_reachability.gym_reachability.envs.cartpole_reach import CartPoleReachabilityEnv
+# Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
+#          Vicenc Rubies Royo ( vrubies@berkeley.edu )
 
 from gym_reachability.gym_reachability.envs.lunar_lander_reachability import LunarLanderReachability
 
@@ -18,24 +16,10 @@ from gym_reachability.gym_reachability.envs.one_player_reach_avoid_lunar_lander 
 
 from gym_reachability.gym_reachability.envs.two_player_pursuit_evasion_lunar_lander import TwoPlayerPursuitEvasionLunarLander
 
-#from gym_reachability.gym_reachability.envs.double_integrator import DoubleIntegratorEnv
-
-# from gym_reachability.gym_reachability.envs.dubins_car import DubinsCarEnv
-
 from gym_reachability.gym_reachability.envs.dubins_car_one import DubinsCarOneEnv
-
-from gym_reachability.gym_reachability.envs.dubins_car_one_cont import DubinsCarOneContEnv
 
 from gym_reachability.gym_reachability.envs.dubins_car_pe import DubinsCarPEEnv
 
-#from gym_reachability.gym_reachability.envs.point_mass import PointMassEnv
-
 from gym_reachability.gym_reachability.envs.zermelo_kc import ZermeloKCEnv
 
-from gym_reachability.gym_reachability.envs.zermelo_cont import ZermeloContEnv
-
 from gym_reachability.gym_reachability.envs.zermelo_show import ZermeloShowEnv
-
-#from gym_reachability.gym_reachability.envs.cheetah_balance import CheetahBalanceEnv
-
-#from gym_reachability.gym_reachability.envs.cheetah_balance_penalize import CheetahBalancePenalizeEnv

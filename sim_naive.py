@@ -7,6 +7,7 @@
         # python3 sim_naive.py -w -sf -of scratch -n 9999
         # python3 sim_naive.py -w -sf -of scratch -g 0.999 -dt fail -n 999
     # Lagrange:
+        # python3 sim_naive.py -w -sf -m lagrange -of scratch -g 0.95 -n 95
         # python3 sim_naive.py -w -sf -m lagrange -of scratch -dt TF -ct sparse -g 0.95 -n 95
         # python3 sim_naive.py -w -sf -m lagrange -of scratch -dt TF -ct dense -g 0.95 -n 95
     # test: python3 sim_naive.py -w -sf -of scratch -wi 100 -mu 1000 -cp 400
@@ -64,6 +65,7 @@ parser.add_argument("-m",   "--mode",           help="mode",            default=
 parser.add_argument("-tt",  "--terminalType",   help="terminal value",  default='g',        type=str)
 
 # file
+parser.add_argument("-st",  "--showTime",       help="show timestr",    action="store_true")
 parser.add_argument("-n",   "--name",           help="extra name",      default='',                         type=str)
 parser.add_argument("-of",  "--outFolder",      help="output file",     default='/scratch/gpfs/kaichieh/',  type=str)
 parser.add_argument("-pf",  "--plotFigure",     help="plot figures",    action="store_true")
@@ -84,9 +86,11 @@ storeFigure = args.storeFigure
 plotFigure = args.plotFigure
 
 if args.mode == 'lagrange':
-    fn = args.name + '-' + args.doneType + '-' + args.costType + '-' + timestr
+    fn = args.name + '-' + args.doneType + '-' + args.costType
 else:
-    fn = args.name + '-' + args.doneType + '-' + timestr
+    fn = args.name + '-' + args.doneType
+if args.showTime:
+    fn = fn + '-' + timestr
 
 outFolder = os.path.join(args.outFolder, 'naive', 'DDQN', args.mode, fn)
 print(outFolder)

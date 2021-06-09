@@ -17,7 +17,6 @@ import numpy as np
 import matplotlib
 # matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
-import tensorflow as tf
 
 # == backup and outcome functions ==
 
@@ -36,6 +35,7 @@ def sbe_backup(rewards, dones, next_state_val, gamma, tensorflow=False):
     """
     v_terminal = rewards
     if tensorflow:
+        import tensorflow as tf
         v_non_terminal = (1.0 - gamma) * rewards + gamma * tf.minimum(rewards, next_state_val)
     else:
         v_non_terminal = (1.0 - gamma) * rewards + gamma * np.minimum(rewards, next_state_val)

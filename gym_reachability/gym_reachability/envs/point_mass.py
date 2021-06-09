@@ -431,19 +431,7 @@ class PointMassEnv(gym.Env):
         
         # Plot bounadries of constraint set.
         self.plot_target_failure_set(ax)
-
-        ax.axis(axes[0])
-        ax.grid(False)
-        ax.set_aspect(axes[1])  # makes equal aspect ratio
-        if labels is not None:
-            ax.set_xlabel(labels[0], fontsize=60)
-            ax.set_ylabel(labels[1], fontsize=60)
-
-        ax.tick_params( axis='both', which='both',  # both x and y axes, both major and minor ticks are affected
-                        bottom=False, top=False,    # ticks along the top and bottom edges are off
-                        left=False, right=False)    # ticks along the left and right edges are off
-        ax.set_xticklabels([])
-        ax.set_yticklabels([])
+        self.plot_formatting(ax=ax, labels=labels)
 
     def simulate_one_trajectory(self, q_func, T=10, state=None):
 
@@ -586,12 +574,35 @@ class PointMassEnv(gym.Env):
         ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
 
+    def plot_formatting(self, ax=None, labels=None):
+        axStyle = self.get_axes()
+        #== Formatting ==
+        ax.axis(axStyle[0])
+        ax.set_aspect(axStyle[1])  # makes equal aspect ratio
+        ax.grid(False)
+        if labels is not None:
+            ax.set_xlabel(labels[0], fontsize=52)
+            ax.set_ylabel(labels[1], fontsize=52)
+
+        ax.tick_params( axis='both', which='both',
+                        bottom=False, top=False,
+                        left=False, right=False)
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+
+
     def get_axes(self):
         """ Gets the bounds for the environment.
 
         Returns:
             List containing a list of bounds for each state coordinate and a
         """
-        aspect_ratio = (self.bounds[0,1]-self.bounds[0,0])/(self.bounds[1,1]-self.bounds[1,0])
-        axes = np.array([self.bounds[0,0]-.05, self.bounds[0,1]+.05, self.bounds[1,0]-.15, self.bounds[1,1]+.15])
+        x_span = self.bounds[0,1] - self.bounds[0,0]
+        y_span = self.bounds[1,1] - self.bounds[1,0]
+        aspect_ratio = x_span / y_span
+        axes = np.array([
+            self.bounds[0,0]-.05,
+            self.bounds[0,1]+.05,
+            self.bounds[1,0]-.05,
+            self.bounds[1,1]+.05])
         return [axes, aspect_ratio]

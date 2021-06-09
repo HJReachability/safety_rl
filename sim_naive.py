@@ -299,8 +299,8 @@ if plotFigure or storeFigure:
     print('We pick model with success rate-{:.3f}'.format(successRate))
     agent.restore(idx*args.checkPeriod, outFolder)
 
-    nx=101
-    ny=nx
+    nx=41
+    ny=121
     xs = np.linspace(env.bounds[0,0], env.bounds[0,1], nx)
     ys = np.linspace(env.bounds[1,0], env.bounds[1,1], ny)
 

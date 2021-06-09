@@ -23,6 +23,7 @@ class ZermeloShowEnv(gym.Env):
 
     def __init__(self, device, mode='RA', doneType='toEnd', thickness=.1,
         sample_inside_obs=False, envType='show'):
+        self.envType = envType
 
         # State Bounds.
         if envType == 'basic':
@@ -553,8 +554,12 @@ class ZermeloShowEnv(gym.Env):
         trajectories = []
 
         if states is None:
-            nx=101
-            ny=nx
+            if self.envType == 'basic':
+                nx=41
+                ny=121
+            else:
+                nx=101
+                ny=nx
             xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)
             ys = np.linspace(self.bounds[1,0], self.bounds[1,1], ny)
             results  = np.empty((nx, ny), dtype=int)
@@ -571,6 +576,7 @@ class ZermeloShowEnv(gym.Env):
                 trajectories.append((traj_x, traj_y))
                 results[idx] = result
                 it.iternext()
+            results = results.reshape(-1)
             # results = np.empty(shape=(num_rnd_traj,), dtype=int)
             # for idx in range(num_rnd_traj):
             #     traj_x, traj_y, result = self.simulate_one_trajectory(

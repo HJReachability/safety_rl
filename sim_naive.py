@@ -42,7 +42,7 @@ parser.add_argument("-ct",  "--costType",       help="cost type",               
 parser.add_argument("-rnd", "--randomSeed",     help="random seed",                 default=0,          type=int)
 parser.add_argument("-r",   "--reward",         help="when entering target set",    default=-1,         type=float)
 parser.add_argument("-p",   "--penalty",        help="when entering failure set",   default=1,          type=float)
-parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",            default=4,          type=float)
+parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",            default=1,          type=float)
 
 # training scheme
 parser.add_argument("-w",   "--warmup",         help="warmup Q-network",            action="store_true")

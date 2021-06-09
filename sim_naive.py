@@ -3,13 +3,13 @@
 
 # Examples:
     # RA:
-        # python3 sim_zermelo.py -w -sf -of scratch -a -g 0.99 -n anneal
-        # python3 sim_zermelo.py -w -sf -of scratch -n 9999
-        # python3 sim_zermelo.py -w -sf -of scratch -g 0.999 -dt fail -n 999
+        # python3 sim_naive.py -w -sf -of scratch -a -g 0.99 -n anneal
+        # python3 sim_naive.py -w -sf -of scratch -n 9999
+        # python3 sim_naive.py -w -sf -of scratch -g 0.999 -dt fail -n 999
     # Lagrange:
-        # python3 sim_zermelo.py -w -sf -m lagrange -of scratch -dt TF -ct sparse -g 0.95 -n 95
-        # python3 sim_zermelo.py -w -sf -m lagrange -of scratch -dt TF -ct dense -g 0.95 -n 95
-    # test: python3 sim_zermelo.py -w -sf -of scratch -wi 100 -mu 1000 -cp 400
+        # python3 sim_naive.py -w -sf -m lagrange -of scratch -dt TF -ct sparse -g 0.95 -n 95
+        # python3 sim_naive.py -w -sf -m lagrange -of scratch -dt TF -ct dense -g 0.95 -n 95
+    # test: python3 sim_naive.py -w -sf -of scratch -wi 100 -mu 1000 -cp 400
 
 
 from warnings import simplefilter 
@@ -299,8 +299,8 @@ if plotFigure or storeFigure:
     print('We pick model with success rate-{:.3f}'.format(successRate))
     agent.restore(idx*args.checkPeriod, outFolder)
 
-    nx=101
-    ny=nx
+    nx=41
+    ny=121
     xs = np.linspace(env.bounds[0,0], env.bounds[0,1], nx)
     ys = np.linspace(env.bounds[1,0], env.bounds[1,1], ny)
 

@@ -323,8 +323,10 @@ class DDQNSingle(DDQN):
                         print('\nAfter [{:d}] updates:'.format(self.cntUpdate))
                         print('  - eps={:.2f}, gamma={:.6f}, lr={:.1e}.'.format(
                             self.EPSILON, self.GAMMA, lr))
-                        print('  - success/failure/unfinished ratio: {:.3f}, {:.3f}, {:.3f}'.format(
-                            success, failure, unfinish))
+                        print('  - success/failure/unfinished ratio:', end=' ')
+                        with np.printoptions(formatter={'float': '{: .3f}'.format}):
+                            print(np.array([success, failure, unfinish]))
+                        # print('{:.3f}, {:.3f}, {:.3f}'.format(success, failure, unfinish))
 
                     if storeModel:
                         if storeBest:

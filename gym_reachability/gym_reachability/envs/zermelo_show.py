@@ -22,11 +22,15 @@ import random
 class ZermeloShowEnv(gym.Env):
 
     def __init__(self, device, mode='RA', doneType='toEnd', thickness=.1,
-        sample_inside_obs=False, easy=False):
+        sample_inside_obs=False, envType='show'):
 
         # State Bounds.
-        self.bounds = np.array([[-3., 3.],
-                                [ 0., 6.]])
+        if envType == 'basic':
+            self.bounds = np.array([[-2, 2],
+                                    [-2, 10]])
+        else:
+            self.bounds = np.array([[-3., 3.],
+                                    [ 0., 6.]])
         self.low  = self.bounds[:, 0]
         self.high = self.bounds[:, 1]
         self.sample_inside_obs = sample_inside_obs
@@ -35,7 +39,10 @@ class ZermeloShowEnv(gym.Env):
         self.time_step = 0.05
 
         # Control Parameters.
-        self.upward_speed = .5
+        if envType == 'basic':
+            self.upward_speed = 2.
+        else:
+            self.upward_speed = .5
         self.horizontal_rate = 1.
         self.discrete_controls = np.array([
             [-self.horizontal_rate, self.upward_speed],
@@ -44,16 +51,27 @@ class ZermeloShowEnv(gym.Env):
 
         # Constraint Set Parameters.
         # [X-position, Y-position, width, height]
-        if easy:
+        if envType == 'basic':
+            self.constraint_x_y_w_h = np.array([
+                [1.25,  2, 1.5, 1.5],
+                [-1.25, 2, 1.5, 1.5],
+                [0,     6, 1.5, 1.5], ])
+            self.constraint_type = ['R', 'L', 'C']
+        elif envType == 'easy':
             self.constraint_x_y_w_h = np.array([
                 [0., 1.5, 4., thickness]])
+            self.constraint_type = ['C']
         else:
             self.constraint_x_y_w_h = np.array([
                 [0., 1.5, 4., thickness],
                 [0., 4., 4., thickness] ])
+            self.constraint_type = ['C', 'C']
 
         # Target Set Parameters.
-        self.target_x_y_w_h = np.array([[0., 5.5, 1., 1.]])
+        if envType == 'basic':
+            self.target_x_y_w_h = np.array([[0., 9.25, 1.5, 1.5]])
+        else:
+            self.target_x_y_w_h = np.array([[0., 5.5, 1., 1.]])
 
         # Gym variables.
         self.action_space = gym.spaces.Discrete(3)  # {left, up, right}
@@ -85,7 +103,15 @@ class ZermeloShowEnv(gym.Env):
         # Visualization Parameters
         self.constraint_set_boundary = self.get_constraint_set_boundary()
         self.target_set_boundary     = self.get_target_set_boundary()
-        self.visual_initial_states = [
+        if envType == 'basic':
+            self.visual_initial_states = [
+                np.array([ 0,  0]),
+                np.array([-1, -2]),
+                np.array([ 1, -2]),
+                np.array([-1,  4]),
+                np.array([ 1,  4])]
+        else:
+            self.visual_initial_states = [
                 np.array([  0.,  0.]),
                 np.array([ -1.,  0.]),
                 np.array([  1.,  0.]),
@@ -527,12 +553,30 @@ class ZermeloShowEnv(gym.Env):
         trajectories = []
 
         if states is None:
-            results = np.empty(shape=(num_rnd_traj,), dtype=int)
-            for idx in range(num_rnd_traj):
+            nx=101
+            ny=nx
+            xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)
+            ys = np.linspace(self.bounds[1,0], self.bounds[1,1], ny)
+            results  = np.empty((nx, ny), dtype=int)
+            it = np.nditer(results, flags=['multi_index'])
+            print()
+            while not it.finished:
+                idx = it.multi_index
+                print(idx, end='\r')
+                x = xs[idx[0]]
+                y = ys[idx[1]]
+                state = np.array([x, y])
                 traj_x, traj_y, result = self.simulate_one_trajectory(
-                    q_func, T=T, keepOutOf=keepOutOf, toEnd=toEnd)
+                    q_func, T=T, state=state, toEnd=toEnd)
                 trajectories.append((traj_x, traj_y))
                 results[idx] = result
+                it.iternext()
+            # results = np.empty(shape=(num_rnd_traj,), dtype=int)
+            # for idx in range(num_rnd_traj):
+            #     traj_x, traj_y, result = self.simulate_one_trajectory(
+            #         q_func, T=T, keepOutOf=keepOutOf, toEnd=toEnd)
+            #     trajectories.append((traj_x, traj_y))
+            #     results[idx] = result
         else:
             results = np.empty(shape=(len(states),), dtype=int)
             for idx, state in enumerate(states):
@@ -548,8 +592,7 @@ class ZermeloShowEnv(gym.Env):
     def visualize(  self, q_func,
                     vmin=-1, vmax=1, nx=201, ny=201,
                     labels=None, boolPlot=False, addBias=False,
-                    cmap='seismic',
-                    plotFigure=False, storeFigure=True):
+                    cmap='seismic'):
 
         fig, ax = plt.subplots(1, 1, figsize=(4, 4))
         cbarPlot = True
@@ -574,8 +617,8 @@ class ZermeloShowEnv(gym.Env):
 
 
     def plot_v_values(self, q_func, ax=None, fig=None,
-                        vmin=-1, vmax=1, nx=201, ny=201, cmap='seismic',
-                        boolPlot=False, cbarPlot=True, addBias=False):
+        vmin=-1, vmax=1, nx=201, ny=201, cmap='seismic', alpha=0.8,
+        boolPlot=False, cbarPlot=True, addBias=False):
         axStyle = self.get_axes()
 
         #== Plot V ==
@@ -583,10 +626,10 @@ class ZermeloShowEnv(gym.Env):
 
         if boolPlot:
             im = ax.imshow(v.T>0., interpolation='none', extent=axStyle[0],
-                origin="lower", cmap=cmap)
+                origin="lower", cmap=cmap, alpha=alpha)
         else:
             im = ax.imshow(v.T, interpolation='none', extent=axStyle[0],
-                origin="lower", cmap=cmap, vmin=vmin, vmax=vmax)
+                origin="lower", cmap=cmap, vmin=vmin, vmax=vmax, alpha=alpha)
             if cbarPlot:
                 cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05,
                     shrink=.95, ticks=[vmin, 0, vmax])
@@ -637,15 +680,24 @@ class ZermeloShowEnv(gym.Env):
             return xs, ys
 
         # unsafe set
-        for _, constraint_set in enumerate(self.constraint_x_y_w_h):
-            x, y, w, h = constraint_set
+        for cons, cType in zip(self.constraint_x_y_w_h, self.constraint_type):
+            x, y, w, h = cons
             x1 = x - w/2.0
             x2 = x + w/2.0
             y_min = y - h/2.0
-            xs, ys = get_line(-slope, end_point=[x1, y_min], x_limit=x)
-            ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
-            xs, ys = get_line( slope, end_point=[x2, y_min], x_limit=x)
-            ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
+            if cType == 'C':
+                xs, ys = get_line(-slope, end_point=[x1, y_min], x_limit=x)
+                ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
+                xs, ys = get_line( slope, end_point=[x2, y_min], x_limit=x)
+                ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
+            elif cType == 'L':
+                x_limit=self.bounds[0, 0]
+                xs, ys = get_line(slope, end_point=[x2, y_min], x_limit=x_limit)
+                ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
+            elif cType == 'R':
+                x_limit=self.bounds[0, 1]
+                xs, ys = get_line(-slope, end_point=[x1, y_min], x_limit=x_limit)
+                ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
         # border unsafe set
         x, y, w, h = self.target_x_y_w_h[0]

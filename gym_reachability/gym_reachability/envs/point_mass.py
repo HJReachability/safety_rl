@@ -11,7 +11,6 @@ import gym.spaces
 import numpy as np
 import gym
 import matplotlib
-import matplotlib.pyplot as plt
 
 from utils.utils import nearest_real_grid_point
 from utils.utils import visualize_matrix
@@ -414,30 +413,24 @@ class PointMassEnv(gym.Env):
     def visualize_analytic_comparison( self, v, no_show=False,
                                        labels=["x", "y"], 
                                        vmin=-1, vmax=1, boolPlot=False,
-                                       cmap='seismic'):
+                                       cmap='seismic', fig=None, ax=None):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
             v: State value function.
         """
-        plt.clf()
-        ax = plt.gca()
         axes = self.get_axes()
         
         if boolPlot:
-            im = plt.imshow(v.T>vmin, interpolation='none', extent=axes[0], origin="lower",
+            im = ax.imshow(v.T>vmin, interpolation='none', extent=axes[0], origin="lower",
                        cmap='coolwarm')
         else:
-            im = plt.imshow(v.T, interpolation='none', extent=axes[0], origin="lower",
+            im = ax.imshow(v.T, interpolation='none', extent=axes[0], origin="lower",
                        cmap=cmap, vmin=vmin, vmax=vmax)
-            plt.colorbar(im, pad=0.01, shrink=0.95)
+            fig.colorbar(im, pad=0.01, shrink=0.95)
         
         # Plot bounadries of constraint set.
-        plt.plot(self.x_box1_pos, self.y_box1_pos, color="black")
-        plt.plot(self.x_box2_pos, self.y_box2_pos, color="black")
-        plt.plot(self.x_box3_pos, self.y_box3_pos, color="black")
-        # Plot boundaries of target set.
-        plt.plot(self.x_box4_pos, self.y_box4_pos, color="black")
+        self.plot_target_failure_set(ax)
 
         ax.axis(axes[0])
         ax.grid(False)
@@ -451,9 +444,6 @@ class PointMassEnv(gym.Env):
                         left=False, right=False)    # ticks along the left and right edges are off
         ax.set_xticklabels([])
         ax.set_yticklabels([])
-
-        if not no_show:
-            plt.show()
 
     def simulate_one_trajectory(self, q_func, T=10, state=None):
 
@@ -485,8 +475,7 @@ class PointMassEnv(gym.Env):
 
         return traj_x, traj_y
 
-    def simulate_trajectories(self, q_func, T=10, num_rnd_traj=None,
-                              states=None):
+    def simulate_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -503,28 +492,29 @@ class PointMassEnv(gym.Env):
 
         return trajectories
 
-    def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None):
+    def plot_trajectories(self, q_func, T=250, num_rnd_traj=None, states=None, 
+        keepOutOf=False, toEnd=False, ax=None, c='k', lw=2, zorder=2):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
-        trajectories = self.simulate_trajectories(q_func, T=T,
-                                                  num_rnd_traj=num_rnd_traj,
-                                                  states=states)
+
+        trajectories = self.simulate_trajectories(q_func, T=T, 
+            num_rnd_traj=num_rnd_traj, states=states)
 
         for traj in trajectories:
             traj_x, traj_y = traj
-            plt.scatter(traj_x[0], traj_y[0], s=48, c='w')
-            plt.plot(traj_x, traj_y, color="w", linewidth=2)
+            ax.scatter(traj_x[0], traj_y[0], s=48, c=c, zorder=zorder)
+            ax.plot(traj_x, traj_y, color=c, linewidth=lw, zorder=zorder)
 
-    def plot_target_failure_set(self, ax=None, c='m'):
+    def plot_target_failure_set(self, ax=None, c_c='m', c_t='y', lw=1.5, zorder=1):
         # Plot bounadries of constraint set.
-        ax.plot(self.x_box1_pos, self.y_box1_pos, color="black")
-        ax.plot(self.x_box2_pos, self.y_box2_pos, color="black")
-        ax.plot(self.x_box3_pos, self.y_box3_pos, color="black")
+        ax.plot(self.x_box1_pos, self.y_box1_pos, color=c_c, lw=lw, zorder=zorder)
+        ax.plot(self.x_box2_pos, self.y_box2_pos, color=c_c, lw=lw, zorder=zorder)
+        ax.plot(self.x_box3_pos, self.y_box3_pos, color=c_c, lw=lw, zorder=zorder)
 
         # Plot boundaries of target set.
-        ax.plot(self.x_box4_pos, self.y_box4_pos, color=c)
+        ax.plot(self.x_box4_pos, self.y_box4_pos, color=c_t, lw=lw, zorder=zorder)
 
     # def analytic_v(self):
     #     """ Computes the discretized analytic value function.
@@ -553,7 +543,7 @@ class PointMassEnv(gym.Env):
     #         it.iternext()
     #     return v
 
-    def plot_reach_avoid_set(self):
+    def plot_reach_avoid_set(self, ax=None, c='g', lw=3, zorder=1):
         slope = self.upward_speed / self.horizontal_rate
 
         def get_line(slope, end_point, x_limit, ns=100):
@@ -568,13 +558,13 @@ class PointMassEnv(gym.Env):
         x = self.box2_x_y_length[0] + self.box2_x_y_length[2]/2.0 
         y = self.box2_x_y_length[1] - self.box2_x_y_length[2]/2.0
         xs, ys = get_line(slope, end_point=[x,y], x_limit=-2.)
-        plt.plot(xs, ys, color='g', linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
         # right unsafe set
         x = self.box1_x_y_length[0] - self.box1_x_y_length[2]/2.0 
         y = self.box1_x_y_length[1] - self.box1_x_y_length[2]/2.0
         xs, ys = get_line(-slope, end_point=[x,y], x_limit=2.)
-        plt.plot(xs, ys, color='g', linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
         # middle unsafe set
         x1 = self.box3_x_y_length[0] - self.box3_x_y_length[2]/2.0 
@@ -582,18 +572,18 @@ class PointMassEnv(gym.Env):
         x3 = self.box3_x_y_length[0]
         y = self.box3_x_y_length[1] - self.box3_x_y_length[2]/2.0
         xs, ys = get_line(-slope, end_point=[x1,y], x_limit=x3)
-        plt.plot(xs, ys, color='g', linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
         xs, ys = get_line(slope, end_point=[x2,y], x_limit=x3)
-        plt.plot(xs, ys, color='g', linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
         # border unsafe set
         x1 = self.box4_x_y_length[0] - self.box4_x_y_length[2]/2.0
         x2 = self.box4_x_y_length[0] + self.box4_x_y_length[2]/2.0
         y = self.box4_x_y_length[1] + self.box4_x_y_length[2]/2.0
         xs, ys = get_line(slope, end_point=[x1,y], x_limit=-2.)
-        plt.plot(xs, ys, color='g', linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
         xs, ys = get_line(-slope, end_point=[x2,y], x_limit=2.)
-        plt.plot(xs, ys, color='g', linewidth=3)
+        ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
 
     def get_axes(self):

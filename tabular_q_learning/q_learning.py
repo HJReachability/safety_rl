@@ -34,7 +34,8 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
           state_bounds, env, max_episode_length=None, q_values=None,
           start_episode=None, suppress_print=False, seed=0,
           fictitious_terminal_val=None, visualization_states=None,
-          num_rnd_traj=None, vis_T=10, use_sbe=True, save_freq=None):
+          num_rnd_traj=None, vis_T=10, use_sbe=True, save_freq=None,
+          outFolder = os.path.join('scratch', 'naive', 'TQ')):
     """ Computes state-action value function in tabular form.
 
     Args:
@@ -152,6 +153,10 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
     redundant_comp = 0
     total_steps = 0
     # Main learning loop: Run episodic trajectories from random initial states.
+    modelFolder = os.path.join(outFolder, 'model')
+    os.makedirs(modelFolder, exist_ok=True)
+    figureFolder = os.path.join(outFolder, 'figure')
+    os.makedirs(figureFolder, exist_ok=True)
     for episode in range(max_episodes):
         if not suppress_print and (episode + 1) % 1000 == 0:
             message = "\rEpisode {:.0f}/{:d} alpha:{:.4f} gamma:{:.6f} epsilon:{:.4f} redund:{:.4f}."
@@ -161,16 +166,19 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
             sys.stdout.flush()
         if ((num_rnd_traj is not None or visualization_states is not None)
                 and (episode + 1) % int(max_episodes/20) == 0):
-            np.save('models/TQ/{:d}.npy'.format(episode + 1), q_values)
-            env.visualize_analytic_comparison(v_from_q(q_values), True, labels=["",""], boolPlot=False)
-            env.plot_reach_avoid_set()
+            modelPath = os.path.join(modelFolder, str(episode + 1)+'.npy')
+            np.save(modelPath, q_values)
+            fig, ax = plt.subplots(1, 1, figsize=(4, 4))
+            env.visualize_analytic_comparison(v_from_q(q_values), True, 
+                labels=["",""], boolPlot=False, fig=fig, ax=ax)
+            env.plot_reach_avoid_set(ax=ax)
             env.plot_trajectories(q_values, T=vis_T, num_rnd_traj=num_rnd_traj,
-                                  states=visualization_states)
-            plt.tight_layout()
-            figureFolder = 'figure/TQ/progress'
-            os.makedirs(figureFolder, exist_ok=True)
-            plt.savefig('{:s}/{:d}.eps'.format(figureFolder, episode+1))
-            plt.pause(0.001)
+                states=visualization_states, ax=ax)
+            fig.tight_layout()
+            figPath = os.path.join(figureFolder, str(episode + 1)+'.eps')
+            fig.savefig(figPath)
+            plt.pause(0.05)
+            plt.close()
             print()
         state = env.reset()
         state_ix = state_to_index(grid_cells, state_bounds, state)

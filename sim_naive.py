@@ -319,7 +319,7 @@ if plotFigure or storeFigure:
         y = ys[idx[1]]
 
         state = np.array([x, y])
-        stateTensor = torch.FloatTensor(state).unsqueeze(0)
+        stateTensor = torch.FloatTensor(state).to(agent.device).unsqueeze(0)
         action_index = agent.Q_network(stateTensor).min(dim=1)[1].cpu().item()
         # u = env.discrete_controls[action_index]
         actDistMtx[idx] = action_index

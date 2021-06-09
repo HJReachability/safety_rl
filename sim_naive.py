@@ -7,9 +7,10 @@
         # python3 sim_naive.py -w -sf -of scratch -n 9999
         # python3 sim_naive.py -w -sf -of scratch -g 0.999 -dt fail -n 999
     # Lagrange:
+        # python3 sim_naive.py -w -sf -m lagrange -of scratch -g 0.95 -n 95
         # python3 sim_naive.py -w -sf -m lagrange -of scratch -dt TF -ct sparse -g 0.95 -n 95
         # python3 sim_naive.py -w -sf -m lagrange -of scratch -dt TF -ct dense -g 0.95 -n 95
-    # test: python3 sim_naive.py -w -sf -of scratch -wi 100 -mu 1000 -cp 400
+    # test: python3 sim_naive.py -w -sf -of scratch -wi 100 -mu 100 -cp 40
 
 
 from warnings import simplefilter 
@@ -64,6 +65,7 @@ parser.add_argument("-m",   "--mode",           help="mode",            default=
 parser.add_argument("-tt",  "--terminalType",   help="terminal value",  default='g',        type=str)
 
 # file
+parser.add_argument("-st",  "--showTime",       help="show timestr",    action="store_true")
 parser.add_argument("-n",   "--name",           help="extra name",      default='',                         type=str)
 parser.add_argument("-of",  "--outFolder",      help="output file",     default='/scratch/gpfs/kaichieh/',  type=str)
 parser.add_argument("-pf",  "--plotFigure",     help="plot figures",    action="store_true")
@@ -84,9 +86,11 @@ storeFigure = args.storeFigure
 plotFigure = args.plotFigure
 
 if args.mode == 'lagrange':
-    fn = args.name + '-' + args.doneType + '-' + args.costType + '-' + timestr
+    fn = args.name + '-' + args.doneType + '-' + args.costType
 else:
-    fn = args.name + '-' + args.doneType + '-' + timestr
+    fn = args.name + '-' + args.doneType
+if args.showTime:
+    fn = fn + '-' + timestr
 
 outFolder = os.path.join(args.outFolder, 'naive', 'DDQN', args.mode, fn)
 print(outFolder)
@@ -103,7 +107,7 @@ elif args.mode == 'RA':
     envMode = 'RA'
     agentMode = 'RA'
     if args.annealing:
-        GAMMA_END = 0.9999
+        GAMMA_END = 0.999999
         EPS_PERIOD = int(updatePeriod/10)
         EPS_RESET_PERIOD = updatePeriod
     else:
@@ -208,7 +212,7 @@ CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
     GAMMA=args.gamma, GAMMA_PERIOD=updatePeriod, GAMMA_END=GAMMA_END,
     EPS_PERIOD=EPS_PERIOD, EPS_DECAY=0.7, EPS_RESET_PERIOD=EPS_RESET_PERIOD,
     LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
-    MAX_MODEL=50)
+    MAX_MODEL=100)
 
 # for key, value in CONFIG.__dict__.items():
 #     if key[:1] != '_': print(key, value)
@@ -315,8 +319,8 @@ if plotFigure or storeFigure:
         y = ys[idx[1]]
 
         state = np.array([x, y])
-        stateTensor = torch.FloatTensor(state).unsqueeze(0)
-        action_index = agent.Q_network(stateTensor).min(dim=1)[1].item()
+        stateTensor = torch.FloatTensor(state).to(agent.device).unsqueeze(0)
+        action_index = agent.Q_network(stateTensor).min(dim=1)[1].cpu().item()
         # u = env.discrete_controls[action_index]
         actDistMtx[idx] = action_index
 

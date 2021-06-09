@@ -20,6 +20,8 @@ from gym_reachability.gym_reachability.envs.dubins_car_one import DubinsCarOneEn
 
 from gym_reachability.gym_reachability.envs.dubins_car_pe import DubinsCarPEEnv
 
+from gym_reachability.gym_reachability.envs.point_mass import PointMassEnv
+
 from gym_reachability.gym_reachability.envs.zermelo_kc import ZermeloKCEnv
 
 from gym_reachability.gym_reachability.envs.zermelo_show import ZermeloShowEnv

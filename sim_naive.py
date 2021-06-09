@@ -10,7 +10,7 @@
         # python3 sim_naive.py -w -sf -m lagrange -of scratch -g 0.95 -n 95
         # python3 sim_naive.py -w -sf -m lagrange -of scratch -dt TF -ct sparse -g 0.95 -n 95
         # python3 sim_naive.py -w -sf -m lagrange -of scratch -dt TF -ct dense -g 0.95 -n 95
-    # test: python3 sim_naive.py -w -sf -of scratch -wi 100 -mu 1000 -cp 400
+    # test: python3 sim_naive.py -w -sf -of scratch -wi 100 -mu 100 -cp 40
 
 
 from warnings import simplefilter 
@@ -107,7 +107,7 @@ elif args.mode == 'RA':
     envMode = 'RA'
     agentMode = 'RA'
     if args.annealing:
-        GAMMA_END = 0.9999
+        GAMMA_END = 0.999999
         EPS_PERIOD = int(updatePeriod/10)
         EPS_RESET_PERIOD = updatePeriod
     else:
@@ -212,7 +212,7 @@ CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
     GAMMA=args.gamma, GAMMA_PERIOD=updatePeriod, GAMMA_END=GAMMA_END,
     EPS_PERIOD=EPS_PERIOD, EPS_DECAY=0.7, EPS_RESET_PERIOD=EPS_RESET_PERIOD,
     LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
-    MAX_MODEL=50)
+    MAX_MODEL=100)
 
 # for key, value in CONFIG.__dict__.items():
 #     if key[:1] != '_': print(key, value)
@@ -320,7 +320,7 @@ if plotFigure or storeFigure:
 
         state = np.array([x, y])
         stateTensor = torch.FloatTensor(state).unsqueeze(0)
-        action_index = agent.Q_network(stateTensor).min(dim=1)[1].item()
+        action_index = agent.Q_network(stateTensor).min(dim=1)[1].cpu().item()
         # u = env.discrete_controls[action_index]
         actDistMtx[idx] = action_index
 

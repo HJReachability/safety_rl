@@ -629,6 +629,8 @@ class ZermeloShowEnv(gym.Env):
 
         #== Plot V ==
         _, _, v = self.get_value(q_func, nx, ny, addBias=addBias)
+        vmax = np.max(v)
+        vmin = -vmax
 
         if boolPlot:
             im = ax.imshow(v.T>0., interpolation='none', extent=axStyle[0],

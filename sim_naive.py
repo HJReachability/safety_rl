@@ -7,9 +7,9 @@
         # python3 sim_naive.py -w -sf -of scratch -n 9999
         # python3 sim_naive.py -w -sf -of scratch -g 0.999 -dt fail -n 999
     # Lagrange:
-        # python3 sim_naive.py -w -sf -m lagrange -of scratch -g 0.95 -n 95
-        # python3 sim_naive.py -w -sf -m lagrange -of scratch -dt TF -ct sparse -g 0.95 -n 95
-        # python3 sim_naive.py -w -sf -m lagrange -of scratch -dt TF -ct dense -g 0.95 -n 95
+        # python3 sim_naive.py -sf -m lagrange -of scratch -g 0.95 -n 95
+        # python3 sim_naive.py -sf -m lagrange -of scratch -dt TF -g 0.95 -n 95
+        # python3 sim_naive.py -sf -m lagrange -of scratch -dt TF -ct dense -g 0.95 -n 95
     # test: python3 sim_naive.py -w -sf -of scratch -wi 100 -mu 100 -cp 40
 
 

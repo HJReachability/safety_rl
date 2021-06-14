@@ -26,7 +26,7 @@ class ZermeloShowEnv(gym.Env):
         self.envType = envType
 
         # State Bounds.
-        if envType == 'basic':
+        if envType == 'basic' or envType == 'easy':
             self.bounds = np.array([[-2, 2],
                                     [-2, 10]])
         else:
@@ -40,7 +40,7 @@ class ZermeloShowEnv(gym.Env):
         self.time_step = 0.05
 
         # Control Parameters.
-        if envType == 'basic':
+        if envType == 'basic' or envType == 'easy':
             self.upward_speed = 2.
         else:
             self.upward_speed = .5
@@ -59,9 +59,14 @@ class ZermeloShowEnv(gym.Env):
                 [0,     6, 1.5, 1.5], ])
             self.constraint_type = ['R', 'L', 'C']
         elif envType == 'easy':
+            # self.constraint_x_y_w_h = np.array([
+            #     [0., 1.5, 4., thickness]])
+            # self.constraint_type = ['C']
             self.constraint_x_y_w_h = np.array([
-                [0., 1.5, 4., thickness]])
-            self.constraint_type = ['C']
+                [1.25,  2, 1.5, 1.5],
+                [-1.25, 2, 1.5, 1.5],
+                [0,     6, 3., thickness], ])
+            self.constraint_type = ['R', 'L', 'C']
         else:
             self.constraint_x_y_w_h = np.array([
                 [0., 1.5, 4., thickness],
@@ -69,7 +74,7 @@ class ZermeloShowEnv(gym.Env):
             self.constraint_type = ['C', 'C']
 
         # Target Set Parameters.
-        if envType == 'basic':
+        if envType == 'basic' or envType == 'easy':
             self.target_x_y_w_h = np.array([[0., 9.25, 1.5, 1.5]])
         else:
             self.target_x_y_w_h = np.array([[0., 5.5, 1., 1.]])
@@ -104,7 +109,7 @@ class ZermeloShowEnv(gym.Env):
         # Visualization Parameters
         self.constraint_set_boundary = self.get_constraint_set_boundary()
         self.target_set_boundary     = self.get_target_set_boundary()
-        if envType == 'basic':
+        if envType == 'basic' or envType == 'easy':
             self.visual_initial_states = [
                 np.array([ 0,  0]),
                 np.array([-1, -2]),
@@ -511,7 +516,7 @@ class ZermeloShowEnv(gym.Env):
         keepOutOf=False, toEnd=False):
 
         if state is None:
-            state = self.sample_random_state(sample_inside_obs=keepOutOf)
+            state = self.sample_random_state(sample_inside_obs=not keepOutOf)
         x, y = state[:2]
         traj_x = [x]
         traj_y = [y]
@@ -554,11 +559,11 @@ class ZermeloShowEnv(gym.Env):
         trajectories = []
 
         if states is None:
-            if self.envType == 'basic':
-                nx=41
-                ny=121
+            if self.envType == 'basic' or self.envType == 'easy':
+                nx=21
+                ny=61
             else:
-                nx=101
+                nx=41
                 ny=nx
             xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)
             ys = np.linspace(self.bounds[1,0], self.bounds[1,1], ny)
@@ -620,6 +625,7 @@ class ZermeloShowEnv(gym.Env):
 
         #== Formatting ==
         self.plot_formatting(ax=ax, labels=labels)
+        fig.tight_layout()
 
 
     def plot_v_values(self, q_func, ax=None, fig=None,
@@ -629,7 +635,7 @@ class ZermeloShowEnv(gym.Env):
 
         #== Plot V ==
         _, _, v = self.get_value(q_func, nx, ny, addBias=addBias)
-        vmax = np.max(v)
+        vmax = np.ceil(max(np.max(v), np.max(-v)))
         vmin = -vmax
 
         if boolPlot:
@@ -641,7 +647,7 @@ class ZermeloShowEnv(gym.Env):
             if cbarPlot:
                 cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05,
                     shrink=.95, ticks=[vmin, 0, vmax])
-                cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
+                cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=16)
 
 
     def plot_target_failure_set(self, ax=None, c_c='m', c_t='y', lw=1.5,

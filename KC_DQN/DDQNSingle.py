@@ -303,6 +303,7 @@ class DDQNSingle(DDQN):
 
                 # Interact with env
                 s_, r, done, info = env.step(a_idx)
+                s_ = None if done else s_
                 epCost += r
 
                 # Store the transition in memory

@@ -7,6 +7,7 @@
         # python3 sim_show.py -sf -of scratch -n 9999
         # python3 sim_show.py -sf -of scratch -g 0.999 -dt fail -n 999
     # Lagrange:
+        # python3 sim_show.py -sf -m lagrange -of scratch -g 0.95 -n 95
         # python3 sim_show.py -sf -m lagrange -of scratch -dt TF -g 0.95 -n 95
         # python3 sim_show.py -sf -m lagrange -of scratch -dt TF -ct dense -g 0.95 -n 95
     # test: python3 sim_show.py -w -sf -of scratch -wi 100 -mu 500 -cp 200

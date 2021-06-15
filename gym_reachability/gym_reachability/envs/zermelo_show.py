@@ -234,7 +234,7 @@ class ZermeloShowEnv(gym.Env):
 
         #= `info`
         if done and self.doneType == 'fail':
-            info = {"g_x": self.penalty, "l_x": l_x}
+            info = {"g_x": self.penalty*self.scaling, "l_x": l_x}
         else:
             info = {"g_x": g_x, "l_x": l_x}
         return np.copy(self.state), cost, done, info

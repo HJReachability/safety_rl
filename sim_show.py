@@ -3,14 +3,15 @@
 
 # Examples:
     # RA:
-        # python3 sim_show.py -w -sf -of scratch -a -g 0.99 -n anneal-s
-        # python3 sim_show.py -w -sf -of scratch -n 9999-s
-        # python3 sim_show.py -w -sf -of scratch -g 0.999 -dt fail -n 999-s
+        # python3 sim_show.py -sf -of scratch -a -g 0.99 -n anneal
+        # python3 sim_show.py -sf -of scratch -n 9999
+        # python3 sim_show.py -sf -of scratch -g 0.999 -dt fail -n 999
     # Lagrange:
-        # python3 sim_show.py -w -sf -m lagrange -of scratch -dt TF -ct sparse -g 0.95 -n 95-s
-        # python3 sim_show.py -w -sf -m lagrange -of scratch -dt TF -ct dense -g 0.95 -n 95-s
-    # test: python3 sim_show.py -w -sf -of scratch -wi 100 -mu 1000 -cp 400
-
+        # python3 sim_show.py -sf -m lagrange -of scratch -g 0.95 -n 95
+        # python3 sim_show.py -sf -m lagrange -of scratch -dt TF -g 0.95 -n 95
+        # python3 sim_show.py -sf -m lagrange -of scratch -dt TF -ct dense -g 0.95 -n 95
+    # test: python3 sim_show.py -w -sf -of scratch -wi 100 -mu 500 -cp 200
+    # easy: python3 sim_show.py -sf -of scratch -n 9999 -t 0.2 -e
 
 from warnings import simplefilter 
 simplefilter(action='ignore', category=FutureWarning)
@@ -49,23 +50,24 @@ parser.add_argument("-s",   "--scaling",        help="scaling of ell/g",        
 # training scheme
 parser.add_argument("-w",   "--warmup",         help="warmup Q-network",            action="store_true")
 parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",            default=2000,       type=int)
-parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",   default=500000,     type=int)
+parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",   default=400000,     type=int)
 parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",         default=10,         type=int)
 parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",              default=10000,      type=int)
-parser.add_argument("-cp",  "--checkPeriod",    help="check period",                default=25000,      type=int)
+parser.add_argument("-cp",  "--checkPeriod",    help="check period",                default=20000,     type=int)
 
 # NN hyper-parameters
 parser.add_argument("-a",   "--annealing",      help="gamma annealing",             action="store_true")
 parser.add_argument("-arc", "--architecture",   help="NN architecture",             default=[100, 20],  nargs="*", type=int)
-parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-3,   type=float)
-parser.add_argument("-g",   "--gamma",          help="contraction coeff.",          default=0.9999, type=float)
-parser.add_argument("-act", "--actType",        help="activation type",             default='Sin',  type=str)
+parser.add_argument("-lr",  "--learningRate",   help="learning rate",               default=1e-3,       type=float)
+parser.add_argument("-g",   "--gamma",          help="contraction coeff.",          default=0.9999,     type=float)
+parser.add_argument("-act", "--actType",        help="activation type",             default='Tanh',     type=str)
 
 # RL type
 parser.add_argument("-m",   "--mode",           help="mode",            default='RA',       type=str)
 parser.add_argument("-tt",  "--terminalType",   help="terminal value",  default='g',        type=str)
 
 # file
+parser.add_argument("-st",  "--showTime",       help="show timestr",    action="store_true")
 parser.add_argument("-n",   "--name",           help="extra name",      default='',                         type=str)
 parser.add_argument("-of",  "--outFolder",      help="output file",     default='/scratch/gpfs/kaichieh/',  type=str)
 parser.add_argument("-pf",  "--plotFigure",     help="plot figures",    action="store_true")
@@ -86,14 +88,16 @@ storeFigure = args.storeFigure
 plotFigure = args.plotFigure
 
 if args.mode == 'lagrange':
-    fn = args.name + '-' + args.doneType + '-' + args.costType + '-' + timestr
+    fn = args.name + '-' + args.doneType + '-' + args.costType
 else:
-    fn = args.name + '-' + args.doneType + '-' + timestr
+    fn = args.name + '-' + args.doneType
+if args.showTime:
+    fn = fn + '-' + timestr
 
 if args.easy:
-    outFolder = os.path.join(args.outFolder, 'show-easy', args.mode, fn)
+    outFolder = os.path.join(args.outFolder, 'show-easy', 'DDQN', args.mode, fn)
 else:
-    outFolder = os.path.join(args.outFolder, 'show', args.mode, fn)
+    outFolder = os.path.join(args.outFolder, 'show', 'DDQN', args.mode, fn)
 print(outFolder)
 figureFolder = os.path.join(outFolder, 'figure/')
 os.makedirs(figureFolder, exist_ok=True)
@@ -123,8 +127,12 @@ elif args.doneType == 'TF' or args.doneType == 'fail':
 
 #== Environment ==
 print("\n== Environment Information ==")
+if args.easy:
+    envType = 'easy'
+else:
+    envType = 'show'
 env = gym.make(env_name, device=device, mode=envMode, doneType=args.doneType,
-    thickness=args.thickness, sample_inside_obs=sample_inside_obs, easy=args.easy)
+    thickness=args.thickness, sample_inside_obs=sample_inside_obs, envType=envType)
 
 stateDim = env.state.shape[0]
 actionNum = env.action_space.n
@@ -267,7 +275,7 @@ trainDict['trainProgress'] = trainProgress
 filePath = os.path.join(outFolder, 'train')
 
 if plotFigure or storeFigure:
-    #= loss
+    # region: loss
     fig, axes = plt.subplots(1, 2, figsize=(8, 4))
 
     data = trainRecords
@@ -288,6 +296,7 @@ if plotFigure or storeFigure:
     # ax.set_xticklabels(np.arange(data.shape[0]) + 1)
     ax.set_title('Success Rate', fontsize=18)
     ax.set_xlim(left=1, right=data.shape[0])
+    ax.set_ylim(0, 0.8)
 
     fig.tight_layout()
     if storeFigure:
@@ -297,8 +306,9 @@ if plotFigure or storeFigure:
         plt.show()
         plt.pause(0.001)
     plt.close()
+    # endregion
 
-    #= value_rollout_action
+    # region: value_rollout_action
     idx = np.argmax(trainProgress[:, 0]) + 1
     successRate = np.amax(trainProgress[:, 0]) 
     print('We pick model with success rate-{:.3f}'.format(successRate))
@@ -367,6 +377,7 @@ if plotFigure or storeFigure:
     if plotFigure:
         plt.show()
         plt.pause(0.001)
+    # endregion
 
     trainDict['resultMtx'] = resultMtx
     trainDict['actDistMtx'] = actDistMtx

@@ -36,7 +36,7 @@ class DDQNSingle(DDQN):
         self.dimList = dimList
         self.actType = CONFIG.ACTIVATION
         self.build_network(dimList, self.actType, verbose)
-        print("DDQN with mode-{} and terminalType-{}".format(
+        print("DDQN: mode-{}; terminalType-{}".format(
             self.mode, self.terminalType))
 
 

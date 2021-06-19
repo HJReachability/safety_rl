@@ -366,12 +366,12 @@ if args.plotFigure or args.storeFigure:
     im = ax.imshow(resultMtx.T != 1, interpolation='none', extent=axStyle[0],
         origin="lower", cmap='seismic', vmin=0, vmax=1, zorder=-1)
     env.plot_trajectories(agent.Q_network, states=env.visual_initial_states,
-        toEnd=True, ax=ax, c='w', lw=1.5)
+        toEnd=False, ax=ax, c='w', lw=1.5, T=100)
     ax.set_xlabel('Rollout RA', fontsize=24)
 
     #= Value
     ax = axes[0]
-    v = env.get_value(agent.Q_network, nx, ny)
+    v = env.get_value(agent.Q_network, theta=0, nx=nx, ny=ny)
     im = ax.imshow(v.T, interpolation='none', extent=axStyle[0],
         origin="lower", cmap='seismic', vmin=vmin, vmax=vmax, zorder=-1)
     CS = ax.contour(xs, ys, v.T, levels=[0], colors='k', linewidths=2,

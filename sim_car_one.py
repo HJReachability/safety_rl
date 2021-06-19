@@ -25,41 +25,66 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 parser = argparse.ArgumentParser()
 
 # environment parameters
-parser.add_argument("-dt",  "--doneType",       help="when to raise done flag",     default='toEnd',    type=str)
-parser.add_argument("-ct",  "--costType",       help="cost type",                   default='sparse',   type=str)
-parser.add_argument("-rnd", "--randomSeed",     help="random seed",                 default=0,          type=int)
+parser.add_argument("-dt",  "--doneType",       help="when to raise done flag",
+    default='toEnd',    type=str)
+parser.add_argument("-ct",  "--costType",       help="cost type",
+    default='sparse',   type=str)
+parser.add_argument("-rnd", "--randomSeed",     help="random seed",
+    default=0,          type=int)
 
 # car dynamics
-parser.add_argument("-cr",      "--constraintRadius",   help="constraint radius",   default=1., type=float)
-parser.add_argument("-tr",      "--targetRadius",       help="target radius",       default=.5, type=float)
-parser.add_argument("-turn",    "--turnRadius",         help="turning radius",      default=.6, type=float)
-parser.add_argument("-s",       "--speed",              help="speed",               default=.5, type=float)
+parser.add_argument("-cr",  "--consRadius",     help="constraint radius",
+    efault=1., type=float)
+parser.add_argument("-tr",  "--targetRadius",   help="target radius",
+    default=.5, type=float)
+parser.add_argument("-turn","--turnRadius",     help="turning radius",
+    default=.6, type=float)
+parser.add_argument("-s",   "--speed",          help="speed",
+    default=.5, type=float)
 
 # training scheme
-parser.add_argument("-w",   "--warmup",         help="warmup Q-network",                action="store_true")
-parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",                default=10000,  type=int)
-parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",       default=400000, type=int)
-parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",             default=20,     type=int)
-parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",                  default=1e4,    type=int)
-parser.add_argument("-cp",  "--checkPeriod",    help="check period",                    default=20000, type=int)
+parser.add_argument("-w",   "--warmup",         help="warmup Q-network",
+    action="store_true")
+parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",
+    default=10000,  type=int)
+parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",
+    default=400000, type=int)
+parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",
+    default=20,     type=int)
+parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",
+    default=1e4,    type=int)
+parser.add_argument("-cp",  "--checkPeriod",    help="check period",
+    default=20000, type=int)
 
 # hyper-parameters
-parser.add_argument("-a",   "--annealing",      help="gamma annealing",             action="store_true")
-parser.add_argument("-arc", "--architecture",   help="NN architecture",     default=[100, 100],  nargs="*", type=int)
-parser.add_argument("-lr",  "--learningRate",   help="learning rate",       default=1e-3,   type=float)
-parser.add_argument("-g",   "--gamma",          help="contraction coeff.",  default=0.8,    type=float)
-parser.add_argument("-act", "--actType",        help="activation type",     default='Tanh', type=str)
+parser.add_argument("-a",   "--annealing",      help="gamma annealing",
+    action="store_true")
+parser.add_argument("-arc", "--architecture",   help="NN architecture",
+    default=[100, 100],  nargs="*", type=int)
+parser.add_argument("-lr",  "--learningRate",   help="learning rate",
+    default=1e-3,   type=float)
+parser.add_argument("-g",   "--gamma",          help="contraction coeff.",
+    default=0.8,    type=float)
+parser.add_argument("-act", "--actType",        help="activation type",
+    default='Tanh', type=str)
 
 # RL type
-parser.add_argument("-m",   "--mode",           help="mode",            default='RA',       type=str)
-parser.add_argument("-tt",  "--terminalType",   help="terminal value",  default='g',        type=str)
+parser.add_argument("-m",   "--mode",           help="mode",
+    default='RA',       type=str)
+parser.add_argument("-tt",  "--terminalType",   help="terminal value",
+    default='g',        type=str)
 
 # file
-parser.add_argument("-st",  "--showTime",       help="show timestr",    action="store_true")
-parser.add_argument("-n",   "--name",           help="extra name",      default='',                         type=str)
-parser.add_argument("-of",  "--outFolder",      help="output file",     default='/scratch/gpfs/kaichieh/',  type=str)
-parser.add_argument("-pf",  "--plotFigure",     help="plot figures",    action="store_true")
-parser.add_argument("-sf",  "--storeFigure",    help="store figures",   action="store_true")
+parser.add_argument("-st",  "--showTime",       help="show timestr",
+    action="store_true")
+parser.add_argument("-n",   "--name",           help="extra name",
+    default='',                         type=str)
+parser.add_argument("-of",  "--outFolder",      help="output file",
+    default='/scratch/gpfs/kaichieh/',  type=str)
+parser.add_argument("-pf",  "--plotFigure",     help="plot figures",
+    action="store_true")
+parser.add_argument("-sf",  "--storeFigure",    help="store figures",
+    action="store_true")
 
 args = parser.parse_args()
 print(args)
@@ -104,7 +129,7 @@ print("State Dimension: {:d}, ActionSpace Dimension: {:d}".format(
 #== Setting in this Environment ==
 env.set_speed(speed=args.speed)
 env.set_target(radius=args.targetRadius)
-env.set_constraint(radius=args.constraintRadius)
+env.set_constraint(radius=args.consRadius)
 env.set_radius_rotation(R_turn=args.turnRadius)
 print("Dynamic parameters:")
 print("  CAR")

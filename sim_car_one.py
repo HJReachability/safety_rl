@@ -34,7 +34,7 @@ parser.add_argument("-rnd", "--randomSeed",     help="random seed",
 
 # car dynamics
 parser.add_argument("-cr",  "--consRadius",     help="constraint radius",
-    efault=1., type=float)
+    default=1., type=float)
 parser.add_argument("-tr",  "--targetRadius",   help="target radius",
     default=.5, type=float)
 parser.add_argument("-turn","--turnRadius",     help="turning radius",
@@ -342,13 +342,13 @@ if args.plotFigure or args.storeFigure:
         x = xs[idx[0]]
         y = ys[idx[1]]
 
-        state = np.array([x, y])
+        state = np.array([x, y, 0.])
         stateTensor = torch.FloatTensor(state).unsqueeze(0)
         action_index = agent.Q_network(stateTensor).min(dim=1)[1].item()
         # u = env.discrete_controls[action_index]
         actDistMtx[idx] = action_index
 
-        _, _, result = env.simulate_one_trajectory(agent.Q_network, T=250, state=state, toEnd=False)
+        _, result, _, _ = env.simulate_one_trajectory(agent.Q_network, T=250, state=state, toEnd=False)
         resultMtx[idx] = result
         it.iternext()
 
@@ -371,7 +371,7 @@ if args.plotFigure or args.storeFigure:
 
     #= Value
     ax = axes[0]
-    _, _, v = env.get_value(agent.Q_network, nx, ny)
+    v = env.get_value(agent.Q_network, nx, ny)
     im = ax.imshow(v.T, interpolation='none', extent=axStyle[0],
         origin="lower", cmap='seismic', vmin=vmin, vmax=vmax, zorder=-1)
     CS = ax.contour(xs, ys, v.T, levels=[0], colors='k', linewidths=2,

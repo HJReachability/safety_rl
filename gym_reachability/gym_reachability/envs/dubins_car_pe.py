@@ -10,7 +10,6 @@
 import gym.spaces
 import numpy as np
 import gym
-import matplotlib
 import matplotlib.pyplot as plt
 import torch
 import random
@@ -22,7 +21,7 @@ purple  = '#9370DB'
 tiffany = '#0abab5'
 silver = '#C0C0C0'
 
-# Local Functions
+# region: Local Functions
 def plot_arc(p, r, thetaParam, ax, c='b', lw=1.5, orientation=0):
     x, y = p
     thetaInit, thetaFinal = thetaParam
@@ -59,20 +58,14 @@ def rotatePoint(state, orientation):
     thetatilde = theta+orientation
 
     return np.array([xtilde, ytilde, thetatilde])
-
+# endregion
 
 class DubinsCarPEEnv(gym.Env):
     def __init__(self, device, mode='normal', doneType='toEnd',
-        considerPursuerFailure=False):
+        sample_inside_obs=False, sample_inside_tar=True,
+        considerPursuerFailure=True):
         # Set random seed.
-        self.seed_val = 0
-        np.random.seed(self.seed_val)
-        torch.manual_seed(self.seed_val)
-        torch.cuda.manual_seed(self.seed_val)
-        torch.cuda.manual_seed_all(self.seed_val)  # if you are using multi-GPU.
-        random.seed(self.seed_val) 
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
+        self.set_seed(0)
 
         # State bounds.
         self.bounds = np.array([[-1.1, 1.1],
@@ -80,6 +73,8 @@ class DubinsCarPEEnv(gym.Env):
                                 [0, 2*np.pi]])
         self.low = self.bounds[:, 0]
         self.high = self.bounds[:, 1]
+        self.sample_inside_obs = sample_inside_obs
+        self.sample_inside_tar = sample_inside_tar
 
         # Gym variables.
         self.numActionList = [3, 3]
@@ -130,7 +125,6 @@ class DubinsCarPEEnv(gym.Env):
 
 
     def init_car(self):
-        self.evader.set_seed(seed=self.seed_val)
         self.evader.set_bounds(bounds=self.bounds)
         self.evader.set_constraint(center=self.evader_constraint_center, radius=self.evader_constraint_radius)
         self.evader.set_target(center=self.evader_target_center, radius=self.evader_target_radius)
@@ -138,7 +132,6 @@ class DubinsCarPEEnv(gym.Env):
         self.evader.set_time_step(time_step=self.time_step)
         self.evader.set_radius_rotation(R_turn=self.R_turn, verbose=False)
 
-        self.pursuer.set_seed(seed=self.seed_val)
         self.pursuer.set_bounds(bounds=self.bounds)
         self.pursuer.set_constraint(center=self.pursuer_constraint_center, radius=self.pursuer_constraint_radius)
         self.pursuer.set_speed(speed=self.speed)
@@ -157,19 +150,43 @@ class DubinsCarPEEnv(gym.Env):
         Returns:
             The state the environment has been reset to.
         """
+        # if self.considerPursuerFailure:
+        #     capture_g_x = 1.
+        #     while capture_g_x > 0:
+        #         stateEvader = self.evader.reset(start=start[:3],
+        #             sample_inside_obs=self.sample_inside_obs,
+        #             sample_inside_tar=self.sample_inside_tar)
+        #         statePursuer = self.pursuer.reset(start=start[3:],
+        #             sample_inside_obs=self.sample_inside_obs,
+        #             sample_inside_tar=self.sample_inside_tar)
+
+        #         dist_evader_pursuer = np.linalg.norm(
+        #                                 stateEvader[:2]-statePursuer[:2], ord=2)
+        #         capture_g_x = self.capture_range - dist_evader_pursuer
         if start is not None:
             stateEvader = self.evader.reset(start=start[:3])
             statePursuer = self.pursuer.reset(start=start[3:])
         else:
-            stateEvader = self.evader.reset()
-            statePursuer = self.pursuer.reset()
+            stateEvader = self.evader.reset(
+                sample_inside_obs=self.sample_inside_obs,
+                sample_inside_tar=self.sample_inside_tar)
+            statePursuer = self.pursuer.reset(
+                sample_inside_obs=self.sample_inside_obs,
+                sample_inside_tar=self.sample_inside_tar)
         self.state = np.concatenate((stateEvader, statePursuer), axis=0)
         return np.copy(self.state)
 
 
-    def sample_random_state(self, keepOutOf=False, theta=None):
-        stateEvader = self.evader.sample_random_state(keepOutOf=keepOutOf, theta=theta)
-        statePursuer = self.pursuer.sample_random_state(keepOutOf=keepOutOf, theta=theta)
+    def sample_random_state(self, sample_inside_obs=False, sample_inside_tar=True,
+                            theta=None):
+        stateEvader = self.evader.sample_random_state(
+            sample_inside_obs=sample_inside_obs,
+            sample_inside_tar=sample_inside_tar,
+            theta=theta)
+        statePursuer = self.pursuer.sample_random_state(
+            sample_inside_obs=sample_inside_obs,
+            sample_inside_tar=sample_inside_tar, 
+            theta=theta)
         return np.concatenate((stateEvader, statePursuer), axis=0)
 
 
@@ -290,8 +307,6 @@ class DubinsCarPEEnv(gym.Env):
         random.seed(self.seed_val) 
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
-        self.evader.set_seed(seed)
-        self.pursuer.set_seed(seed)
 
 
     def set_bounds(self, bounds):
@@ -443,9 +458,17 @@ class DubinsCarPEEnv(gym.Env):
     def simulate_one_trajectory(self, q_func, T=10, state=None, theta=None,
                                 keepOutOf=False, toEnd=False):
         # reset
+        sample_inside_obs = not keepOutOf
+        sample_inside_tar = not keepOutOf
         if state is None:
-            stateEvader = self.evader.sample_random_state(keepOutOf=keepOutOf, theta=theta)
-            statePursuer = self.pursuer.sample_random_state(keepOutOf=keepOutOf, theta=theta)
+            stateEvader = self.evader.sample_random_state(
+                sample_inside_obs=sample_inside_obs,
+                sample_inside_tar=sample_inside_tar,
+                theta=theta)
+            statePursuer = self.pursuer.sample_random_state(
+                sample_inside_obs=sample_inside_obs,
+                sample_inside_tar=sample_inside_tar, 
+                theta=theta)
         else:
             stateEvader  = state[:3]
             statePursuer = state[3:]

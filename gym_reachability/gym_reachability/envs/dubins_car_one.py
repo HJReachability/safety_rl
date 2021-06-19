@@ -62,8 +62,6 @@ class DubinsCarOneEnv(gym.Env):
         self.init_car()
 
         # Visualization params
-        # self.fig = None
-        # self.axes = None
         self.visual_initial_states =[   np.array([ .6*self.constraint_radius,  -.5, np.pi/2]),
                                         np.array([ -.4*self.constraint_radius, -.5, np.pi/2]),
                                         np.array([ -0.95*self.constraint_radius, 0., np.pi/2]),
@@ -545,7 +543,7 @@ class DubinsCarOneEnv(gym.Env):
                 cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=16)
 
 
-    def plot_trajectories(  self, q_func, T=10, num_rnd_traj=None, states=None,
+    def plot_trajectories(  self, q_func, T=100, num_rnd_traj=None, states=None,
         theta=None, keepOutOf=False, toEnd=False, ax=None, c='y', lw=1.5,
         orientation=0, zorder=2):
 

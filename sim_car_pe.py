@@ -301,7 +301,7 @@ if args.plotFigure or args.storeFigure:
         stateTensor = torch.FloatTensor(state).to(agent.device).unsqueeze(0)
         state_action_values = agent.Q_network(stateTensor)
         Q_mtx = state_action_values.reshape(env.numActionList[0], env.numActionList[1])
-        Q_mtx = Q_mtx.detach().cpu().numpy()
+        # Q_mtx = Q_mtx.detach().cpu()
         pursuerValues, colIndices = Q_mtx.max(dim=1)
         _, rowIdx = pursuerValues.min(dim=0)
         print(colIndices, rowIdx)

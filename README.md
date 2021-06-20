@@ -17,7 +17,7 @@ range of nonlinear systems.
 ## Running
 1. for Figure 1
 ```python
-    python3 sim_naive.py -w -sf -of scratch -a -g 0.9 -mu 12000000 -cp 600000 -ut 20
+    python3 sim_naive.py -w -sf -of scratch -a -g 0.9 -mu 12000000 -cp 600000 -ut 20 -n anneal
 ```
 2. for Figure 3
 ```python

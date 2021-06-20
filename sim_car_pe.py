@@ -303,9 +303,10 @@ if args.plotFigure or args.storeFigure:
         Q_mtx = state_action_values.reshape(env.numActionList[0], env.numActionList[1])
         pursuerValues, colIndices = Q_mtx.max(dim=1)
         _, rowIdx = pursuerValues.min(dim=0)
-        rowIdx = rowIdx.cpu().numpy().item()
+        print(colIndices, rowIdx)
+        colIndices = colIndices.cpu().numpy().item()
+        print(colIndices)
         colIdx = colIndices[rowIdx]
-        colIdx = colIdx.cpu().numpy().item()
 
         uEvader = env.evader.discrete_controls[rowIdx]
         uPursuer = env.pursuer.discrete_controls[colIdx]

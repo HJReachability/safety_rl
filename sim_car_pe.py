@@ -41,9 +41,9 @@ parser.add_argument("-cr",      "--constraintRadius",   help="constraint radius"
 parser.add_argument("-tr",      "--targetRadius",       help="target radius",
     default=.5, type=float)
 parser.add_argument("-turn",    "--turnRadius",         help="turning radius",
-    default=.6, type=float)
+    default=.25, type=float)
 parser.add_argument("-s",       "--speed",              help="speed",
-    default=.5, type=float)
+    default=.75, type=float)
 
 # training scheme
 parser.add_argument("-w",   "--warmup",         help="warmup Q-network",

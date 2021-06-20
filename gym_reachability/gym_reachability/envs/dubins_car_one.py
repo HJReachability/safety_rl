@@ -20,10 +20,23 @@ from .dubins_car_dyn import DubinsCarDyn
 
 class DubinsCarOneEnv(gym.Env):
     def __init__(self, device, mode='normal', doneType='toEnd',
-        sample_inside_obs=False, sample_inside_tar=True, seed=0):
+        sample_inside_obs=False, sample_inside_tar=True):
+        """
+        __init__ [summary]
+
+        Args:
+            device (str): device type (used in PyTorch).
+            mode (str, optional): RL type. Defaults to 'RA'.
+            doneType (str, optional): conditions to raise `done flag in training.
+                Defaults to 'toEnd'.
+            sample_inside_obs (bool, optional): sampling initial states inside
+                of the obstacles or not. Defaults to False.
+            sample_inside_tar (bool, optional): sampling initial states inside
+                of the targets or not. Defaults to True.
+        """
 
         # Set random seed.
-        self.set_seed(seed)
+        self.set_seed(0)
 
         # State bounds.
         self.bounds = np.array([[-1.1, 1.1],
@@ -80,6 +93,9 @@ class DubinsCarOneEnv(gym.Env):
 
 
     def init_car(self):
+        """
+        init_car
+        """
         self.car.set_bounds(bounds=self.bounds)
         self.car.set_constraint(center=self.constraint_center, radius=self.constraint_radius)
         self.car.set_target(center=self.target_center, radius=self.target_radius)
@@ -90,14 +106,15 @@ class DubinsCarOneEnv(gym.Env):
 
 #== Reset Functions ==
     def reset(self, start=None):
-        """ Reset the state of the environment.
+        """
+        reset: Reset the state of the environment.
 
         Args:
-            start: Which state to reset the environment to. If None, pick the
-                state uniformly at random.
+            start (np.ndarray, optional): state to reset the environment to.
+                If None, pick the state uniformly at random. Defaults to None.
 
         Returns:
-            The state the environment has been reset to.
+            np.ndarray: The state the environment has been reset to.
         """
         self.state = self.car.reset(start=start, sample_inside_obs=self.sample_inside_obs,
             sample_inside_tar=self.sample_inside_tar)
@@ -105,6 +122,20 @@ class DubinsCarOneEnv(gym.Env):
 
 
     def sample_random_state(self, sample_inside_obs=False, sample_inside_tar=True, theta=None):
+        """
+        sample_random_state: pick the state uniformly at random.
+
+        Args:
+            sample_inside_obs (bool, optional): sampling initial state inside
+                of the obstacles or not. Defaults to False.
+            sample_inside_tar (bool, optional): sampling initial state inside
+                of the targets or not. Defaults to True.
+            theta (float, optional): if provided, set the theta to its value.
+                Defaults to None.
+
+        Returns:
+            np.ndarray: sampled initial state.
+        """
         state = self.car.sample_random_state(sample_inside_obs=sample_inside_obs,
             sample_inside_tar=sample_inside_tar, theta=theta)
         return state
@@ -112,10 +143,11 @@ class DubinsCarOneEnv(gym.Env):
 
 #== Dynamics Functions ==
     def step(self, action):
-        """ Evolve the environment one step forward under given input action.
+        """
+        step: Evolve the environment one step forward under given input action.
 
         Args:
-            action: Input action.
+            action (int): the index of action set.
 
         Returns:
             Tuple of (next state, signed distance of current state, whether the
@@ -177,12 +209,68 @@ class DubinsCarOneEnv(gym.Env):
 
 
 #== Setting Hyper-Parameter Functions ==
-    def set_costParam(self, penalty=1, reward=-1, costType='normal', targetScaling=1., safetyScaling=1.):
+    def set_costParam(self, penalty=1.0, reward=-1.0, costType='sparse',
+            targetScaling=1.0, safetyScaling=1.0):
+        """
+        set_costParam: set the hyper-parameters for the `cost` signal used in
+            training, important for Sum Q-learning.
+
+        Args:
+            penalty (float, optional): cost when entering the obstacles or
+                crossing the environment boundary. Defaults to 1.0.
+            reward (float, optional): cost when reaching the targets.
+                Defaults to -1.0.
+            costType (str, optional): providing extra information when in
+                neither the failure set nor the target set.
+                Defaults to 'sparse'.
+            targetScaling (float, optional): scaling factor of the target margin.
+                Defaults to 1.0.
+            safetyScaling (float, optional): scaling factor of the safety margin.
+                Defaults to 1.0.
+        """
         self.penalty = penalty
         self.reward = reward
         self.costType = costType
         self.safetyScaling = safetyScaling
         self.targetScaling = targetScaling
+
+
+    def set_seed(self, seed):
+        """
+        set_seed: set the seed for `numpy`, `random`, `PyTorch` packages.
+
+        Args:
+            seed (int): seed value.
+        """
+        self.seed_val = seed
+        np.random.seed(self.seed_val)
+        torch.manual_seed(self.seed_val)
+        torch.cuda.manual_seed(self.seed_val)
+        torch.cuda.manual_seed_all(self.seed_val)  # if you are using multi-GPU.
+        random.seed(self.seed_val)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+
+
+    def set_bounds(self, bounds):
+        """
+        set_bounds: set the boundary and the observation_space of the environment.
+
+        Args:
+            bounds (np.ndarray): of the shape (n_dim, 2). each row is [LB, UB].
+        """
+        self.bounds = bounds
+
+        # Get lower and upper bounds
+        self.low = np.array(self.bounds)[:, 0]
+        self.high = np.array(self.bounds)[:, 1]
+
+        # Double the range in each state dimension for Gym interface.
+        midpoint = (self.low + self.high)/2.0
+        interval = self.high - self.low
+        self.observation_space = gym.spaces.Box(np.float32(midpoint - interval/2),
+                                                np.float32(midpoint + interval/2))
+        self.car.set_bounds(bounds)
 
 
     def set_radius(self, target_radius=.3, constraint_radius=1., R_turn=.6):
@@ -214,42 +302,6 @@ class DubinsCarOneEnv(gym.Env):
     def set_speed(self, speed=.5):
         self.speed = speed
         self.car.set_speed(speed=speed)
-
-
-    def set_seed(self, seed):
-        """ Set the random seed.
-
-        Args:
-            seed: Random seed.
-        """
-        self.seed_val = seed
-        np.random.seed(self.seed_val)
-        torch.manual_seed(self.seed_val)
-        torch.cuda.manual_seed(self.seed_val)
-        torch.cuda.manual_seed_all(self.seed_val)  # if you are using multi-GPU.
-        random.seed(self.seed_val)
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
-
-
-    def set_bounds(self, bounds):
-        """ Set state bounds.
-
-        Args:
-            bounds: Bounds for the state.
-        """
-        self.bounds = bounds
-
-        # Get lower and upper bounds
-        self.low = np.array(self.bounds)[:, 0]
-        self.high = np.array(self.bounds)[:, 1]
-
-        # Double the range in each state dimension for Gym interface.
-        midpoint = (self.low + self.high)/2.0
-        interval = self.high - self.low
-        self.observation_space = gym.spaces.Box(np.float32(midpoint - interval/2),
-                                                np.float32(midpoint + interval/2))
-        self.car.set_bounds(bounds)
 
 
 #== Margin Functions ==

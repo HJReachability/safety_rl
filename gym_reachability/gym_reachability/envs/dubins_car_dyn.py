@@ -7,6 +7,13 @@ import numpy as np
 class DubinsCarDyn(object):
 
     def __init__(self, doneType='toEnd'):
+        """
+        __init__
+
+        Args:
+            doneType (str, optional): conditions to raise `done flag in training.
+                Defaults to 'toEnd'.
+        """        
         # State bounds.
         self.bounds = np.array([[-1.1, 1.1],  # axis_0 = state, axis_1 = bounds.
                                 [-1.1, 1.1],
@@ -68,7 +75,22 @@ class DubinsCarDyn(object):
         return np.copy(self.state)
 
 
-    def sample_random_state(self, sample_inside_obs=False, sample_inside_tar=True, theta=None):
+    def sample_random_state(self, sample_inside_obs=False, sample_inside_tar=True,
+            theta=None):
+        """
+        sample_random_state: pick the state uniformly at random.
+
+        Args:
+            sample_inside_obs (bool, optional): sampling initial state inside
+                of the obstacles or not. Defaults to False.
+            sample_inside_tar (bool, optional): sampling initial state inside
+                of the targets or not. Defaults to True.
+            theta (float, optional): if provided, set the theta to its value.
+                Defaults to None.
+
+        Returns:
+            np.ndarray: sampled initial state.
+        """     
         # random sample `theta`
         if theta is None:
             theta_rnd = 2.0 * np.random.uniform() * np.pi
@@ -95,10 +117,11 @@ class DubinsCarDyn(object):
 
 #== Dynamics ==
     def step(self, action):
-        """ Evolve the environment one step forward under given input action.
+        """
+        step: Evolve the environment one step forward under given input action.
 
         Args:
-            action: Input action.
+            action (int): the index of action set.
 
         Returns:
             Tuple of (next state, signed distance of current state, whether the
@@ -129,16 +152,16 @@ class DubinsCarDyn(object):
 
 
     def integrate_forward(self, state, u):
-        """ Integrate the dynamics forward by one step.
+        """
+        integrate_forward: Integrate the dynamics forward by one step.
 
         Args:
-            x: Position in x-axis.
-            y: Position in y-axis
-            theta: Heading.
-            u: Contol input.
+            state (np.ndarray): x, y - position
+                                theta: Heading.
+            u (float): contol inputs, angular speed.
 
         Returns:
-            State variables (x,y,theta) integrated one step forward in time.
+            np.ndarray: next state.
         """
         x, y, theta = state
 
@@ -152,10 +175,11 @@ class DubinsCarDyn(object):
 
 #== Setting Hyper-Parameter Functions ==
     def set_bounds(self, bounds):
-        """ Set state bounds.
+        """
+        set_bounds: set the boundary of the environment.
 
         Args:
-            bounds: Bounds for the state.
+            bounds (np.ndarray): of the shape (n_dim, 2). each row is [LB, UB].
         """
         self.bounds = bounds
 

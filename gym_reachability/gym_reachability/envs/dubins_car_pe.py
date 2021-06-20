@@ -23,8 +23,20 @@ tiffany = '#0abab5'
 silver = '#C0C0C0'
 
 # region: Local Functions
-def plot_arc(p, r, thetaParam, ax, c='b', lw=1.5, orientation=0):
-    x, y = p
+def plot_arc(center, r, thetaParam, ax, c='b', lw=1.5, orientation=0):
+    """
+    plot_arc
+
+    Args:
+        center (np.ndarray): center.
+        r (float): radius.
+        thetaParam (np.ndarray): [thetaInit, thetaFinal].
+        ax (matplotlib.axes.Axes)
+        c (str, optional): color. Defaults to 'b'.
+        lw (float, optional): linewidth. Defaults to 1.5.
+        orientation (int, optional): counter-clockwise angle. Defaults to 0.
+    """
+    x, y = center
     thetaInit, thetaFinal = thetaParam
 
     xtilde = x*np.cos(orientation) - y*np.sin(orientation)
@@ -38,6 +50,20 @@ def plot_arc(p, r, thetaParam, ax, c='b', lw=1.5, orientation=0):
 
 
 def plot_circle(center, r, ax, c='b', lw=1.5, ls='-', orientation=0, scatter=False, zorder=0):
+    """
+    plot_circle
+
+    Args:
+        center (np.ndarray): center.
+        r (float): radius.
+        ax (matplotlib.axes.Axes)
+        c (str, optional): color. Defaults to 'b'.
+        lw (float, optional): linewidth. Defaults to 1.5.
+        ls (str, optional): linestyle. Defaults to '-'.
+        orientation (int, optional): counter-clockwise angle. Defaults to 0.
+        scatter (bool, optional): show center or not. Defaults to False.
+        zorder (int, optional): graph layers order. Defaults to 0.
+    """
     x, y = center
     xtilde = x*np.cos(orientation) - y*np.sin(orientation)
     ytilde = y*np.cos(orientation) + x*np.sin(orientation)
@@ -53,6 +79,16 @@ def plot_circle(center, r, ax, c='b', lw=1.5, ls='-', orientation=0, scatter=Fal
 
 
 def rotatePoint(state, orientation):
+    """
+    rotatePoint
+
+    Args:
+        state (np.ndarray): (x, y) position.
+        orientation (int, optional): counter-clockwise angle.
+
+    Returns:
+        np.ndarray: rotated state.
+    """
     x, y, theta = state
     xtilde = x*np.cos(orientation) - y*np.sin(orientation)
     ytilde = y*np.cos(orientation) + x*np.sin(orientation)
@@ -79,7 +115,7 @@ class DubinsCarPEEnv(gym.Env):
                 of the targets or not. Defaults to True.
             considerPursuerFailure (bool, optional): the game outcome considers
                 the pursuer hitting the failure set or not. Defaults to False.
-        """        
+        """
         # Set random seed.
         self.set_seed(0)
 
@@ -141,6 +177,9 @@ class DubinsCarPEEnv(gym.Env):
 
 
     def init_car(self):
+        """
+        init_car: initalize pursuer and evader
+        """
         self.evader.set_bounds(bounds=self.bounds)
         self.evader.set_constraint(center=self.evader_constraint_center, radius=self.evader_constraint_radius)
         self.evader.set_target(center=self.evader_target_center, radius=self.evader_target_radius)
@@ -157,14 +196,15 @@ class DubinsCarPEEnv(gym.Env):
 
 #== Reset Functions ==
     def reset(self, start=None):
-        """ Reset the state of the environment.
+        """
+        reset: Reset the state of the environment.
 
         Args:
-            start: Which state to reset the environment to. If None, pick the
-                state uniformly at random.
+            start (np.ndarray, optional): state to reset the environment to.
+                If None, pick the state uniformly at random. Defaults to None.
 
         Returns:
-            The state the environment has been reset to.
+            np.ndarray: The state the environment has been reset to.
         """
         if start is not None:
             stateEvader = self.evader.reset(start=start[:3])
@@ -182,6 +222,20 @@ class DubinsCarPEEnv(gym.Env):
 
     def sample_random_state(self, sample_inside_obs=False, sample_inside_tar=True,
                             theta=None):
+        """
+        sample_random_state: pick the state uniformly at random.
+
+        Args:
+            sample_inside_obs (bool, optional): sampling initial state inside
+                of the obstacles or not. Defaults to False.
+            sample_inside_tar (bool, optional): sampling initial state inside
+                of the targets or not. Defaults to True.
+            theta (float, optional): if provided, set the theta to its value.
+                Defaults to None.
+
+        Returns:
+            np.ndarray: sampled initial state.
+        """
         stateEvader = self.evader.sample_random_state(
             sample_inside_obs=sample_inside_obs,
             sample_inside_tar=sample_inside_tar,
@@ -195,10 +249,11 @@ class DubinsCarPEEnv(gym.Env):
 
 #== Dynamics Functions ==
     def step(self, action):
-        """ Evolve the environment one step forward under given input action.
+        """
+        step: Evolve the environment one step forward under given input action.
 
         Args:
-            action: a vector consist of action indices for the evader and pursuer.
+            action (int): the index of action set.
 
         Returns:
             Tuple of (next state, signed distance of current state, whether the
@@ -248,7 +303,25 @@ class DubinsCarPEEnv(gym.Env):
 
 
 #== Setting Hyper-Parameter Functions ==
-    def set_costParam(self, penalty=1, reward=-1, costType='normal', targetScaling=1., safetyScaling=1.):
+    def set_costParam(self, penalty=1.0, reward=-1.0, costType='sparse',
+            targetScaling=1.0, safetyScaling=1.0):
+        """
+        set_costParam: set the hyper-parameters for the `cost` signal used in
+            training, important for Sum Q-learning.
+
+        Args:
+            penalty (float, optional): cost when entering the obstacles or
+                crossing the environment boundary. Defaults to 1.0.
+            reward (float, optional): cost when reaching the targets.
+                Defaults to -1.0.
+            costType (str, optional): providing extra information when in
+                neither the failure set nor the target set.
+                Defaults to 'sparse'.
+            targetScaling (float, optional): scaling factor of the target margin.
+                Defaults to 1.0.
+            safetyScaling (float, optional): scaling factor of the safety margin.
+                Defaults to 1.0.
+        """
         self.penalty = penalty
         self.reward = reward
         self.costType = costType
@@ -257,7 +330,53 @@ class DubinsCarPEEnv(gym.Env):
 
 
     def set_capture_range(self, capture_range=.1):
+        """
+        set_capture_range
+
+        Args:
+            capture_range (float, optional): set the capture radius of the pursuer.
+                Defaults to .1.
+        """        
         self.capture_range = capture_range
+
+
+    def set_seed(self, seed):
+        """
+        set_seed: set the seed for `numpy`, `random`, `PyTorch` packages.
+
+        Args:
+            seed (int): seed value.
+        """
+        self.seed_val = seed
+        np.random.seed(self.seed_val)
+        torch.manual_seed(self.seed_val)
+        torch.cuda.manual_seed(self.seed_val)
+        torch.cuda.manual_seed_all(self.seed_val)  # if you are using multi-GPU.
+        random.seed(self.seed_val)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+
+
+    def set_bounds(self, bounds):
+        """
+        set_bounds: set the boundary and the observation_space of the environment.
+
+        Args:
+            bounds (np.ndarray): of the shape (n_dim, 2). each row is [LB, UB].
+        """
+        self.bounds = bounds
+
+        # Get lower and upper bounds
+        self.low = np.array(self.bounds)[:, 0]
+        self.high = np.array(self.bounds)[:, 1]
+
+        # Double the range in each state dimension for Gym interface.
+        midpoint = (self.low + self.high)/2.0
+        interval = self.high - self.low
+        self.observation_space = gym.spaces.Box(np.float32(midpoint - interval/2),
+                                                np.float32(midpoint + interval/2))
+        self.evader.set_bounds(bounds)
+        self.pursuer.set_bounds(bounds)
 
 
     def set_constraint(self, center=np.array([0.,0.]), radius=1., car='evader'):
@@ -304,43 +423,6 @@ class DubinsCarPEEnv(gym.Env):
         self.R_turn = R_turn
         self.evader.set_radius_rotation(R_turn=R_turn, verbose=verbose)
         self.pursuer.set_radius_rotation(R_turn=R_turn, verbose=verbose)
-
-
-    def set_seed(self, seed):
-        """ Set the random seed.
-
-        Args:
-            seed: Random seed.
-        """
-        self.seed_val = seed
-        np.random.seed(self.seed_val)
-        torch.manual_seed(self.seed_val)
-        torch.cuda.manual_seed(self.seed_val)
-        torch.cuda.manual_seed_all(self.seed_val)  # if you are using multi-GPU.
-        random.seed(self.seed_val)
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
-
-
-    def set_bounds(self, bounds):
-        """ Set state bounds.
-
-        Args:
-            bounds: Bounds for the state.
-        """
-        self.bounds = bounds
-
-        # Get lower and upper bounds
-        self.low = np.array(self.bounds)[:, 0]
-        self.high = np.array(self.bounds)[:, 1]
-
-        # Double the range in each state dimension for Gym interface.
-        midpoint = (self.low + self.high)/2.0
-        interval = self.high - self.low
-        self.observation_space = gym.spaces.Box(np.float32(midpoint - interval/2),
-                                                np.float32(midpoint + interval/2))
-        self.evader.set_bounds(bounds)
-        self.pursuer.set_bounds(bounds)
 
 
 #== Margin Functions ==

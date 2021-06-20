@@ -1,15 +1,11 @@
 # Please contact the author(s) of this library if you have any questions.
 # Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
-# Modified from `zermelo_kc.py`
-# TODO: construct an environment to showcase Reach-Avoid RL > Lagrange RL
-#  - `target/safety margin` (done)
-#  - `target/constraint _set_boundary` (done)
-#  - `step`, `integrate_forward` (done)
-#  - `simulate_one_trajectory` (done)
-#  - `visualize_analytic_comparison` (done)
-#  - `plot_reach_avoid_set` (done)
-#  - bounds, upward_speed, discrete_controls, box_x_y_length, visual_initial_states (done)
+# This environment considers the 2D point particle dynamics. We construct this
+# environemnt to compare reach-avoid Q-learning with Sum (Lagrange) Q-learning.
+# envType:
+    # 'basic': corresponds to Fig. 1 and 2 in the paper.
+    # 'show': corresponds to Fig. 3 in the paper.
 
 
 import gym.spaces
@@ -20,9 +16,22 @@ import torch
 import random
 
 class ZermeloShowEnv(gym.Env):
-
     def __init__(self, device, mode='RA', doneType='toEnd', thickness=.1,
         sample_inside_obs=False, envType='show'):
+        """
+        __init__
+
+        Args:
+            device (str): device type (used in PyTorch).
+            mode (str, optional): RL type. Defaults to 'RA'.
+            doneType (str, optional): conditions to raise `done flag in training.
+                Defaults to 'toEnd'.
+            thickness (float, optional): the thickness of the obstaclrs.
+                Defaults to 0.1.
+            sample_inside_obs (bool, optional): sampling initial states inside
+                of the obstacles or not. Defaults to False.
+            envType (str, optional): environment type. Defaults to 'show'.
+        """
         self.envType = envType
 
         # State Bounds.
@@ -133,10 +142,20 @@ class ZermeloShowEnv(gym.Env):
             self.mode, self.doneType, self.sample_inside_obs))
 
         # for torch
-        self.device = device 
+        self.device = device
 
 
     def extend_state(self, states):
+        """
+        extend_state: extend the state to consist of the max{ell, g}. Only used
+            for mode=`extend`.
+
+        Args:
+            states (np.ndarray): (x, y) position of states.
+
+        Returns:
+            np.ndarray: extended states.
+        """
         new_states = []
         for state in states:
             l_x = self.target_margin(state)
@@ -146,14 +165,15 @@ class ZermeloShowEnv(gym.Env):
 
 
     def reset(self, start=None):
-        """ Reset the state of the environment.
+        """
+        reset: Reset the state of the environment.
 
         Args:
-            start: Which state to reset the environment to. If None, pick the
-                state uniformly at random.
+            start (np.ndarray, optional): state to reset the environment to.
+                If None, pick the state uniformly at random. Defaults to None.
 
         Returns:
-            The state the environment has been reset to.
+            np.ndarray: The state the environment has been reset to.
         """
         if start is None:
             self.state = self.sample_random_state(
@@ -164,6 +184,16 @@ class ZermeloShowEnv(gym.Env):
 
 
     def sample_random_state(self, sample_inside_obs=False):
+        """
+        sample_random_state: pick the state uniformly at random.
+
+        Args:
+            sample_inside_obs (bool, optional): sampling initial state inside
+                of the obstacles or not. Defaults to False.
+
+        Returns:
+            np.ndarray: sampled initial state.
+        """
         inside_obs = True
         # Repeat sampling until outside obstacle if needed.
         while inside_obs:
@@ -178,10 +208,11 @@ class ZermeloShowEnv(gym.Env):
 
 #== Dynamics ==
     def step(self, action):
-        """ Evolve the environment one step forward under given input action.
+        """
+        step: Evolve the environment one step forward under given input action.
 
         Args:
-            action: Input action.
+            action (int): the index of action set.
 
         Returns:
             Tuple of (next state, signed distance of current state, whether the
@@ -240,16 +271,17 @@ class ZermeloShowEnv(gym.Env):
 
 
     def integrate_forward(self, state, u):
-        """ Integrate the dynamics forward by one step.
+        """
+        integrate_forward: Integrate the dynamics forward by one step.
 
         Args:
-            state:  x, y - position
-                    [z]  - optional, extra state dimension capturing 
-                            reach-avoid outcome so far)
-            u: Contol input, consisting of v_x and v_y.
+            state (np.ndarray): x, y - position
+                                [z]  - optional, extra state dimension capturing
+                                        reach-avoid outcome so far)
+            u (np.ndarray): contol inputs, consisting of v_x and v_y
 
         Returns:
-            State variables (x, y, [z])  integrated one step forward in time.
+            np.ndarray: next state.
         """
         if self.mode == 'extend':
             x, y, z = state
@@ -270,8 +302,93 @@ class ZermeloShowEnv(gym.Env):
             state = np.array([x, y])
 
         info = np.array([l_x, g_x])
-        
+
         return state, info
+
+
+#== Setting Hyper-Parameters ==
+    def set_costParam(self, penalty=1., reward=-1., costType='sparse', scaling=1.):
+        """
+        set_costParam: set the hyper-parameters for the `cost` signal used in
+            training, important for Sum Q-learning.
+
+        Args:
+            penalty (float, optional): cost when entering the obstacles or
+                crossing the environment boundary. Defaults to 1.0.
+            reward (float, optional): cost when reaching the targets.
+                Defaults to -1.0.
+            costType (str, optional): providing extra information when in
+                neither the failure set nor the target set.
+                Defaults to 'sparse'.
+            scaling (float, optional): scaling factor of the cost.
+                Defaults to 1.0.
+        """
+        self.penalty = penalty
+        self.reward = reward
+        self.costType = costType
+        self.scaling = scaling
+
+
+    def set_seed(self, seed):
+        """
+        set_seed: set the seed for `numpy`, `random`, `PyTorch` packages.
+
+        Args:
+            seed (int): seed value.
+        """
+        self.seed_val = seed
+        np.random.seed(self.seed_val)
+        torch.manual_seed(self.seed_val)
+        torch.cuda.manual_seed(self.seed_val)
+        torch.cuda.manual_seed_all(self.seed_val)  # if you are using multi-GPU.
+        random.seed(self.seed_val)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+
+
+    def set_bounds(self, bounds):
+        """
+        set_bounds: set the boundary and the observation_space of the environment.
+
+        Args:
+            bounds (np.ndarray): of the shape (n_dim, 2). each row is [LB, UB].
+        """
+        self.bounds = bounds
+
+        # Get lower and upper bounds
+        self.low = np.array(self.bounds)[:, 0]
+        self.high = np.array(self.bounds)[:, 1]
+
+        # Double the range in each state dimension for Gym interface.
+        midpoint = (self.low + self.high)/2.0
+        interval = self.high - self.low
+        self.observation_space = gym.spaces.Box(
+            np.float32(midpoint - interval/2),
+            np.float32(midpoint + interval/2))
+
+
+    def set_doneType(self, doneType):
+        """
+        set_doneType
+
+        Args:
+            doneType (str): conditions to raise `done flag in training.
+        """
+        self.doneType = doneType
+
+
+    def set_sample_type(self, sample_inside_obs=False, verbose=False):
+        """
+        set_sample_type
+
+        Args:
+            sample_inside_obs (bool, optional): sampling initial states inside
+                of the obstacles or not. Defaults to False.
+            verbose (bool, optional): print or not. Defaults to False.
+        """
+        self.sample_inside_obs = sample_inside_obs
+        if verbose:
+            print("sample_inside_obs-{}".format(self.sample_inside_obs))
 
 
 #== Getting Margin ==
@@ -332,60 +449,6 @@ class ZermeloShowEnv(gym.Env):
         target_margin = np.max(np.array(l_x_list))
 
         return self.scaling * target_margin
-
-
-#== Setting Hyper-Parameters ==
-    def set_costParam(self, penalty=1, reward=-1, costType='sparse', scaling=1):
-        self.penalty = penalty
-        self.reward = reward
-        self.costType = costType
-        self.scaling = scaling
-
-
-    def set_seed(self, seed):
-        """ Set the random seed.
-
-        Args:
-            seed: Random seed.
-        """
-        self.seed_val = seed
-        np.random.seed(self.seed_val)
-        torch.manual_seed(self.seed_val)
-        torch.cuda.manual_seed(self.seed_val)
-        torch.cuda.manual_seed_all(self.seed_val)  # if you are using multi-GPU.
-        random.seed(self.seed_val)
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
-
-
-    def set_bounds(self, bounds):
-        """ Set state bounds.
-
-        Args:
-            bounds: Bounds for the state.
-        """
-        self.bounds = bounds
-
-        # Get lower and upper bounds
-        self.low = np.array(self.bounds)[:, 0]
-        self.high = np.array(self.bounds)[:, 1]
-
-        # Double the range in each state dimension for Gym interface.
-        midpoint = (self.low + self.high)/2.0
-        interval = self.high - self.low
-        self.observation_space = gym.spaces.Box(
-            np.float32(midpoint - interval/2),
-            np.float32(midpoint + interval/2))
-
-
-    def set_doneType(self, doneType):
-        self.doneType = doneType
-
-
-    def set_sample_type(self, sample_inside_obs=False, verbose=False):
-        self.sample_inside_obs = sample_inside_obs
-        if verbose:
-            print("sample_inside_obs-{}".format(self.sample_inside_obs))
 
 
 #== Getting Information ==
@@ -617,7 +680,7 @@ class ZermeloShowEnv(gym.Env):
         self.plot_v_values(q_func, ax=ax, fig=fig,
             vmin=vmin, vmax=vmax, nx=nx, ny=ny, cmap=cmap,
             boolPlot=boolPlot, cbarPlot=cbarPlot, addBias=addBias)
-        
+
         #== Plot Trajectories ==
         self.plot_trajectories(q_func, states=self.visual_initial_states,
             toEnd=False, ax=ax)
@@ -662,14 +725,14 @@ class ZermeloShowEnv(gym.Env):
                 zorder=zorder)
 
 
-    def plot_trajectories(self, q_func, T=250, num_rnd_traj=None, states=None, 
+    def plot_trajectories(self, q_func, T=250, num_rnd_traj=None, states=None,
         keepOutOf=False, toEnd=False, ax=None, c='k', lw=2, zorder=2):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
 
-        trajectories, results = self.simulate_trajectories(q_func, T=T, 
+        trajectories, results = self.simulate_trajectories(q_func, T=T,
             num_rnd_traj=num_rnd_traj, states=states, keepOutOf=keepOutOf,
             toEnd=toEnd)
 

@@ -16,6 +16,8 @@ import torch
 import random
 
 from .dubins_car_dyn import DubinsCarDyn
+from .env_utils import plot_arc, plot_circle
+
 
 
 class DubinsCarOneEnv(gym.Env):
@@ -373,6 +375,16 @@ class DubinsCarOneEnv(gym.Env):
 
 #== Getting Functions ==
     def get_warmup_examples(self, num_warmup_samples=100):
+        """
+        get_warmup_examples: Get the warmup samples.
+
+        Args:
+            num_warmup_samples (int, optional): # warmup samples. Defaults to 100.
+
+        Returns:
+            np.ndarray: sampled states.
+            np.ndarray: the heuristic values, here we used max{\ell, g}.
+        """
         rv = np.random.uniform( low=self.low,
                                 high=self.high,
                                 size=(num_warmup_samples,3))
@@ -392,10 +404,12 @@ class DubinsCarOneEnv(gym.Env):
 
 
     def get_axes(self):
-        """ Gets the bounds for the environment.
+        """
+        get_axes: Get the axes bounds and aspect_ratio.
 
         Returns:
-            List containing a list of bounds for each state coordinate and a
+            np.ndarray: axes bounds.
+            float: aspect ratio.
         """
         aspect_ratio = (self.bounds[0,1]-self.bounds[0,0])/(self.bounds[1,1]-self.bounds[1,0])
         axes = np.array([self.bounds[0,0], self.bounds[0,1], self.bounds[1,0], self.bounds[1,1]])
@@ -403,6 +417,21 @@ class DubinsCarOneEnv(gym.Env):
 
 
     def get_value(self, q_func, theta, nx=101, ny=101, addBias=False):
+        """
+        get_value: get the state values given the Q-network. We fix the heading
+            angle of the car to `theta`.
+
+        Args:
+            q_func (object): agent's Q-network.
+            theta (float): the heading angle of the car.
+            nx (int, optional): # points in x-axis. Defaults to 101.
+            ny (int, optional): # points in y-axis. Defaults to 101.
+            addBias (bool, optional): adding bias to the values or not.
+                Defaults to False.
+
+        Returns:
+            np.ndarray: values
+        """
         v = np.zeros((nx, ny))
         it = np.nditer(v, flags=['multi_index'])
         xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)
@@ -430,6 +459,30 @@ class DubinsCarOneEnv(gym.Env):
 #== Trajectory Functions ==
     def simulate_one_trajectory(self, q_func, T=10, state=None, theta=None,
             sample_inside_obs=True, sample_inside_tar=True, toEnd=False):
+        """
+        simulate_one_trajectory: simulate the trajectory given the state or
+            randomly initialized.
+
+        Args:
+            q_func (object): agent's Q-network.
+            T (int, optional): the maximum length of the trajectory. Defaults to 250.
+            state (np.ndarray, optional): if provided, set the initial state to
+                its value. Defaults to None.
+            theta ([type], optional): if provided, set the theta to its value.
+                Defaults to None.
+            sample_inside_obs (bool, optional): sampling initial states inside
+                of the obstacles or not. Defaults to True.
+            sample_inside_tar (bool, optional): sampling initial states inside
+                of the targets or not. Defaults to True.
+            toEnd (bool, optional): simulate the trajectory until the robot crosses
+                the boundary or not. Defaults to False.
+
+        Returns:
+            np.ndarray: states of the trajectory, of the shape (length, 3).
+            int: result.
+            float: the minimum reach-avoid value of the trajectory.
+            dictionary: extra information, (v_x, g_x, ell_x) along the trajectory.
+        """
         # reset
         if state is None:
             state = self.car.sample_random_state(sample_inside_obs=sample_inside_obs,
@@ -486,7 +539,29 @@ class DubinsCarOneEnv(gym.Env):
     def simulate_trajectories(  self, q_func, T=10,
                                 num_rnd_traj=None, states=None, theta=None,
                                 keepOutOf=False, toEnd=False):
+        """
+        simulate_trajectories: simulate the trajectories. If the states are not
+            provided, we pick the initial states from the discretized state space.
 
+        Args:
+            q_func (object): agent's Q-network.
+            T (int, optional): the maximum length of the trajectory. Defaults to 250.
+            num_rnd_traj (int, optional): #states. Defaults to None.
+            theta (float, optional): if provided, set the car's heading angle to
+                its value. Defaults to None.
+            states ([type], optional): if provided, set the initial states to
+                its value. Defaults to None.
+            keepOutOf (bool, optional): smaple states inside the obstacles or not.
+                Defaults to False.
+            toEnd (bool, optional): simulate the trajectory until the robot crosses
+                the boundary or not. Defaults to False.
+
+        Returns:
+            list of np.ndarray: each element is a tuple consisting of x and y
+                positions along the trajectory.
+            np.ndarray: the binary reach-avoid outcomes.
+            np.ndarray: the minimum reach-avoid values of the trajectories.
+        """
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
@@ -543,13 +618,30 @@ class DubinsCarOneEnv(gym.Env):
 
 #== Plotting Functions ==
     def visualize(  self, q_func,
-                    vmin=-1, vmax=1, nx=101, ny=101, cmap='coolwarm',
+                    vmin=-1, vmax=1, nx=101, ny=101, cmap='seismic',
                     labels=None, boolPlot=False, addBias=False, theta=np.pi/2,
                     rndTraj=False, num_rnd_traj=10, keepOutOf=False):
-        """ Overlays analytic safe set on top of state value function.
+        """
+        visualize
 
         Args:
-            q_func: NN or Tabular-Q
+            q_func (object): agent's Q-network.
+            vmin (int, optional): vmin in colormap. Defaults to -1.
+            vmax (int, optional): vmax in colormap. Defaults to 1.
+            nx (int, optional): # points in x-axis. Defaults to 101.
+            ny (int, optional): # points in y-axis. Defaults to 101.
+            cmap (str, optional): color map. Defaults to 'seismic'.
+            labels (list, optional): x- and y- labels. Defaults to None.
+            boolPlot (bool, optional): plot the values in binary form.
+                Defaults to False.
+            addBias (bool, optional): adding bias to the values or not.
+                Defaults to False.
+            theta (float, optional): if provided, set the theta to its value.
+                Defaults to np.pi/2.
+            rndTraj (bool, optional): random trajectories or not. Defaults to False.
+            num_rnd_traj (int, optional): #states. Defaults to None.
+            keepOutOf (bool, optional): smaple states inside the obstacles or not.
+                Defaults to False.
         """
         thetaList = [np.pi/6, np.pi/3, np.pi/2]
         fig = plt.figure(figsize=(12,4))
@@ -595,28 +687,29 @@ class DubinsCarOneEnv(gym.Env):
         plt.tight_layout()
 
 
-    def plot_formatting(self, ax=None, labels=None):
-        axStyle = self.get_axes()
-        #== Formatting ==
-        ax.axis(axStyle[0])
-        ax.set_aspect(axStyle[1])  # makes equal aspect ratio
-        ax.grid(False)
-        if labels is not None:
-            ax.set_xlabel(labels[0], fontsize=52)
-            ax.set_ylabel(labels[1], fontsize=52)
-
-        ax.tick_params( axis='both', which='both',
-                        bottom=False, top=False,
-                        left=False, right=False)
-        ax.xaxis.set_major_locator(LinearLocator(5))
-        ax.xaxis.set_major_formatter('{x:.1f}')
-        ax.yaxis.set_major_locator(LinearLocator(5))
-        ax.yaxis.set_major_formatter('{x:.1f}')
-
-
     def plot_v_values(  self, q_func, theta=np.pi/2, ax=None, fig=None,
                         vmin=-1, vmax=1, nx=201, ny=201, cmap='seismic',
                         boolPlot=False, cbarPlot=True, addBias=False):
+        """
+        plot_v_values: plot state values.
+
+        Args:
+            q_func (object): agent's Q-network.
+            theta (float, optional): if provided, fix the car's heading angle to
+                its value. Defaults to np.pi/2.
+            ax (matplotlib.axes.Axes, optional): Defaults to None.
+            fig (matplotlib.figure, optional): Defaults to None.
+            vmin (int, optional): vmin in colormap. Defaults to -1.
+            vmax (int, optional): vmax in colormap. Defaults to 1.
+            nx (int, optional): # points in x-axis. Defaults to 201.
+            ny (int, optional): # points in y-axis. Defaults to 201.
+            cmap (str, optional): color map. Defaults to 'seismic'.
+            boolPlot (bool, optional): plot the values in binary form.
+                Defaults to False.
+            cbarPlot (bool, optional): plot the color bar or not. Defaults to True.
+            addBias (bool, optional): adding bias to the values or not.
+                Defaults to False.
+        """
         axStyle = self.get_axes()
         ax.plot([0., 0.], [axStyle[0][2], axStyle[0][3]], c='k')
         ax.plot([axStyle[0][0], axStyle[0][1]], [0., 0.], c='k')
@@ -640,7 +733,32 @@ class DubinsCarOneEnv(gym.Env):
     def plot_trajectories(  self, q_func, T=100, num_rnd_traj=None, states=None,
         theta=None, keepOutOf=False, toEnd=False, ax=None, c='y', lw=1.5,
         orientation=0, zorder=2):
+        """
+        plot_trajectories: plot trajectories given the agent's Q-network.
 
+        Args:
+            q_func (object): agent's Q-network.
+            T (int, optional): the maximum length of the trajectory.
+                Defaults to 100.
+            num_rnd_traj (int, optional): #states. Defaults to None.
+            states ([type], optional): if provided, set the initial states to
+                its value. Defaults to None.
+            theta (float, optional): if provided, set the car's heading angle to
+                its value. Defaults to None.
+            keepOutOf (bool, optional): smaple states inside the obstacles or not.
+                Defaults to False.
+            toEnd (bool, optional): simulate the trajectory until the robot crosses
+                the boundary or not. Defaults to False.
+            ax (matplotlib.axes.Axes, optional): Defaults to None.
+            c (str, optional): color. Defaults to 'y'.
+            lw (float, optional): linewidth. Defaults to 1.5.
+            orientation (float, optional): counter-clockwise angle. Defaults to 0.
+            zorder (int, optional): graph layers order. Defaults to 2.
+
+        Returns:
+            np.ndarray: the binary reach-avoid outcomes.
+            np.ndarray: the minimum reach-avoid values of the trajectories.
+        """
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
@@ -669,7 +787,36 @@ class DubinsCarOneEnv(gym.Env):
         return results, minVs
 
 
+    def plot_target_failure_set(self, ax, c_c='m', c_t='y', lw=3, zorder=0):
+        """
+        plot_target_failure_set: plot the target and the failure set.
+
+        Args:
+            ax (matplotlib.axes.Axes, optional)
+            c_c (str, optional): color of the constraint set boundary.
+                Defaults to 'm'.
+            c_t (str, optional): color of the target set boundary.
+                Defaults to 'y'.
+            lw (float, optional): liewidth. Defaults to 3.
+            zorder (int, optional): graph layers order. Defaults to 0.
+        """
+        plot_circle(self.constraint_center, self.constraint_radius, ax,
+            c=c_c, lw=lw, zorder=zorder)
+        plot_circle(self.target_center, self.target_radius, ax, c=c_t,
+            lw=lw, zorder=zorder)
+
+
     def plot_reach_avoid_set(self, ax, c='g', lw=3, orientation=0, zorder=1):
+        """
+        plot_reach_avoid_set: plot the analytic reach-avoid set.
+
+        Args:
+            ax (matplotlib.axes.Axes, optional)
+            c (str, optional): color of the rach-avoid set boundary. Defaults to 'g'.
+            lw (int, optional): liewidth. Defaults to 3.
+            orientation (float, optional): counter-clockwise angle. Defaults to 0.
+            zorder (int, optional): graph layers order. Defaults to 1.
+        """
         r = self.target_radius
         R = self.constraint_radius
         R_turn = self.R_turn
@@ -679,69 +826,101 @@ class DubinsCarOneEnv(gym.Env):
             tmpX = np.sqrt(r**2 - tmpY**2)
             tmpTheta = np.arcsin(tmpX / (R-R_turn))
             # two sides
-            self.plot_arc((0.,  R_turn), R-R_turn, (tmpTheta-np.pi/2, np.pi/2),
+            plot_arc((0.,  R_turn), R-R_turn, (tmpTheta-np.pi/2, np.pi/2),
                 ax, c=c, lw=lw, orientation=orientation, zorder=zorder)
-            self.plot_arc((0., -R_turn), R-R_turn, (-np.pi/2, np.pi/2-tmpTheta),
+            plot_arc((0., -R_turn), R-R_turn, (-np.pi/2, np.pi/2-tmpTheta),
                 ax, c=c, lw=lw, orientation=orientation, zorder=zorder)
             # middle
             tmpPhi = np.arcsin(tmpX/r)
-            self.plot_arc((0., 0), r, (tmpPhi - np.pi/2, np.pi/2-tmpPhi), ax,
+            plot_arc((0., 0), r, (tmpPhi - np.pi/2, np.pi/2-tmpPhi), ax,
                 c=c, lw=lw, orientation=orientation, zorder=zorder)
             # outer boundary
-            self.plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c=c, lw=lw,
+            plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c=c, lw=lw,
                 orientation=orientation, zorder=zorder)
         else:
             # two sides
             tmpY = (R**2 + 2*R_turn*r - r**2) / (2*R_turn)
             tmpX = np.sqrt(R**2 - tmpY**2)
             tmpTheta = np.arcsin( tmpX / (R_turn-r))
-            self.plot_arc((0.,  R_turn), R_turn-r, (np.pi/2+tmpTheta, 3*np.pi/2),
+            plot_arc((0.,  R_turn), R_turn-r, (np.pi/2+tmpTheta, 3*np.pi/2),
                 ax, c=c, lw=lw, orientation=orientation, zorder=zorder)
-            self.plot_arc((0., -R_turn), R_turn-r, (np.pi/2, 3*np.pi/2-tmpTheta),
+            plot_arc((0., -R_turn), R_turn-r, (np.pi/2, 3*np.pi/2-tmpTheta),
                 ax, c=c, lw=lw, orientation=orientation, zorder=zorder)
             # middle
-            self.plot_arc((0., 0), r, (np.pi/2, -np.pi/2), ax, c=c, lw=lw,
+            plot_arc((0., 0), r, (np.pi/2, -np.pi/2), ax, c=c, lw=lw,
                 orientation=orientation, zorder=zorder)
             # outer boundary
-            self.plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c=c, lw=lw,
+            plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c=c, lw=lw,
                 orientation=orientation, zorder=zorder)
 
 
-    def plot_target_failure_set(self, ax, c_c='m', c_t='y', lw=3, zorder=0):
-        self.plot_circle(self.constraint_center, self.constraint_radius, ax,
-            c=c_c, lw=lw, zorder=zorder)
-        self.plot_circle(self.target_center, self.target_radius, ax, c=c_t,
-            lw=lw, zorder=zorder)
+    def plot_formatting(self, ax, labels=None):
+        """
+        plot_formatting: formatting the visualization
+
+        Args:
+            ax (matplotlib.axes.Axes, optional)
+            labels (list, optional): x- and y- labels. Defaults to None.
+        """
+        axStyle = self.get_axes()
+        #== Formatting ==
+        ax.axis(axStyle[0])
+        ax.set_aspect(axStyle[1])  # makes equal aspect ratio
+        ax.grid(False)
+        if labels is not None:
+            ax.set_xlabel(labels[0], fontsize=52)
+            ax.set_ylabel(labels[1], fontsize=52)
+
+        ax.tick_params( axis='both', which='both',
+                        bottom=False, top=False,
+                        left=False, right=False)
+        ax.xaxis.set_major_locator(LinearLocator(5))
+        ax.xaxis.set_major_formatter('{x:.1f}')
+        ax.yaxis.set_major_locator(LinearLocator(5))
+        ax.yaxis.set_major_formatter('{x:.1f}')
 
 
-    @staticmethod
-    def plot_arc(p, r, thetaParam, ax, c='b', lw=1.5, orientation=0,
-        zorder=0):
-        x, y = p
-        thetaInit, thetaFinal = thetaParam
+    # @staticmethod
+    # def plot_arc(center, r, thetaParam, ax, c='b', lw=1.5, orientation=0,
+    #     zorder=0):
+    #     """
+    #     plot_arc
 
-        xtilde = x*np.cos(orientation) - y*np.sin(orientation)
-        ytilde = y*np.cos(orientation) + x*np.sin(orientation)
+    #     Args:
+    #         center (np.ndarray): center.
+    #         r (float): radius.
+    #         thetaParam (np.ndarray): [thetaInit, thetaFinal].
+    #         ax (matplotlib.axes.Axes)
+    #         c (str, optional): color. Defaults to 'b'.
+    #         lw (float, optional): linewidth. Defaults to 1.5.
+    #         orientation (int, optional): counter-clockwise angle. Defaults to 0.
+    #         zorder (int, optional): graph layers order. Defaults to 0.
+    #     """
+    #     x, y = center
+    #     thetaInit, thetaFinal = thetaParam
 
-        theta = np.linspace(thetaInit+orientation, thetaFinal+orientation, 100)
-        xs = xtilde + r * np.cos(theta)
-        ys = ytilde + r * np.sin(theta)
+    #     xtilde = x*np.cos(orientation) - y*np.sin(orientation)
+    #     ytilde = y*np.cos(orientation) + x*np.sin(orientation)
 
-        ax.plot(xs, ys, c=c, lw=lw, zorder=zorder)
+    #     theta = np.linspace(thetaInit+orientation, thetaFinal+orientation, 100)
+    #     xs = xtilde + r * np.cos(theta)
+    #     ys = ytilde + r * np.sin(theta)
+
+    #     ax.plot(xs, ys, c=c, lw=lw, zorder=zorder)
 
 
-    @staticmethod
-    def plot_circle(center, r, ax, c='b', lw=1.5, orientation=0,
-        scatter=False, zorder=0):
-        x, y = center
-        xtilde = x*np.cos(orientation) - y*np.sin(orientation)
-        ytilde = y*np.cos(orientation) + x*np.sin(orientation)
+    # @staticmethod
+    # def plot_circle(center, r, ax, c='b', lw=1.5, orientation=0,
+    #     scatter=False, zorder=0):
+    #     x, y = center
+    #     xtilde = x*np.cos(orientation) - y*np.sin(orientation)
+    #     ytilde = y*np.cos(orientation) + x*np.sin(orientation)
 
-        theta = np.linspace(0, 2*np.pi, 200)
-        xs = xtilde + r * np.cos(theta)
-        ys = ytilde + r * np.sin(theta)
-        ax.plot(xs, ys, c=c, lw=lw, zorder=zorder)
-        if scatter:
-            ax.scatter(xtilde+r, ytilde, c=c, s=80, zorder=zorder)
-            ax.scatter(xtilde-r, ytilde, c=c, s=80, zorder=zorder)
-            print(xtilde+r, ytilde, xtilde-r, ytilde, zorder=zorder)
+    #     theta = np.linspace(0, 2*np.pi, 200)
+    #     xs = xtilde + r * np.cos(theta)
+    #     ys = ytilde + r * np.sin(theta)
+    #     ax.plot(xs, ys, c=c, lw=lw, zorder=zorder)
+    #     if scatter:
+    #         ax.scatter(xtilde+r, ytilde, c=c, s=80, zorder=zorder)
+    #         ax.scatter(xtilde-r, ytilde, c=c, s=80, zorder=zorder)
+    #         print(xtilde+r, ytilde, xtilde-r, ytilde, zorder=zorder)

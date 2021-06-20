@@ -477,7 +477,7 @@ class ZermeloShowEnv(gym.Env):
 
         Returns:
             bool: True if not in the environment.
-        """        
+        """
         outsideTop   = (state[1] >= self.bounds[1,1])
         outsideLeft  = (state[0] <= self.bounds[0,0])
         outsideRight = (state[0] >= self.bounds[0,1])
@@ -485,15 +485,13 @@ class ZermeloShowEnv(gym.Env):
 
 
     def get_constraint_set_boundary(self):
-        """ Computes the safe set boundary based on the analytic solution.
-
-        The boundary of the safe set for the double integrator is determined by
-        two parabolas and two line segments.
+        """
+        get_constraint_set_boundary: Get the constarint set boundary.
 
         Returns:
-            Set of discrete points describing each parabola. The first and last
-            two elements of the list describe the set of coordinates for the
-            first and second parabola respectively.
+            np.ndarray: of the shape (#constraint, 5, 2). Since we use the box
+                constraint in this environment, we need 5 points to plot the
+                box. The last axis consists of the (x, y) position.
         """
         num_constarint_set = self.constraint_x_y_w_h.shape[0]
         constraint_set_boundary = np.zeros((num_constarint_set, 5, 2))
@@ -511,15 +509,13 @@ class ZermeloShowEnv(gym.Env):
 
 
     def get_target_set_boundary(self):
-        """ Computes the safe set boundary based on the analytic solution.
-
-        The boundary of the safe set for the double integrator is determined by
-        two parabolas and two line segments.
+        """
+        get_target_set_boundary: Get the target set boundary.
 
         Returns:
-            Set of discrete points describing each parabola. The first and last
-            two elements of the list describe the set of coordinates for the
-            first and second parabola respectively.
+            np.ndarray: of the shape (#target, 5, 2). Since we use the box
+                target in this environment, we need 5 points to plot the
+                box. The last axis consists of the (x, y) position.
         """
         num_target_set = self.target_x_y_w_h.shape[0]
         target_set_boundary = np.zeros((num_target_set, 5, 2))
@@ -537,6 +533,16 @@ class ZermeloShowEnv(gym.Env):
 
 
     def get_warmup_examples(self, num_warmup_samples=100):
+        """
+        get_warmup_examples: Get the warmup samples.
+
+        Args:
+            num_warmup_samples (int, optional): # warmup samples. Defaults to 100.
+
+        Returns:
+            np.ndarray: sampled states.
+            np.ndarray: the heuristic values, here we used max{\ell, g}.
+        """
         x_min, x_max = self.bounds[0,:]
         y_min, y_max = self.bounds[1,:]
 
@@ -556,10 +562,12 @@ class ZermeloShowEnv(gym.Env):
 
 
     def get_axes(self):
-        """ Gets the bounds for the environment.
+        """
+        get_axes: Get the axes bounds and aspect_ratio.
 
         Returns:
-            List containing a list of bounds for each state coordinate and a
+            np.ndarray: axes bounds.
+            float: aspect ratio.
         """
         x_span = self.bounds[0,1] - self.bounds[0,0]
         y_span = self.bounds[1,1] - self.bounds[1,0]
@@ -573,6 +581,21 @@ class ZermeloShowEnv(gym.Env):
 
 
     def get_value(self, q_func, nx=41, ny=121, addBias=False):
+        """
+        get_value: get the state values given the Q-network.
+
+        Args:
+            q_func (object): agent's Q-network.
+            nx (int, optional): # points in x-axis. Defaults to 41.
+            ny (int, optional): # points in y-axis. Defaults to 121.
+            addBias (bool, optional): adding bias to the values or not.
+                Defaults to False.
+
+        Returns:
+            np.ndarray: x-position of states
+            np.ndarray: y-position of states
+            np.ndarray: values
+        """
         v = np.zeros((nx, ny))
         it = np.nditer(v, flags=['multi_index'])
         xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)
@@ -599,9 +622,28 @@ class ZermeloShowEnv(gym.Env):
         return xs, ys, v
 
 
+#== Trajectory Functions ==
     def simulate_one_trajectory(self, q_func, T=250, state=None,
         keepOutOf=False, toEnd=False):
+        """
+        simulate_one_trajectory: simulate the trajectory given the state or
+            randomly initialized.
 
+        Args:
+            q_func (object): agent's Q-network.
+            T (int, optional): the maximum length of the trajectory. Defaults to 250.
+            state (np.ndarray, optional): if provided, set the initial state to
+                its value. Defaults to None.
+            keepOutOf (bool, optional): smaple states inside the obstacles or not.
+                Defaults to False.
+            toEnd (bool, optional): simulate the trajectory until the robot crosses
+                the boundary or not. Defaults to False.
+
+        Returns:
+            np.ndarray: x-positions of the trajectory.
+            np.ndarray: y-positions of the trajectory.
+            int: the binary reach-avoid outcome.
+        """
         if state is None:
             state = self.sample_random_state(sample_inside_obs=not keepOutOf)
         x, y = state[:2]
@@ -639,6 +681,26 @@ class ZermeloShowEnv(gym.Env):
 
     def simulate_trajectories(self, q_func, T=250,
         num_rnd_traj=None, states=None, keepOutOf=False, toEnd=False):
+        """
+        simulate_trajectories: simulate the trajectories. If the states are not
+            provided, we pick the initial states from the discretized state space.
+
+        Args:
+            q_func (object): agent's Q-network.
+            T (int, optional): the maximum length of the trajectory. Defaults to 250.
+            num_rnd_traj (int, optional): #states. Defaults to None.
+            states ([type], optional): if provided, set the initial states to
+                its value. Defaults to None.
+            keepOutOf (bool, optional): smaple states inside the obstacles or not.
+                Defaults to False.
+            toEnd (bool, optional): simulate the trajectory until the robot crosses
+                the boundary or not. Defaults to False.
+
+        Returns:
+            list of np.ndarray: each element is a tuple consisting of x and y
+                positions along the trajectory.
+            np.ndarray: the binary reach-avoid outcomes.
+        """
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -691,7 +753,22 @@ class ZermeloShowEnv(gym.Env):
                     vmin=-1, vmax=1, nx=201, ny=201,
                     labels=None, boolPlot=False, addBias=False,
                     cmap='seismic'):
+        """
+        visualize
 
+        Args:
+            q_func (object): agent's Q-network.
+            vmin (int, optional): vmin in colormap. Defaults to -1.
+            vmax (int, optional): vmax in colormap. Defaults to 1.
+            nx (int, optional): # points in x-axis. Defaults to 41.
+            ny (int, optional): # points in y-axis. Defaults to 121.
+            labels (list, optional): x- and y- labels. Defaults to None.
+            boolPlot (bool, optional): plot the values in binary form.
+                Defaults to False.
+            addBias (bool, optional): adding bias to the values or not.
+                Defaults to False.
+            cmap (str, optional): color map. Defaults to 'seismic'.
+        """
         fig, ax = plt.subplots(1, 1, figsize=(4, 4))
         cbarPlot = True
 
@@ -718,6 +795,25 @@ class ZermeloShowEnv(gym.Env):
     def plot_v_values(self, q_func, ax=None, fig=None,
         vmin=-1, vmax=1, nx=201, ny=201, cmap='seismic', alpha=0.8,
         boolPlot=False, cbarPlot=True, addBias=False):
+        """
+        plot_v_values: plot state values.
+
+        Args:
+            q_func (object): agent's Q-network.
+            ax (matplotlib.axes.Axes, optional): Defaults to None.
+            fig (matplotlib.figure, optional): Defaults to None.
+            vmin (int, optional): vmin in colormap. Defaults to -1.
+            vmax (int, optional): vmax in colormap. Defaults to 1.
+            nx (int, optional): # points in x-axis. Defaults to 201.
+            ny (int, optional): # points in y-axis. Defaults to 201.
+            cmap (str, optional): color map. Defaults to 'seismic'.
+            alpha (float, optional): opacity. Defaults to 0.8.
+            boolPlot (bool, optional): plot the values in binary form.
+                Defaults to False.
+            cbarPlot (bool, optional): plot the color bar or not. Defaults to True.
+            addBias (bool, optional): adding bias to the values or not.
+                Defaults to False.
+        """
         axStyle = self.get_axes()
 
         #== Plot V ==
@@ -737,21 +833,29 @@ class ZermeloShowEnv(gym.Env):
                 cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=16)
 
 
-    def plot_target_failure_set(self, ax=None, c_c='m', c_t='y', lw=1.5,
-        zorder=1):
-        # Plot bounadries of constraint set.
-        for one_boundary in self.constraint_set_boundary:
-            ax.plot(one_boundary[:, 0], one_boundary[:, 1], color=c_c, lw=lw,
-                zorder=zorder)
-
-        # Plot boundaries of target set.
-        for one_boundary in self.target_set_boundary:
-            ax.plot(one_boundary[:, 0], one_boundary[:, 1], color=c_t, lw=lw,
-                zorder=zorder)
-
-
     def plot_trajectories(self, q_func, T=250, num_rnd_traj=None, states=None,
         keepOutOf=False, toEnd=False, ax=None, c='k', lw=2, zorder=2):
+        """
+        plot_trajectories: plot trajectories given the agent's Q-network.
+
+        Args:
+            q_func (object): agent's Q-network.
+            T (int, optional): the maximum length of the trajectory.
+                Defaults to 250.
+            num_rnd_traj (int, optional): #states. Defaults to None.
+            states ([type], optional): if provided, set the initial states to
+                its value. Defaults to None.
+            keepOutOf (bool, optional): smaple states inside the obstacles or not.
+                Defaults to False.
+            toEnd (bool, optional): simulate the trajectory until the robot crosses
+                the boundary or not. Defaults to False.
+            ax (matplotlib.axes.Axes, optional): Defaults to None.
+            c (str, optional): color. Defaults to 'k'.
+            lw (float, optional): linewidth. Defaults to 2.
+            zorder (int, optional): graph layers order. Defaults to 2.
+        Returns:
+            np.ndarray: the binary reach-avoid outcomes.
+        """
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -769,7 +873,39 @@ class ZermeloShowEnv(gym.Env):
         return results
 
 
+    def plot_target_failure_set(self, ax, c_c='m', c_t='y', lw=1.5,
+            zorder=1):
+        """
+        plot_target_failure_set: plot the target and the failure set.
+
+        Args:
+            ax (matplotlib.axes.Axes, optional)
+            c_c (str, optional): color of the constraint set boundary. Defaults to 'm'.
+            c_t (str, optional): color of the target set boundary. Defaults to 'y'.
+            lw (float, optional): liewidth. Defaults to 1.5.
+            zorder (int, optional): graph layers order. Defaults to 1.
+        """
+        # Plot bounadries of constraint set.
+        for one_boundary in self.constraint_set_boundary:
+            ax.plot(one_boundary[:, 0], one_boundary[:, 1], color=c_c, lw=lw,
+                zorder=zorder)
+
+        # Plot boundaries of target set.
+        for one_boundary in self.target_set_boundary:
+            ax.plot(one_boundary[:, 0], one_boundary[:, 1], color=c_t, lw=lw,
+                zorder=zorder)
+
+
     def plot_reach_avoid_set(self, ax, c='g', lw=3, zorder=1):
+        """
+        plot_reach_avoid_set: plot the analytic reach-avoid set.
+
+        Args:
+            ax (matplotlib.axes.Axes, optional)
+            c (str, optional): color of the rach-avoid set boundary. Defaults to 'g'.
+            lw (int, optional): liewidth. Defaults to 3.
+            zorder (int, optional): graph layers order. Defaults to 1.
+        """        
         slope = self.upward_speed / self.horizontal_rate
 
         def get_line(slope, end_point, x_limit, ns=100):
@@ -811,7 +947,14 @@ class ZermeloShowEnv(gym.Env):
         ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
 
-    def plot_formatting(self, ax=None, labels=None):
+    def plot_formatting(self, ax, labels=None):
+        """
+        plot_formatting: formatting the visualization
+
+        Args:
+            ax (matplotlib.axes.Axes, optional)
+            labels (list, optional): x- and y- labels. Defaults to None.
+        """        
         axStyle = self.get_axes()
         #== Formatting ==
         ax.axis(axStyle[0])

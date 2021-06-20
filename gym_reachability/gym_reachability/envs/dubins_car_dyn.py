@@ -2,6 +2,7 @@
 # Authors: Kai-Chieh Hsu        ( kaichieh@princeton.edu )
 
 import numpy as np
+from .env_utils import calculate_margin_circle, calculate_margin_rect
 
 
 class DubinsCarDyn(object):
@@ -290,53 +291,6 @@ class DubinsCarDyn(object):
 
 
 #== Compute Margin ==
-    def _calculate_margin_rect(self, s, x_y_w_h, negativeInside=True):
-        """
-        _calculate_margin_rect: calculate the margin to the box.
-
-        Args:
-            s (np.ndarray): the state.
-            x_y_w_h (box specification): (center_x, center_y, width, height).
-            negativeInside (bool, optional): add a negative sign to the distance
-                if inside the box. Defaults to True.
-
-        Returns:
-            float: margin.
-        """
-        x, y, w, h = x_y_w_h
-        delta_x = np.abs(s[0] - x)
-        delta_y = np.abs(s[1] - y)
-        margin = max(delta_y - h/2, delta_x - w/2)
-
-        if negativeInside:
-            return margin
-        else:
-            return - margin
-
-
-    def _calculate_margin_circle(self, s, c_r, negativeInside=True):
-        """
-        _calculate_margin_circle: calculate the margin to the circle.
-
-        Args:
-            s (np.ndarray): the state.
-            c_r (circle specification): (center, radius).
-            negativeInside (bool, optional): add a negative sign to the distance
-                if inside the box. Defaults to True.
-
-        Returns:
-            float: margin.
-        """
-        center, radius = c_r
-        dist_to_center = np.linalg.norm(s[:2] - center)
-        margin = dist_to_center - radius
-
-        if negativeInside:
-            return margin
-        else:
-            return - margin
-
-
     def safety_margin(self, s):
         """
         safety_margin: Compute the margin (e.g. distance) between state and failue set.
@@ -350,11 +304,11 @@ class DubinsCarDyn(object):
         """
         x, y = (self.low + self.high)[:2] / 2.0
         w, h = (self.high - self.low)[:2]
-        boundary_margin = self._calculate_margin_rect(s, [x, y, w, h], negativeInside=True)
+        boundary_margin = calculate_margin_rect(s, [x, y, w, h], negativeInside=True)
         g_xList = [boundary_margin]
 
         if self.constraint_center is not None and self.constraint_radius is not None:
-            g_x = self._calculate_margin_circle(s, [self.constraint_center, self.constraint_radius],
+            g_x = calculate_margin_circle(s, [self.constraint_center, self.constraint_radius],
                 negativeInside=True)
             g_xList.append(g_x)
 
@@ -375,7 +329,7 @@ class DubinsCarDyn(object):
                 If the target is not specified, return None.
         """
         if self.target_center is not None and self.target_radius is not None:
-            target_margin = self._calculate_margin_circle(s, [self.target_center, self.target_radius],
+            target_margin = calculate_margin_circle(s, [self.target_center, self.target_radius],
                     negativeInside=True)
             return self.targetScaling * target_margin
         else:

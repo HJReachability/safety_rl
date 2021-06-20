@@ -14,6 +14,7 @@ import gym
 import matplotlib.pyplot as plt
 import torch
 import random
+from .env_utils import calculate_margin_rect
 
 class ZermeloShowEnv(gym.Env):
     def __init__(self, device, mode='RA', doneType='toEnd', thickness=.1,
@@ -392,30 +393,6 @@ class ZermeloShowEnv(gym.Env):
 
 
 #== Getting Margin ==
-    def _calculate_margin(self, s, x_y_w_h, negativeInside=True):
-        """
-        _calculate_margin: calculate the margin to the box.
-
-        Args:
-            s (np.ndarray): the state.
-            x_y_w_h (box specification): (center_x, center_y, width, height).
-            negativeInside (bool, optional): add a negative sign to the distance
-                if inside the box. Defaults to True.
-
-        Returns:
-            float: margin.
-        """
-        x, y, w, h = x_y_w_h
-        delta_x = np.abs(s[0] - x)
-        delta_y = np.abs(s[1] - y)
-        margin = max(delta_y - h/2, delta_x - w/2)
-
-        if negativeInside:
-            return margin
-        else:
-            return - margin
-
-
     def safety_margin(self, s):
         """
         safety_margin: Compute the margin (e.g. distance) between state and failue set.
@@ -431,12 +408,12 @@ class ZermeloShowEnv(gym.Env):
 
         # constraint_set_safety_margin
         for _, constraint_set in enumerate(self.constraint_x_y_w_h):
-            g_x = self._calculate_margin(s, constraint_set, negativeInside=False)
+            g_x = calculate_margin_rect(s, constraint_set, negativeInside=False)
             g_x_list.append(g_x)
 
         # enclosure_safety_margin
         boundary_x_y_w_h = np.append(self.midpoint, self.interval)
-        g_x = self._calculate_margin(s, boundary_x_y_w_h, negativeInside=True)
+        g_x = calculate_margin_rect(s, boundary_x_y_w_h, negativeInside=True)
         g_x_list.append(g_x)
 
         safety_margin = np.max(np.array(g_x_list))
@@ -458,8 +435,8 @@ class ZermeloShowEnv(gym.Env):
         l_x_list = []
 
         # target_set_safety_margin
-        for idx, target_set in enumerate(self.target_x_y_w_h):
-            l_x = self._calculate_margin(s, target_set, negativeInside=True)
+        for _, target_set in enumerate(self.target_x_y_w_h):
+            l_x = calculate_margin_rect(s, target_set, negativeInside=True)
             l_x_list.append(l_x)
 
         target_margin = np.max(np.array(l_x_list))

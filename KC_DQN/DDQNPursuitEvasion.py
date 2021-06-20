@@ -4,7 +4,6 @@
 # TODO
 # Here we aim to minimize the cost. We make the following two modifications:
 #  - u', d' = argmin_u' argmax_d' Q_policy(s', u', d'), 
-#  
 #  - loss = E[ ( y - Q_policy(s,a) )^2 ]
 
 
@@ -22,6 +21,7 @@ from .DDQN import DDQN, Transition
 
 import time
 
+# == local functions ==
 def actionIndexInt2Tuple(actionIdx, numActionList):
     numJoinAction = int(numActionList[0] * numActionList[1])
     assert actionIdx < numJoinAction, \
@@ -46,22 +46,21 @@ def actionIndexTuple2Int(actionIdxTuple, numActionList):
 
 class DDQNPursuitEvasion(DDQN):
     def __init__(self, CONFIG, numActionList, dimList, mode='RA',
-                    actType='Tanh', verbose=True):
+            terminalType='g', verbose=True):
         """
         __init__
 
         Args:
-            CONFIG ([type]): configuration.
-            numActionList ([int]): the dimensions of the action sets of the evader
-                and the pursuer.
-            dimList ([int]): dimensions of each layer in the NN
+            CONFIG (object): configuration.
+            numActionList (np.ndarray): the dimensions of the action sets of the
+                evader and the pursuer.
+            dimList (np.ndarray): dimensions of each layer in the NN.
             mode (str, optional): the learning mode. Defaults to 'RA'.
-            actType (str, optional): the type of activation function in the NN.
-                Defaults to 'Tanh'.
         """                    
         super(DDQNPursuitEvasion, self).__init__(CONFIG)
         
         self.mode = mode # 'normal' or 'RA'
+        self.terminalType = terminalType
 
         #== ENV PARAM ==
         self.numJoinAction = int(numActionList[0] * numActionList[1])
@@ -70,10 +69,13 @@ class DDQNPursuitEvasion(DDQN):
         #== Build NN for (D)DQN ==
         assert dimList is not None, "Define the architecture"
         assert dimList[-1] == self.numJoinAction, \
-            "We expect the dim of the last layer to be {:d}, but get {:d}".format(self.numJoinAction, dimList[-1])
+            "We expect the dim of the last layer to be {:d}, but get {:d}".format(
+                self.numJoinAction, dimList[-1])
         self.dimList = dimList
-        self.actType = actType
-        self.build_network(dimList, actType, verbose)
+        self.actType = CONFIG.ACTIVATION
+        self.build_network(dimList, self.actType, verbose)
+        print("DDQN: mode-{}; terminalType-{}".format(
+            self.mode, self.terminalType))
 
 
     def build_network(self, dimList, actType='Tanh', verbose=True):
@@ -87,7 +89,7 @@ class DDQNPursuitEvasion(DDQN):
         self.build_optimizer()
 
 
-    def update(self, addBias=False):
+    def update(self):
         if len(self.memory) < self.BATCH_SIZE*20:
             return
 
@@ -96,19 +98,8 @@ class DDQNPursuitEvasion(DDQN):
         # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for detailed explanation).
         # This converts batch-array of Transitions to Transition of batch-arrays.
         batch = Transition(*zip(*transitions))
-
-        # `non_final_mask` is used for environments that have next state to be None
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)),
-            dtype=torch.bool).to(self.device)
-        non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None]).to(self.device)
-        state  = torch.FloatTensor(batch.s).to(self.device)
-        action = torch.LongTensor(batch.a).to(self.device).view(-1,1)
-        reward = torch.FloatTensor(batch.r).to(self.device)
-        if self.mode == 'RA':
-            g_x = torch.FloatTensor([info['g_x'] for info in batch.info]).to(self.device).view(-1)
-            l_x = torch.FloatTensor([info['l_x'] for info in batch.info]).to(self.device).view(-1)
-            g_x_nxt = torch.FloatTensor([info['g_x_nxt'] for info in batch.info]).to(self.device).view(-1)
-            l_x_nxt = torch.FloatTensor([info['l_x_nxt'] for info in batch.info]).to(self.device).view(-1)
+        non_final_mask, non_final_state_nxt, state, action, reward, g_x, l_x = \
+            self.unpack_batch(batch)
 
         #== get Q(s,a) ==
         # `gather` reguires idx to be Long, input and index should have the same shape
@@ -118,7 +109,6 @@ class DDQNPursuitEvasion(DDQN):
         # view(-1): from mtx to vector
         state_action_values = self.Q_network(state).gather(dim=1, index=action).view(-1)
 
-        # ? >>> CHECK IF THIS IS CORRECT
         #== get a' ==
         # u', d' = argmin_u' argmax_d' Q_policy(s', u', d')
         # a' = tuple2Int(u', d')
@@ -128,11 +118,10 @@ class DDQNPursuitEvasion(DDQN):
             Q_mtx = state_nxt_action_values.detach().reshape(num_non_final, self.numActionList[0], self.numActionList[1])
             # minmax values and indices
             pursuerValues, colIndices = Q_mtx.max(dim=-1)
-            minmaxValue, rowIdx = pursuerValues.min(dim=-1)
+            _, rowIdx = pursuerValues.min(dim=-1)
             colIdx = colIndices[np.arange(num_non_final), rowIdx]
             action_nxt = [actionIndexTuple2Int((r,c), self.numActionList) for r, c in zip(rowIdx, colIdx)]
             action_nxt = torch.LongTensor(action_nxt).to(self.device).view(-1,1)
-        # ? <<<
 
         #== get expected value ==
         state_value_nxt = torch.zeros(self.BATCH_SIZE).to(self.device)
@@ -146,26 +135,30 @@ class DDQNPursuitEvasion(DDQN):
 
         #== Discounted Reach-Avoid Bellman Equation (DRABE) ==
         if self.mode == 'RA':
-            expected_state_action_values = torch.zeros(self.BATCH_SIZE).float().to(self.device)
-            if addBias: # Bias version: V(s) = gamma ( max{ g(s), min{ l(s), V_diff(s') } } - max{ g(s), l(s) } ),
-                        # where V_diff(s') = V(s') + max{ g(s'), l(s') }
-                min_term = torch.min(l_x, state_value_nxt+torch.max(l_x_nxt, g_x_nxt))
-                terminal = torch.max(l_x, g_x)
-                non_terminal = torch.max(min_term, g_x) - terminal
-                expected_state_action_values[non_final_mask] = self.GAMMA * non_terminal[non_final_mask]
-                expected_state_action_values[torch.logical_not(non_final_mask)] = terminal[torch.logical_not(non_final_mask)]
-            else:   # Better version instead of DRABE on the paper (discussed on Nov. 18, 2020)
-                    # V(s) = gamma ( max{ g(s), min{ l(s), V_better(s') } } + (1-gamma) max{ g(s), l(s) },
-                    # where V_better(s') = max{ g(s'), min{ l(s'), V(s') } }
-                V_better = torch.max( g_x_nxt, torch.min(l_x_nxt, state_value_nxt))
-                min_term = torch.min(l_x, V_better)
-                non_terminal = torch.max(min_term, g_x)
-                terminal = torch.max(l_x, g_x)
+            expected_state_action_values = torch.zeros(self.BATCH_SIZE).float().to(self.device) 
+            # Another version (discussed on Feb. 22, 2021):
+            # we want Q(s, u) = V( f(s,u) )
+            non_terminal = torch.max(
+                g_x[non_final_mask],
+                torch.min(
+                    l_x[non_final_mask],
+                    state_value_nxt[non_final_mask]
+                )
+            )
+            terminal = torch.max(l_x, g_x)
 
-                expected_state_action_values[non_final_mask] = non_terminal[non_final_mask] * self.GAMMA + \
-                                                               terminal[non_final_mask] * (1-self.GAMMA)
-                # if next state is None, we will use g(x) as the expected V(s)
-                expected_state_action_values[torch.logical_not(non_final_mask)] = g_x[torch.logical_not(non_final_mask)]
+            # normal state
+            expected_state_action_values[non_final_mask] = \
+                non_terminal * self.GAMMA + \
+                terminal[non_final_mask] * (1-self.GAMMA)
+            # terminal state
+            final_mask = torch.logical_not(non_final_mask)
+            if self.terminalType == 'g':
+                expected_state_action_values[final_mask] = g_x[final_mask]
+            elif self.terminalType == 'max':
+                expected_state_action_values[final_mask] = terminal[final_mask]
+            else:
+                raise ValueError("invalid terminalType")
         else: # V(s) = c(s, a) + gamma * V(s')
             expected_state_action_values = state_value_nxt * self.GAMMA + reward
 
@@ -220,9 +213,10 @@ class DDQNPursuitEvasion(DDQN):
             self.Q_network.eval()
             env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic')
             if storeFigure:
-                figureFolder = '{:s}/figure/'.format(outFolder)
+                figureFolder = os.path.join(outFolder, 'figure')
                 os.makedirs(figureFolder, exist_ok=True)
-                plt.savefig('{:s}initQ.png'.format(figureFolder))
+                figurePath = os.path.join(figureFolder, 'initQ.png')
+                plt.savefig(figurePath)
             if plotFigure:
                 plt.show()
                 plt.pause(0.001)
@@ -236,7 +230,7 @@ class DDQNPursuitEvasion(DDQN):
 
     def learn(  self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100,
                 warmupBuffer=True, warmupQ=False, warmupIter=10000,
-                addBias=False, doneTerminate=True, runningCostThr=None,
+                doneTerminate=True, runningCostThr=None,
                 curUpdates=None, checkPeriod=50000, 
                 plotFigure=True, storeFigure=False,
                 showBool=False, vmin=-1, vmax=1, numRndTraj=200,
@@ -302,12 +296,12 @@ class DDQNPursuitEvasion(DDQN):
         startInitQ = time.time()
         if warmupQ:
             self.initQ(env, warmupIter=warmupIter, outFolder=outFolder,
-                plotFigure=plotFigure, storeFigure=storeFigure, vmin=vmin, vmax=vmax)
+                    plotFigure=plotFigure, storeFigure=storeFigure,
+                    vmin=vmin, vmax=vmax)
         endInitQ = time.time()
 
         # == Main Training ==
         startLearning = time.time()
-        TrainingRecord = namedtuple('TrainingRecord', ['ep', 'runningCost', 'cost', 'lossC'])
         trainingRecords = []
         runningCost = 0.
         trainProgress = []
@@ -316,13 +310,20 @@ class DDQNPursuitEvasion(DDQN):
         if curUpdates is not None:
             self.cntUpdate = curUpdates
             print("starting from {:d} updates".format(self.cntUpdate))
+
+        if storeModel:
+            modelFolder = os.path.join(outFolder, 'model')
+            os.makedirs(modelFolder, exist_ok=True)
+        if storeFigure:
+            figureFolder = os.path.join(outFolder, 'figure')
+            os.makedirs(figureFolder, exist_ok=True)
+
         while self.cntUpdate <= MAX_UPDATES:
             s = env.reset()
             epCost = 0.
             ep += 1
             # Rollout
             for step_num in range(MAX_EP_STEPS):
-                # ? >>> CHECK IF THIS IS CORRECT
                 # Select action
                 actionIdx, actionIdxTuple = self.select_action(s, explore=True)
 
@@ -333,7 +334,6 @@ class DDQNPursuitEvasion(DDQN):
                 # Store the transition in memory
                 self.store_transition(s, actionIdx, r, s_, info)
                 s = s_
-                # ? <<<
 
                 # Check after fixed number of gradient updates
                 if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
@@ -357,27 +357,28 @@ class DDQNPursuitEvasion(DDQN):
                         if storeBest:
                             if success > checkPointSucc:
                                 checkPointSucc = success
-                                self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
+                                self.save(self.cntUpdate, modelFolder)
                         else:
-                            self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
+                            self.save(self.cntUpdate, modelFolder)
 
                     if plotFigure or storeFigure:
                         self.Q_network.eval()
                         if showBool:
-                            env.visualize(self.Q_network, vmin=0, boolPlot=True, addBias=addBias)
+                            env.visualize(self.Q_network, vmin=0, boolPlot=True)
                         else:
-                            env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic', addBias=addBias)
+                            env.visualize(self.Q_network, vmin=vmin, vmax=vmax, cmap='seismic')
                         if storeFigure:
-                            figureFolder = '{:s}/figure/'.format(outFolder)
-                            os.makedirs(figureFolder, exist_ok=True)
-                            plt.savefig('{:s}{:d}.png'.format(figureFolder, self.cntUpdate))
+                            figurePath = os.path.join(figureFolder,
+                                '{:d}.png'.format(self.cntUpdate))
+                            plt.savefig(figurePath)
                         if plotFigure:
                             plt.show()
                             plt.pause(0.001)
                             plt.close()
 
                 # Perform one step of the optimization (on the target network)
-                lossC = self.update(addBias=addBias)
+                lossC = self.update()
+                trainingRecords.append(lossC)
                 self.cntUpdate += 1
                 self.updateHyperParam()
 
@@ -387,11 +388,9 @@ class DDQNPursuitEvasion(DDQN):
 
             # Rollout report
             runningCost = runningCost * 0.9 + epCost * 0.1
-            trainingRecords.append(TrainingRecord(ep, runningCost, epCost, lossC))
             if verbose:
-                print('\r{:3.0f}: This episode gets running/episode cost = ({:3.2f}/{:.2f}) after {:d} steps.'.format(\
-                    ep, runningCost, epCost, step_num+1), end=' ')
-                print('The agent currently updates {:d} times'.format(self.cntUpdate), end='\t\t')
+                print('\r[{:d}-{:d}]: This episode gets running/episode cost = ({:3.2f}/{:.2f}) after {:d} steps.'.format(\
+                    ep, self.cntUpdate, runningCost, epCost, step_num+1), end='')
 
             # Check stopping criteria
             if runningCostThr != None:
@@ -403,9 +402,11 @@ class DDQNPursuitEvasion(DDQN):
         timeInitBuffer = endInitBuffer - startInitBuffer
         timeInitQ = endInitQ - startInitQ
         timeLearning = endLearning - startLearning
-        self.save(self.cntUpdate, '{:s}/model/'.format(outFolder))
+        self.save(self.cntUpdate, modelFolder)
         print('\nInitBuffer: {:.1f}, InitQ: {:.1f}, Learning: {:.1f}'.format(
             timeInitBuffer, timeInitQ, timeLearning))
+        trainingRecords = np.array(trainingRecords)
+        trainProgress = np.array(trainProgress)
         return trainingRecords, trainProgress
 
 
@@ -419,8 +420,24 @@ class DDQNPursuitEvasion(DDQN):
             state_action_values = self.Q_network(state)
             Q_mtx = state_action_values.detach().cpu().reshape(self.numActionList[0], self.numActionList[1])
             pursuerValues, colIndices = Q_mtx.max(dim=1)
-            minmaxValue, rowIdx = pursuerValues.min(dim=0)
+            _, rowIdx = pursuerValues.min(dim=0)
             colIdx = colIndices[rowIdx]
             actionIdxTuple = (np.array(rowIdx), np.array(colIdx))
             actionIdx = actionIndexTuple2Int(actionIdxTuple, self.numActionList)
         return actionIdx, actionIdxTuple
+
+
+    #== utils ==
+    def unpack_batch(self, batch):
+        # `non_final_mask` is used for environments that have next state to be None
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)),
+            dtype=torch.bool).to(self.device)
+        non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None]).to(self.device)
+        state  = torch.FloatTensor(batch.s).to(self.device)
+        action = torch.LongTensor(batch.a).to(self.device).view(-1,1)
+        reward = torch.FloatTensor(batch.r).to(self.device)
+
+        g_x = torch.FloatTensor([info['g_x'] for info in batch.info]).to(self.device).view(-1)
+        l_x = torch.FloatTensor([info['l_x'] for info in batch.info]).to(self.device).view(-1)
+
+        return non_final_mask, non_final_state_nxt, state, action, reward, g_x, l_x

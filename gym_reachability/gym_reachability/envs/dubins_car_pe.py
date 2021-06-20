@@ -11,6 +11,7 @@ import gym.spaces
 import numpy as np
 import gym
 import matplotlib.pyplot as plt
+from matplotlib.ticker import LinearLocator
 import torch
 import random
 
@@ -61,9 +62,24 @@ def rotatePoint(state, orientation):
 # endregion
 
 class DubinsCarPEEnv(gym.Env):
-    def __init__(self, device, mode='normal', doneType='toEnd',
+    def __init__(self, device, mode='RA', doneType='toEnd',
         sample_inside_obs=False, sample_inside_tar=True,
-        considerPursuerFailure=True):
+        considerPursuerFailure=False):
+        """
+        __init__
+
+        Args:
+            device (str): device type (used in PyTorch).
+            mode (str, optional): RL type. Defaults to 'RA'.
+            doneType (str, optional): conditions to raise `done flag in training.
+                Defaults to 'toEnd'.
+            sample_inside_obs (bool, optional): sampling initial states inside
+                of the obstacles or not. Defaults to False.
+            sample_inside_tar (bool, optional): sampling initial states inside
+                of the targets or not. Defaults to True.
+            considerPursuerFailure (bool, optional): the game outcome considers
+                the pursuer hitting the failure set or not. Defaults to False.
+        """        
         # Set random seed.
         self.set_seed(0)
 
@@ -100,8 +116,8 @@ class DubinsCarPEEnv(gym.Env):
         self.time_step = 0.05
         self.speed = 0.75 # v
         self.R_turn = self.speed / 3
-        self.pursuer = DubinsCarDyn(doneType=doneType)
-        self.evader = DubinsCarDyn(doneType=doneType)
+        self.pursuer = DubinsCarDyn(doneType='toEnd')
+        self.evader = DubinsCarDyn(doneType='toEnd')
         self.init_car()
 
         # Internal state.
@@ -114,7 +130,7 @@ class DubinsCarPEEnv(gym.Env):
                                         np.array([ -0.9,   0.,    0., -0.2, -0.3, .75*np.pi]),
                                         np.array([ -0.6,   0., np.pi,  0.1,   0.,     np.pi]),
                                         np.array([ -0.8, -0.4,    0., -0.4,  0.8,        0.])]
-        
+
         # Cost parameters
         self.targetScaling = 1.
         self.safetyScaling = 1.
@@ -150,19 +166,6 @@ class DubinsCarPEEnv(gym.Env):
         Returns:
             The state the environment has been reset to.
         """
-        # if self.considerPursuerFailure:
-        #     capture_g_x = 1.
-        #     while capture_g_x > 0:
-        #         stateEvader = self.evader.reset(start=start[:3],
-        #             sample_inside_obs=self.sample_inside_obs,
-        #             sample_inside_tar=self.sample_inside_tar)
-        #         statePursuer = self.pursuer.reset(start=start[3:],
-        #             sample_inside_obs=self.sample_inside_obs,
-        #             sample_inside_tar=self.sample_inside_tar)
-
-        #         dist_evader_pursuer = np.linalg.norm(
-        #                                 stateEvader[:2]-statePursuer[:2], ord=2)
-        #         capture_g_x = self.capture_range - dist_evader_pursuer
         if start is not None:
             stateEvader = self.evader.reset(start=start[:3])
             statePursuer = self.pursuer.reset(start=start[3:])
@@ -185,7 +188,7 @@ class DubinsCarPEEnv(gym.Env):
             theta=theta)
         statePursuer = self.pursuer.sample_random_state(
             sample_inside_obs=sample_inside_obs,
-            sample_inside_tar=sample_inside_tar, 
+            sample_inside_tar=sample_inside_tar,
             theta=theta)
         return np.concatenate((stateEvader, statePursuer), axis=0)
 
@@ -206,22 +209,19 @@ class DubinsCarPEEnv(gym.Env):
         if distance >= 1e-8:
             raise "There is a mismatch between the env state and car state: {:.2e}".format(distance)
 
-        l_x_cur = self.target_margin(self.state)
-        g_x_cur = self.safety_margin(self.state)
-
         stateEvader,  doneEvader = self.evader.step(action[0])
         statePursuer, donePursuer = self.pursuer.step(action[0])
 
         self.state = np.concatenate((stateEvader, statePursuer), axis=0)
-        l_x_nxt = self.target_margin(self.state)
-        g_x_nxt = self.safety_margin(self.state)
-        info = {"g_x": g_x_cur, "l_x": l_x_cur, "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt} 
+        l_x = self.target_margin(self.state)
+        g_x = self.safety_margin(self.state)
+
+        fail = g_x > 0
+        success = l_x <= 0
 
         # cost
         assert self.mode == 'RA', "PE environment doesn't support conventional RL yet"
         if self.mode == 'RA':
-            fail = g_x_cur > 0
-            success = l_x_cur <= 0
             if fail:
                 cost = self.penalty
             elif success:
@@ -229,8 +229,21 @@ class DubinsCarPEEnv(gym.Env):
             else:
                 cost = 0.
 
-        done = doneEvader and donePursuer
+        #= `done` signal
+        if self.doneType == 'toEnd':
+            done = doneEvader and donePursuer
+        elif self.doneType == 'fail':
+            done = fail
+        elif self.doneType == 'TF':
+            done = fail or success
+        else:
+            raise ValueError("invalid done type!")
 
+        #= `info`
+        if done and self.doneType == 'fail':
+            info = {"g_x": self.penalty, "l_x": l_x}
+        else:
+            info = {"g_x": g_x, "l_x": l_x}
         return np.copy(self.state), cost, done, info
 
 
@@ -304,7 +317,7 @@ class DubinsCarPEEnv(gym.Env):
         torch.manual_seed(self.seed_val)
         torch.cuda.manual_seed(self.seed_val)
         torch.cuda.manual_seed_all(self.seed_val)  # if you are using multi-GPU.
-        random.seed(self.seed_val) 
+        random.seed(self.seed_val)
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
 
@@ -348,7 +361,7 @@ class DubinsCarPEEnv(gym.Env):
 
 
 #== Getting Functions ==
-    def get_warmup_examples(self, num_warmup_samples=100, 
+    def get_warmup_examples(self, num_warmup_samples=100,
         theta=None, xPursuer=None, yPursuer=None, thetaPursuer=None):
         lowExt = np.tile(self.low, 2)
         highExt = np.tile(self.high, 2)
@@ -425,12 +438,12 @@ class DubinsCarPEEnv(gym.Env):
 
 
     def report(self):
-        stateNum = self.state.shape[0]
+        stateDim = self.state.shape[0]
         actionNum = self.action_space.n
         print("Env: mode---{:s}; doneType---{:s}".format(
             self.mode, self.doneType))
         print("State Dimension: {:d}, ActionSpace Dimension: {:d}".format(
-            stateNum, actionNum))
+            stateDim, actionNum))
         print("Dynamic parameters:")
         print("  EVADER", end='\n    ')
         print("Constraint: {:.1f}".format(self.evader.constraint_radius), end=', ')
@@ -447,7 +460,7 @@ class DubinsCarPEEnv(gym.Env):
             print("Target set also includes failure set of the pursuer")
         else:
             print("Target set only includes target set of the evader")
-        print(self.evader.discrete_controls)
+        print('Discrete Controls:', self.evader.discrete_controls)
         if 2*self.evader.R_turn-self.evader.constraint_radius > self.evader.target_radius:
             print("Type II Reach-Avoid Set")
         else:
@@ -467,7 +480,7 @@ class DubinsCarPEEnv(gym.Env):
                 theta=theta)
             statePursuer = self.pursuer.sample_random_state(
                 sample_inside_obs=sample_inside_obs,
-                sample_inside_tar=sample_inside_tar, 
+                sample_inside_tar=sample_inside_tar,
                 theta=theta)
         else:
             stateEvader  = state[:3]
@@ -475,7 +488,7 @@ class DubinsCarPEEnv(gym.Env):
 
         trajEvader = []
         trajPursuer = []
-        result = 0 # not finished
+        result = -1 # not finished
 
         valueList=[]
         gxList=[]
@@ -522,7 +535,7 @@ class DubinsCarPEEnv(gym.Env):
                 state_action_values = q_func(stateTensor)
             Q_mtx = state_action_values.reshape(self.numActionList[0], self.numActionList[1])
             pursuerValues, colIndices = Q_mtx.max(dim=1)
-            minmaxValue, rowIdx = pursuerValues.min(dim=0)
+            _, rowIdx = pursuerValues.min(dim=0)
             colIdx = colIndices[rowIdx]
 
             # If cars are within the boundary, we update their states according to the controls
@@ -576,7 +589,6 @@ class DubinsCarPEEnv(gym.Env):
                     labels=None, boolPlot=False, addBias=False, theta=0.,
                     rndTraj=False, num_rnd_traj=10, keepOutOf=False):
 
-        axStyle = self.get_axes()
         fig, axes = plt.subplots(1,4, figsize=(16, 4))
 
         for i, (ax, state) in enumerate(zip(axes, self.visual_initial_states)):
@@ -584,17 +596,14 @@ class DubinsCarPEEnv(gym.Env):
             ax.cla()
             if i == 3:
                 cbarPlot=True
-            else: 
+            else:
                 cbarPlot=False
-
-            #== Formatting ==
-            self.plot_formatting(ax=ax, labels=labels)
 
             #== Plot failure / target set ==
             self.plot_target_failure_set(ax=ax, xPursuer=state[0][3], yPursuer=state[0][4])
 
             #== Plot V ==
-            self.plot_v_values( q_func, ax=ax, fig=fig, theta=state[0][0],
+            self.plot_v_values( q_func, ax=ax, fig=fig, theta=state[0][2],
                                 xPursuer=state[0][3], yPursuer=state[0][4], thetaPursuer=state[0][5],
                                 vmin=vmin, vmax=vmax, nx=nx, ny=ny, cmap=cmap,
                                 boolPlot=boolPlot, cbarPlot=cbarPlot, addBias=addBias)
@@ -605,8 +614,11 @@ class DubinsCarPEEnv(gym.Env):
                                         toEnd=False, keepOutOf=keepOutOf,
                                         ax=ax, orientation=0)
             else:
-                self.plot_trajectories( q_func, T=200, states=state, toEnd=False, 
+                self.plot_trajectories( q_func, T=200, states=state, toEnd=False,
                                         ax=ax, orientation=0)
+
+            #== Formatting ==
+            self.plot_formatting(ax=ax, labels=labels)
         plt.tight_layout()
 
 
@@ -623,17 +635,19 @@ class DubinsCarPEEnv(gym.Env):
             ax.set_xlabel(labels[0], fontsize=52)
             ax.set_ylabel(labels[1], fontsize=52)
 
-        ax.tick_params( axis='both', which='both',  # both x and y axes, both major and minor ticks are affected
-                        bottom=False, top=False,    # ticks along the top and bottom edges are off
-                        left=False, right=False)    # ticks along the left and right edges are off
-        # ax.set_xticklabels([])
-        # ax.set_yticklabels([])
+        ax.tick_params( axis='both', which='both',
+                        bottom=False, top=False,
+                        left=False, right=False)
+        ax.xaxis.set_major_locator(LinearLocator(5))
+        ax.xaxis.set_major_formatter('{x:.1f}')
+        ax.yaxis.set_major_locator(LinearLocator(5))
+        ax.yaxis.set_major_formatter('{x:.1f}')
 
 
     # ? Check get_values, 2D-plot based on evader's x and y
     def plot_v_values(  self, q_func, theta=0, xPursuer=.5, yPursuer=.5, thetaPursuer=0,
                         ax=None, fig=None,
-                        vmin=-1, vmax=1, nx=101, ny=101, cmap='coolwarm',
+                        vmin=-1, vmax=1, nx=101, ny=101, cmap='seismic',
                         boolPlot=False, cbarPlot=True, addBias=False):
         axStyle = self.get_axes()
 
@@ -668,8 +682,8 @@ class DubinsCarPEEnv(gym.Env):
                 tmpStates.append(np.concatenate((stateEvaderTilde, statePursuerTilde), axis=0))
             states = tmpStates
 
-        trajectories, results, minVs = self.simulate_trajectories(   q_func, T=T, num_rnd_traj=num_rnd_traj, 
-                                                                    states=states, theta=theta, 
+        trajectories, results, minVs = self.simulate_trajectories(   q_func, T=T, num_rnd_traj=num_rnd_traj,
+                                                                    states=states, theta=theta,
                                                                     keepOutOf=keepOutOf, toEnd=toEnd)
         if ax == None:
             ax = plt.gca()

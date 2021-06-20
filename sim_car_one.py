@@ -1,4 +1,11 @@
-from warnings import simplefilter 
+# Please contact the author(s) of this library if you have any questions.
+# Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
+
+# Examples:
+    # RA: python3 sim_car_one.py -sf -of scratch -w -wi 5000 -g 0.9999 -n 9999
+    # test: python3 sim_car_one.py -sf -of scratch -w -wi 50 -mu 1000 -cp 400 -n tmp
+
+from warnings import simplefilter
 simplefilter(action='ignore', category=FutureWarning)
 
 from gym_reachability import gym_reachability  # Custom Gym env.
@@ -21,8 +28,6 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 
 #== ARGS ==
-# python3 sim_car_one.py -sf -of scratch -w -wi 5000 -g 0.9999 -n 9999
-# test: python3 sim_car_one.py -sf -of scratch -w -wi 50 -mu 1000 -cp 400 -n tmp
 parser = argparse.ArgumentParser()
 
 # environment parameters
@@ -323,7 +328,7 @@ if args.plotFigure or args.storeFigure:
 
     # region: value_rollout_action
     idx = np.argmax(trainProgress[:, 0]) + 1
-    successRate = np.amax(trainProgress[:, 0]) 
+    successRate = np.amax(trainProgress[:, 0])
     print('We pick model with success rate-{:.3f}'.format(successRate))
     agent.restore(idx*args.checkPeriod, outFolder)
 
@@ -382,7 +387,7 @@ if args.plotFigure or args.storeFigure:
         env.plot_target_failure_set(ax=ax)
         env.plot_reach_avoid_set(ax=ax)
         env.plot_formatting(ax=ax)
-        
+
     fig.tight_layout()
     if args.storeFigure:
         figurePath = os.path.join(figureFolder, 'value_rollout_action.png')

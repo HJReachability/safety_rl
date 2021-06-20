@@ -1,4 +1,11 @@
-from warnings import simplefilter 
+# Please contact the author(s) of this library if you have any questions.
+# Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
+
+# Examples:
+    # RA: python3 sim_car_pe.py -sf -of scratch -w -wi 30000 -g 0.9999 -n 9999
+    # test: python3 sim_car_pe.py -sf -of scratch -n tmp -mu 100 -cp 40
+
+from warnings import simplefilter
 simplefilter(action='ignore', category=FutureWarning)
 
 from gym_reachability import gym_reachability  # Custom Gym env.
@@ -21,8 +28,6 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 
 #== ARGS ==
-# python3 sim_car_pe.py -sf -of scratch -w -wi 30000 -g 0.9999 -n 9999
-# test: python3 sim_car_pe.py -sf -of scratch -n tmp -mu 100 -cp 40
 parser = argparse.ArgumentParser()
 
 # environment parameters
@@ -142,7 +147,7 @@ if args.plotFigure or args.storeFigure:
             idx = it.multi_index
             x = xs[idx[0]]
             y = ys[idx[1]]
-            
+
             state = np.array([x, y, theta, xPursuer, yPursuer, thetaPursuer])
             l_x[i][idx] = env.target_margin(state)
             g_x[i][idx] = env.safety_margin(state)
@@ -278,7 +283,7 @@ if args.plotFigure or args.storeFigure:
 
     # region: value_rollout_action
     idx = np.argmax(trainProgress[:, 0]) + 1
-    successRate = np.amax(trainProgress[:, 0]) 
+    successRate = np.amax(trainProgress[:, 0])
     print('We pick model with success rate-{:.3f}'.format(successRate))
     agent.restore(idx*args.checkPeriod, outFolder)
 
@@ -343,7 +348,7 @@ if args.plotFigure or args.storeFigure:
     for ax in axes:
         env.plot_target_failure_set(ax=ax, xPursuer=-0.2, yPursuer=-0.3)
         env.plot_formatting(ax=ax)
-        
+
     fig.tight_layout()
     if args.storeFigure:
         figurePath = os.path.join(figureFolder, 'value_rollout_action.png')

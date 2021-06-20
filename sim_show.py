@@ -13,7 +13,7 @@
     # test: python3 sim_show.py -w -sf -of scratch -wi 100 -mu 500 -cp 200
     # easy: python3 sim_show.py -sf -of scratch -n 9999 -t 0.2 -e
 
-from warnings import simplefilter 
+from warnings import simplefilter
 simplefilter(action='ignore', category=FutureWarning)
 
 from gym_reachability import gym_reachability  # Custom Gym env.
@@ -310,7 +310,7 @@ if plotFigure or storeFigure:
 
     # region: value_rollout_action
     idx = np.argmax(trainProgress[:, 0]) + 1
-    successRate = np.amax(trainProgress[:, 0]) 
+    successRate = np.amax(trainProgress[:, 0])
     print('We pick model with success rate-{:.3f}'.format(successRate))
     agent.restore(idx*args.checkPeriod, outFolder)
 
@@ -369,7 +369,7 @@ if plotFigure or storeFigure:
         env.plot_target_failure_set(ax=ax)
         env.plot_reach_avoid_set(ax=ax)
         env.plot_formatting(ax=ax)
-        
+
     fig.tight_layout()
     if storeFigure:
         figurePath = os.path.join(figureFolder, 'value_rollout_action.png')

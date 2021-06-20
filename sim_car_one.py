@@ -366,7 +366,7 @@ if args.plotFigure or args.storeFigure:
     im = ax.imshow(resultMtx.T != 1, interpolation='none', extent=axStyle[0],
         origin="lower", cmap='seismic', vmin=0, vmax=1, zorder=-1)
     env.plot_trajectories(agent.Q_network, states=env.visual_initial_states,
-        toEnd=False, ax=ax, c='w', lw=1.5, T=100)
+        toEnd=False, ax=ax, c='w', lw=1.5, T=100, orientation=-np.pi/2)
     ax.set_xlabel('Rollout RA', fontsize=24)
 
     #= Value

@@ -3,7 +3,6 @@
 
 
 import torch
-from torch.nn.functional import mse_loss, smooth_l1_loss
 import torch.optim as optim
 
 from collections import namedtuple
@@ -18,6 +17,12 @@ from .utils import soft_update, save_model
 Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
 class DDQN():
     def __init__(self, CONFIG):
+        """
+        __init__
+
+        Args:
+            CONFIG (object): configuration.
+        """
         self.CONFIG = CONFIG
         self.saved = False
         self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)
@@ -123,3 +128,27 @@ class DDQN():
         self.target_network.load_state_dict(
             torch.load(logs_path, map_location=self.device))
         print('  => Restore {}' .format(logs_path))
+
+
+    def unpack_batch(self, batch):
+        """
+        unpack_batch: decompose batch into different variables.
+
+        Args:
+            batch (object): Transition of batch-arrays.
+
+        Returns:
+            tuple of torch.Tensor.
+        """        
+        # `non_final_mask` is used for environments that have next state to be None
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)),
+            dtype=torch.bool).to(self.device)
+        non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None]).to(self.device)
+        state  = torch.FloatTensor(batch.s).to(self.device)
+        action = torch.LongTensor(batch.a).to(self.device).view(-1,1)
+        reward = torch.FloatTensor(batch.r).to(self.device)
+
+        g_x = torch.FloatTensor([info['g_x'] for info in batch.info]).to(self.device).view(-1)
+        l_x = torch.FloatTensor([info['l_x'] for info in batch.info]).to(self.device).view(-1)
+
+        return non_final_mask, non_final_state_nxt, state, action, reward, g_x, l_x

@@ -28,11 +28,9 @@ class ReplayMemory(object):
             self.isfull = True
 
     def sample(self, batch_size):
-        # return random.sample(self.memory, batch_size)
         length = len(self.memory)
         indices = np.random.randint(low=0, high=length, size=(batch_size,))
         return [self.memory[i] for i in indices]
-        # return np.array(self.memory[indices], dtype=object)
 
     def __len__(self):
         return len(self.memory)

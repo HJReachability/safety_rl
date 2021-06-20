@@ -22,7 +22,7 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 #== ARGS ==
 # python3 sim_car_pe.py -sf -of scratch -w -wi 30000 -g 0.9999 -n 9999
-# test: python3 sim_car_pe.py -sf -of scratch -g 0.9999 -n tmp -mu 100 -cp 40
+# test: python3 sim_car_pe.py -sf -of scratch -n tmp -mu 100 -cp 40
 parser = argparse.ArgumentParser()
 
 # environment parameters
@@ -298,9 +298,10 @@ if args.plotFigure or args.storeFigure:
         y = ys[idx[1]]
 
         state = np.array([x, y, 0., -0.2, -0.3, .75*np.pi])
-        stateTensor = torch.FloatTensor(state).unsqueeze(0)
+        stateTensor = torch.FloatTensor(state).to(agent.device).unsqueeze(0)
         state_action_values = agent.Q_network(stateTensor)
         Q_mtx = state_action_values.reshape(env.numActionList[0], env.numActionList[1])
+        # Q_mtx = Q_mtx.detach().cpu()
         pursuerValues, colIndices = Q_mtx.max(dim=1)
         _, rowIdx = pursuerValues.min(dim=0)
         colIdx = colIndices[rowIdx]
@@ -341,7 +342,6 @@ if args.plotFigure or args.storeFigure:
 
     for ax in axes:
         env.plot_target_failure_set(ax=ax, xPursuer=-0.2, yPursuer=-0.3)
-        env.plot_reach_avoid_set(ax=ax)
         env.plot_formatting(ax=ax)
         
     fig.tight_layout()

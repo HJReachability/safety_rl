@@ -1,17 +1,15 @@
 # Please contact the author(s) of this library if you have any questions.
 # Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
-# TODO
-# Here we aim to minimize the cost. We make the following two modifications:
-#  - u', d' = argmin_u' argmax_d' Q_policy(s', u', d'), 
+# We make the following two modifications:
+#  - u', d' = argmin_u' argmax_d' Q_policy(s', u', d'),
 #  - loss = E[ ( y - Q_policy(s,a) )^2 ]
 
 
 import torch
 import torch.nn as nn
-from torch.nn.functional import mse_loss, smooth_l1_loss
+from torch.nn.functional import smooth_l1_loss
 
-from collections import namedtuple
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -23,6 +21,17 @@ import time
 
 # == local functions ==
 def actionIndexInt2Tuple(actionIdx, numActionList):
+    """
+    actionIndexInt2Tuple: transform an action index to tuple of action indices.
+
+    Args:
+        actionIdx (int): action index to the discrete action set.
+        numActionList (list): consists of #actions in evader and pursuer's
+            action set.
+
+    Returns:
+        tuple of int: indices for the Q-matrix.
+    """
     numJoinAction = int(numActionList[0] * numActionList[1])
     assert actionIdx < numJoinAction, \
         "The size of joint action set is {:d} but get index {:d}".format(
@@ -32,6 +41,17 @@ def actionIndexInt2Tuple(actionIdx, numActionList):
     return (rowIdx, colIdx)
 
 def actionIndexTuple2Int(actionIdxTuple, numActionList):
+    """
+    actionIndexTuple2Int: transform tuple of action indices to an action index.
+
+    Args:
+        actionIdxTuple (tuple of int): indices for the Q-matrix.
+        numActionList (list): consists of #actions in evader and pursuer's
+            action set.
+
+    Returns:
+        int: action index to the discrete action set.
+    """
     rowIdx, colIdx = actionIdxTuple
     assert rowIdx < numActionList[0], \
         "The size of evader's action set is {:d} but get index {:d}".format(
@@ -56,9 +76,11 @@ class DDQNPursuitEvasion(DDQN):
                 evader and the pursuer.
             dimList (np.ndarray): dimensions of each layer in the NN.
             mode (str, optional): the learning mode. Defaults to 'RA'.
-        """                    
+            terminalType (str, optional): terminal value. Defaults to 'g'.
+            verbose (bool, optional): print or not. Defaults to True.
+        """
         super(DDQNPursuitEvasion, self).__init__(CONFIG)
-        
+
         self.mode = mode # 'normal' or 'RA'
         self.terminalType = terminalType
 
@@ -79,6 +101,14 @@ class DDQNPursuitEvasion(DDQN):
 
 
     def build_network(self, dimList, actType='Tanh', verbose=True):
+        """
+        build_network
+
+        Args:
+            dimList (np.ndarray): dimensions of each layer in the NN.
+            actType (str, optional): activation function. Defaults to 'Tanh'.
+            verbose (bool, optional): print or not. Defaults to True.
+        """
         self.Q_network = model(dimList, actType, verbose=verbose)
         self.target_network = model(dimList, actType)
 
@@ -90,6 +120,12 @@ class DDQNPursuitEvasion(DDQN):
 
 
     def update(self):
+        """
+        update: update the critic.
+
+        Returns:
+            float: critic loss.
+        """
         if len(self.memory) < self.BATCH_SIZE*20:
             return
 
@@ -135,7 +171,7 @@ class DDQNPursuitEvasion(DDQN):
 
         #== Discounted Reach-Avoid Bellman Equation (DRABE) ==
         if self.mode == 'RA':
-            expected_state_action_values = torch.zeros(self.BATCH_SIZE).float().to(self.device) 
+            expected_state_action_values = torch.zeros(self.BATCH_SIZE).float().to(self.device)
             # Another version (discussed on Feb. 22, 2021):
             # we want Q(s, u) = V( f(s,u) )
             non_terminal = torch.max(
@@ -178,6 +214,12 @@ class DDQNPursuitEvasion(DDQN):
 
 
     def initBuffer(self, env):
+        """
+        initBuffer: randomly put some transitions into the memory replay buffer.
+
+        Args:
+            env (gym.Env Obj.): environment.
+        """
         cnt = 0
         while len(self.memory) < self.memory.capacity:
             cnt += 1
@@ -191,7 +233,24 @@ class DDQNPursuitEvasion(DDQN):
 
     def initQ(self, env, warmupIter, outFolder, num_warmup_samples=200,
                 vmin=-1, vmax=1, plotFigure=True, storeFigure=True):
+        """
+        initQ: initalize Q-network.
 
+        Args:
+            env (gym.Env Obj.): environment.
+            warmupIter (int, optional): the number of iterations in the
+                Q-network warmup.
+            outFolder (str, optional): the relative folder path with respect to
+                model/ and figure/.
+            num_warmup_samples (int, optional): Defaults to 200.
+            vmin (float, optional): the minimal value in the colorbar. Defaults to -1.
+            vmax (float, optional): the maximal value in the colorbar. Defaults to 1.
+            plotFigure (bool, optional): plot figures if True. Defaults to True.
+            storeFigure (bool, optional): store figures if True. Defaults to False.
+
+        Returns:
+            np.ndarray: loss of fitting Q-values to heuristic values.
+        """
         lossList = []
         for iterIdx in range(warmupIter):
             print('\rWarmup Q [{:d}]'.format(iterIdx+1), end='')
@@ -231,58 +290,52 @@ class DDQNPursuitEvasion(DDQN):
     def learn(  self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100,
                 warmupBuffer=True, warmupQ=False, warmupIter=10000,
                 doneTerminate=True, runningCostThr=None,
-                curUpdates=None, checkPeriod=50000, 
+                curUpdates=None, checkPeriod=50000,
                 plotFigure=True, storeFigure=False,
                 showBool=False, vmin=-1, vmax=1, numRndTraj=200,
-                storeModel=True, storeBest=False, 
+                storeModel=True, storeBest=False,
                 outFolder='RA', verbose=True):
         """
-        learn: Learns the vlaue function.
+        learn: Learns the state vlaue function.
 
         Args:
             env (gym.Env Obj.): environment.
-            MAX_UPDATES (int, optional): the maximal number of gradient 
-                updates. Defaults to 2000000.
-            MAX_EP_STEPS (int, optional): the number of steps in an episode. 
+            MAX_UPDATES (int, optional): the maximal number of gradient updates.
+                Defaults to 2000000.
+            MAX_EP_STEPS (int, optional): the number of steps in an episode.
                 Defaults to 100.
             warmupBuffer (bool, optional): fill the replay buffer if True.
                 Defaults to True.
-            warmupQ (bool, optional): train the Q-network by (l_x, g_x) if 
-                True. Defaults to False.
-            warmupIter (int, optional): the number of iterations in the 
+            warmupQ (bool, optional): train the Q-network by (l_x, g_x) if True.
+                Defaults to False.
+            warmupIter (int, optional): the number of iterations in the
                 Q-network warmup. Defaults to 10000.
-            addBias (bool, optional): use biased version of value function if 
-                True. Defaults to False.
-            doneTerminate (bool, optional): ends the episode when the agent 
+            doneTerminate (bool, optional): ends the episode when the agent
                 crosses the boundary if True. Defaults to True.
-            runningCostThr (float, optional): ends the training if the running 
+            runningCostThr (float, optional): ends the training if the running
                 cost is smaller than the threshold. Defaults to None.
-            curUpdates (int, optional): set the current number of updates 
+            curUpdates (int, optional): set the current number of updates
                 (usually used when restoring trained models). Defaults to None.
             checkPeriod (int, optional): the period we check the performance.
                 Defaults to 50000.
             plotFigure (bool, optional): plot figures if True. Defaults to True.
-            storeFigure (bool, optional): store figures if True. Defaults to 
-                False.
-            showBool (bool, optional): use bool value function if True. 
+            storeFigure (bool, optional): store figures if True. Defaults to False.
+            showBool (bool, optional): use bool value function if True.
                 Defaults to False.
-            vmin (float, optional): the minimal value in the colorbar. Defaults 
-                to -1.
-            vmax (float, optional): the maximal value in the colorbar. Defaults 
-                to 1.
-            numRndTraj (int, optional): the number of random trajectories used 
+            vmin (float, optional): the minimal value in the colorbar. Defaults to -1.
+            vmax (float, optional): the maximal value in the colorbar. Defaults to 1.
+            numRndTraj (int, optional): the number of random trajectories used
                 to obtain the success ratio. Defaults to 200.
             storeModel (bool, optional): store models if True. Defaults to True.
-            storeBest (bool, optional): only store the best model if True. 
+            storeBest (bool, optional): only store the best model if True.
                 Defaults to False.
-            outFolder (str, optional): the relative folder path with respect to 
-                models/ and figure/. Defaults to 'RA'.
+            outFolder (str, optional): the relative folder path with respect to
+                model/ and figure/. Defaults to 'RA'.
             verbose (bool, optional): output message if True. Defaults to True.
 
         Returns:
-            trainingRecords (List): each entry consists of  ['ep', 
-                'runningCost', 'cost', 'lossC'] after every episode.
-            trainProgress (List): each entry consists of the 
+            trainingRecords (np.ndarray): loss_critic for every update.
+            trainProgress (np.ndarray): each entry consists of the
                 success/failure/unfinished ratio of random trajectories and is
                 checked periodically.
         """
@@ -338,7 +391,7 @@ class DDQNPursuitEvasion(DDQN):
                 # Check after fixed number of gradient updates
                 if self.cntUpdate != 0 and self.cntUpdate % checkPeriod == 0:
                     self.Q_network.eval()
-                    _, results, _ = env.simulate_trajectories(  self.Q_network, T=MAX_EP_STEPS, 
+                    _, results, _ = env.simulate_trajectories(  self.Q_network, T=MAX_EP_STEPS,
                                                                 num_rnd_traj=numRndTraj,
                                                                 keepOutOf=False, toEnd=False)
                     success  = np.sum(results==1) / numRndTraj
@@ -411,6 +464,18 @@ class DDQNPursuitEvasion(DDQN):
 
 
     def select_action(self, state, explore=False):
+        """
+        select_action
+
+        Args:
+            state (np.ndarray): state
+            explore (bool, optional): randomized the deterministic action by
+                epsilon-greedy. Defaults to False.
+
+        Returns:
+            int: action index
+            tuple of int: indices to access the Q-value matrix.
+        """
         if (np.random.rand() < self.EPSILON) and explore:
             actionIdx = np.random.randint(0, self.numJoinAction)
             actionIdxTuple = actionIndexInt2Tuple(actionIdx, self.numActionList)
@@ -427,17 +492,17 @@ class DDQNPursuitEvasion(DDQN):
         return actionIdx, actionIdxTuple
 
 
-    #== utils ==
-    def unpack_batch(self, batch):
-        # `non_final_mask` is used for environments that have next state to be None
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)),
-            dtype=torch.bool).to(self.device)
-        non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None]).to(self.device)
-        state  = torch.FloatTensor(batch.s).to(self.device)
-        action = torch.LongTensor(batch.a).to(self.device).view(-1,1)
-        reward = torch.FloatTensor(batch.r).to(self.device)
+    # #== utils ==
+    # def unpack_batch(self, batch):
+    #     # `non_final_mask` is used for environments that have next state to be None
+    #     non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)),
+    #         dtype=torch.bool).to(self.device)
+    #     non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None]).to(self.device)
+    #     state  = torch.FloatTensor(batch.s).to(self.device)
+    #     action = torch.LongTensor(batch.a).to(self.device).view(-1,1)
+    #     reward = torch.FloatTensor(batch.r).to(self.device)
 
-        g_x = torch.FloatTensor([info['g_x'] for info in batch.info]).to(self.device).view(-1)
-        l_x = torch.FloatTensor([info['l_x'] for info in batch.info]).to(self.device).view(-1)
+    #     g_x = torch.FloatTensor([info['g_x'] for info in batch.info]).to(self.device).view(-1)
+    #     l_x = torch.FloatTensor([info['l_x'] for info in batch.info]).to(self.device).view(-1)
 
-        return non_final_mask, non_final_state_nxt, state, action, reward, g_x, l_x
+    #     return non_final_mask, non_final_state_nxt, state, action, reward, g_x, l_x

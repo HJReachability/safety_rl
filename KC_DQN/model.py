@@ -121,7 +121,7 @@ class GaussianPolicy(nn.Module):
 
         self.actionSpace = actionSpace
         self.a_max = self.actionSpace.high[0]
-        self.a_min = self.actionSpace.low[0]  
+        self.a_min = self.actionSpace.low[0]
         self.scale = (self.a_max - self.a_min) / 2.0
         self.bias = (self.a_max + self.a_min) / 2.0
 
@@ -191,7 +191,7 @@ class DeterministicPolicy(nn.Module):
         self.noiseStd = noiseStd
 
         self.a_max = self.actionSpace.high[0]
-        self.a_min = self.actionSpace.low[0]  
+        self.a_min = self.actionSpace.low[0]
         self.scale = (self.a_max - self.a_min) / 2.0
         self.bias = (self.a_max + self.a_min) / 2.0
 

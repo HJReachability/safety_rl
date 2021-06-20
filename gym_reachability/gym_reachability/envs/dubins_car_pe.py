@@ -1,11 +1,9 @@
-# Copyright (c) 2020–2021, The Regents of the University of California.
-# All rights reserved.
-#
-# This file is subject to the terms and conditions defined in the LICENSE file
-# included in this repository.
-#
 # Please contact the author(s) of this library if you have any questions.
 # Authors: Kai-Chieh Hsu        ( kaichieh@princeton.edu )
+
+# This environment considers Dubins car dynamics. We construct this
+# environemnt to investigate if the single-agent reach-avoid Q-learning can be
+# extended to a two-agent pursuit-evasion game.
 
 import gym.spaces
 import numpy as np
@@ -16,50 +14,12 @@ import torch
 import random
 
 from .dubins_car_dyn import DubinsCarDyn
+from .env_utils import plot_circle, rotatePoint
 
 # Local Variables
 purple  = '#9370DB'
 tiffany = '#0abab5'
 silver = '#C0C0C0'
-
-# region: Local Functions
-def plot_arc(p, r, thetaParam, ax, c='b', lw=1.5, orientation=0):
-    x, y = p
-    thetaInit, thetaFinal = thetaParam
-
-    xtilde = x*np.cos(orientation) - y*np.sin(orientation)
-    ytilde = y*np.cos(orientation) + x*np.sin(orientation)
-
-    theta = np.linspace(thetaInit+orientation, thetaFinal+orientation, 100)
-    xs = xtilde + r * np.cos(theta)
-    ys = ytilde + r * np.sin(theta)
-
-    ax.plot(xs, ys, c=c, lw=lw)
-
-
-def plot_circle(center, r, ax, c='b', lw=1.5, ls='-', orientation=0, scatter=False, zorder=0):
-    x, y = center
-    xtilde = x*np.cos(orientation) - y*np.sin(orientation)
-    ytilde = y*np.cos(orientation) + x*np.sin(orientation)
-
-    theta = np.linspace(0, 2*np.pi, 200)
-    xs = xtilde + r * np.cos(theta)
-    ys = ytilde + r * np.sin(theta)
-    ax.plot(xs, ys, c=c, lw=lw, linestyle=ls, zorder=zorder)
-    if scatter:
-        ax.scatter(xtilde+r, ytilde, c=c, s=80)
-        ax.scatter(xtilde-r, ytilde, c=c, s=80)
-        print(xtilde+r, ytilde, xtilde-r, ytilde)
-
-
-def rotatePoint(state, orientation):
-    x, y, theta = state
-    xtilde = x*np.cos(orientation) - y*np.sin(orientation)
-    ytilde = y*np.cos(orientation) + x*np.sin(orientation)
-    thetatilde = theta+orientation
-
-    return np.array([xtilde, ytilde, thetatilde])
-# endregion
 
 class DubinsCarPEEnv(gym.Env):
     def __init__(self, device, mode='RA', doneType='toEnd',
@@ -79,7 +39,7 @@ class DubinsCarPEEnv(gym.Env):
                 of the targets or not. Defaults to True.
             considerPursuerFailure (bool, optional): the game outcome considers
                 the pursuer hitting the failure set or not. Defaults to False.
-        """        
+        """
         # Set random seed.
         self.set_seed(0)
 
@@ -141,6 +101,9 @@ class DubinsCarPEEnv(gym.Env):
 
 
     def init_car(self):
+        """
+        init_car: initalize pursuer and evader
+        """
         self.evader.set_bounds(bounds=self.bounds)
         self.evader.set_constraint(center=self.evader_constraint_center, radius=self.evader_constraint_radius)
         self.evader.set_target(center=self.evader_target_center, radius=self.evader_target_radius)
@@ -157,14 +120,15 @@ class DubinsCarPEEnv(gym.Env):
 
 #== Reset Functions ==
     def reset(self, start=None):
-        """ Reset the state of the environment.
+        """
+        reset: Reset the state of the environment.
 
         Args:
-            start: Which state to reset the environment to. If None, pick the
-                state uniformly at random.
+            start (np.ndarray, optional): state to reset the environment to.
+                If None, pick the state uniformly at random. Defaults to None.
 
         Returns:
-            The state the environment has been reset to.
+            np.ndarray: The state the environment has been reset to.
         """
         if start is not None:
             stateEvader = self.evader.reset(start=start[:3])
@@ -182,6 +146,20 @@ class DubinsCarPEEnv(gym.Env):
 
     def sample_random_state(self, sample_inside_obs=False, sample_inside_tar=True,
                             theta=None):
+        """
+        sample_random_state: pick the state uniformly at random.
+
+        Args:
+            sample_inside_obs (bool, optional): sampling initial state inside
+                of the obstacles or not. Defaults to False.
+            sample_inside_tar (bool, optional): sampling initial state inside
+                of the targets or not. Defaults to True.
+            theta (float, optional): if provided, set the theta to its value.
+                Defaults to None.
+
+        Returns:
+            np.ndarray: sampled initial state.
+        """
         stateEvader = self.evader.sample_random_state(
             sample_inside_obs=sample_inside_obs,
             sample_inside_tar=sample_inside_tar,
@@ -195,10 +173,11 @@ class DubinsCarPEEnv(gym.Env):
 
 #== Dynamics Functions ==
     def step(self, action):
-        """ Evolve the environment one step forward under given input action.
+        """
+        step: Evolve the environment one step forward under given input action.
 
         Args:
-            action: a vector consist of action indices for the evader and pursuer.
+            action (int): the index of action set.
 
         Returns:
             Tuple of (next state, signed distance of current state, whether the
@@ -248,7 +227,25 @@ class DubinsCarPEEnv(gym.Env):
 
 
 #== Setting Hyper-Parameter Functions ==
-    def set_costParam(self, penalty=1, reward=-1, costType='normal', targetScaling=1., safetyScaling=1.):
+    def set_costParam(self, penalty=1.0, reward=-1.0, costType='sparse',
+            targetScaling=1.0, safetyScaling=1.0):
+        """
+        set_costParam: set the hyper-parameters for the `cost` signal used in
+            training, important for Sum Q-learning.
+
+        Args:
+            penalty (float, optional): cost when entering the obstacles or
+                crossing the environment boundary. Defaults to 1.0.
+            reward (float, optional): cost when reaching the targets.
+                Defaults to -1.0.
+            costType (str, optional): providing extra information when in
+                neither the failure set nor the target set.
+                Defaults to 'sparse'.
+            targetScaling (float, optional): scaling factor of the target margin.
+                Defaults to 1.0.
+            safetyScaling (float, optional): scaling factor of the safety margin.
+                Defaults to 1.0.
+        """
         self.penalty = penalty
         self.reward = reward
         self.costType = costType
@@ -257,10 +254,79 @@ class DubinsCarPEEnv(gym.Env):
 
 
     def set_capture_range(self, capture_range=.1):
+        """
+        set_capture_range
+
+        Args:
+            capture_range (float, optional): set the capture radius of the pursuer.
+                Defaults to .1.
+        """
         self.capture_range = capture_range
 
 
+    def set_seed(self, seed):
+        """
+        set_seed: set the seed for `numpy`, `random`, `PyTorch` packages.
+
+        Args:
+            seed (int): seed value.
+        """
+        self.seed_val = seed
+        np.random.seed(self.seed_val)
+        torch.manual_seed(self.seed_val)
+        torch.cuda.manual_seed(self.seed_val)
+        torch.cuda.manual_seed_all(self.seed_val)  # if you are using multi-GPU.
+        random.seed(self.seed_val)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+
+
+    def set_bounds(self, bounds):
+        """
+        set_bounds: set the boundary and the observation_space of the environment.
+
+        Args:
+            bounds (np.ndarray): of the shape (n_dim, 2). each row is [LB, UB].
+        """
+        self.bounds = bounds
+
+        # Get lower and upper bounds
+        self.low = np.array(self.bounds)[:, 0]
+        self.high = np.array(self.bounds)[:, 1]
+
+        # Double the range in each state dimension for Gym interface.
+        midpoint = (self.low + self.high)/2.0
+        interval = self.high - self.low
+        self.observation_space = gym.spaces.Box(np.float32(midpoint - interval/2),
+                                                np.float32(midpoint + interval/2))
+        self.evader.set_bounds(bounds)
+        self.pursuer.set_bounds(bounds)
+
+
+    def set_radius_rotation(self, R_turn=.6, verbose=False):
+        """
+        set_radius_rotation
+
+        Args:
+            R_turn (float, optional): turning radius. Defaults to .6.
+            verbose (bool, optional): print or not. Defaults to False.
+        """
+        self.R_turn = R_turn
+        self.evader.set_radius_rotation(R_turn=R_turn, verbose=verbose)
+        self.pursuer.set_radius_rotation(R_turn=R_turn, verbose=verbose)
+
+
     def set_constraint(self, center=np.array([0.,0.]), radius=1., car='evader'):
+        """
+        set_constraint: set the constraint set (complement of failure set).
+
+        Args:
+            center (np.ndarray, optional): center of the constraint set.
+                Defaults to np.array([0.,0.]).
+            radius (float, optional): radius of the constraint set.
+                Defaults to 1.0.
+            car (str, optional): which car to set. Defaults to 'evader'.
+        """
         if car == 'evader':
             self.evader_constraint_center = center
             self.evader_constraint_radius = radius
@@ -279,6 +345,15 @@ class DubinsCarPEEnv(gym.Env):
 
 
     def set_target(self, center=np.array([0.,0.]), radius=.4, car='evader'):
+        """
+        set_target: set the target set.
+
+        Args:
+            center (np.ndarray, optional): center of the target set.
+                Defaults to np.array([0.,0.]).
+            radius (float, optional): radius of the target set. Defaults to .4.
+            car (str, optional): which car to set. Defaults to 'evader'.
+        """
         if car == 'evader':
             self.evader_target_center = center
             self.evader_target_radius = radius
@@ -297,54 +372,28 @@ class DubinsCarPEEnv(gym.Env):
 
 
     def set_considerPursuerFailure(self, considerPursuerFailure):
+        """
+        set_considerPursuerFailure
+
+        Args:
+            considerPursuerFailure (bool): the game outcome considers
+                the pursuer hitting the failure set or not.
+        """
         self.considerPursuerFailure = considerPursuerFailure
-
-
-    def set_radius_rotation(self, R_turn=.6, verbose=False):
-        self.R_turn = R_turn
-        self.evader.set_radius_rotation(R_turn=R_turn, verbose=verbose)
-        self.pursuer.set_radius_rotation(R_turn=R_turn, verbose=verbose)
-
-
-    def set_seed(self, seed):
-        """ Set the random seed.
-
-        Args:
-            seed: Random seed.
-        """
-        self.seed_val = seed
-        np.random.seed(self.seed_val)
-        torch.manual_seed(self.seed_val)
-        torch.cuda.manual_seed(self.seed_val)
-        torch.cuda.manual_seed_all(self.seed_val)  # if you are using multi-GPU.
-        random.seed(self.seed_val)
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
-
-
-    def set_bounds(self, bounds):
-        """ Set state bounds.
-
-        Args:
-            bounds: Bounds for the state.
-        """
-        self.bounds = bounds
-
-        # Get lower and upper bounds
-        self.low = np.array(self.bounds)[:, 0]
-        self.high = np.array(self.bounds)[:, 1]
-
-        # Double the range in each state dimension for Gym interface.
-        midpoint = (self.low + self.high)/2.0
-        interval = self.high - self.low
-        self.observation_space = gym.spaces.Box(np.float32(midpoint - interval/2),
-                                                np.float32(midpoint + interval/2))
-        self.evader.set_bounds(bounds)
-        self.pursuer.set_bounds(bounds)
 
 
 #== Margin Functions ==
     def safety_margin(self, s):
+        """
+        safety_margin: Compute the margin (e.g. distance) between state and failue set.
+
+        Args:
+            s (np.ndarray): the state.
+
+
+        Returns:
+            float: safetyt margin. Postivive numbers indicate safety violation.
+        """
         evader_g_x = self.evader.safety_margin(s[:2])
         dist_evader_pursuer = np.linalg.norm(s[:2]-s[3:5], ord=2)
         capture_g_x = self.capture_range - dist_evader_pursuer
@@ -352,6 +401,16 @@ class DubinsCarPEEnv(gym.Env):
 
 
     def target_margin(self, s):
+        """
+        target_margin: Compute the margin (e.g. distance) between state and target set.
+
+        Args:
+            s (np.ndarray): the state.
+
+
+        Returns:
+            float: target margin. Negative numbers indicate reaching the target.
+        """
         evader_l_x = self.evader.target_margin(s[:2])
         if self.considerPursuerFailure:
             pursuer_g_x = self.evader.safety_margin(s[3:5])
@@ -363,6 +422,24 @@ class DubinsCarPEEnv(gym.Env):
 #== Getting Functions ==
     def get_warmup_examples(self, num_warmup_samples=100,
         theta=None, xPursuer=None, yPursuer=None, thetaPursuer=None):
+        """
+        get_warmup_examples: Get the warmup samples.
+
+        Args:
+            num_warmup_samples (int, optional): # warmup samples. Defaults to 100.
+            theta (float, optional): if provided, set the theta to its value.
+                Defaults to None.
+            xPursuer (float, optional): if provided, set the x-position of the pursuer
+                to its value. Defaults to None.
+            yPursuer (float, optional): if provided, set the y-position of the pursuer
+                to its value. Defaults to None.
+            thetaPursuer (float, optional): if provided, set the theta of the pursuer
+                to its value. Defaults to None. Defaults to None.
+
+        Returns:
+            np.ndarray: sampled states.
+            np.ndarray: the heuristic values, here we used max{\ell, g}.
+        """
         lowExt = np.tile(self.low, 2)
         highExt = np.tile(self.high, 2)
         states = np.random.default_rng().uniform(   low=lowExt,
@@ -388,22 +465,42 @@ class DubinsCarPEEnv(gym.Env):
         return states, heuristic_v
 
 
-    # ? 2D-plot based on evader's x and y
+    # 2D-plot based on evader's x and y
     def get_axes(self):
-        """ Gets the bounds for the environment.
+        """
+        get_axes: Get the axes bounds and aspect_ratio.
 
         Returns:
-            List containing a list of bounds for each state coordinate and a
+            np.ndarray: axes bounds.
+            float: aspect ratio.
         """
         aspect_ratio = (self.bounds[0,1]-self.bounds[0,0])/(self.bounds[1,1]-self.bounds[1,0])
         axes = np.array([self.bounds[0,0], self.bounds[0,1], self.bounds[1,0], self.bounds[1,1]])
         return [axes, aspect_ratio]
 
 
-    # ? Fix evader's theta and pursuer's (x, y, theta)
+    # Fix evader's theta and pursuer's (x, y, theta)
     def get_value(self, q_func, theta, xPursuer, yPursuer, thetaPursuer,
             nx=101, ny=101, addBias=False, verbose=False):
+        """
+        get_value: get the state values given the Q-network. We fix evader's heading
+            angle to theta and pursuer's state to [xPursuer, yPursuer, thetaPursuer].
 
+        Args:
+            q_func (object): agent's Q-network.
+            theta (float): the heading angle of the evader.
+            xPursuer (float): the x-position of the pursuer.
+            yPursuer (float): the y-position of the pursuer.
+            thetaPursuer (float): the heading angle of the pursuer.
+            nx (int, optional): # points in x-axis. Defaults to 101.
+            ny (int, optional): # points in y-axis. Defaults to 101.
+            addBias (bool, optional): adding bias to the values or not.
+                Defaults to False.
+            verbose (bool, optional): print or not. Defaults to False.
+
+        Returns:
+            np.ndarray: values
+        """
         if verbose:
             print("Getting values with evader's theta and pursuer's (x, y, theta) equal to", end=' ')
             print("{:.1f} and ({:.1f}, {:.1f}, {:.1f})".format(theta, xPursuer, yPursuer, thetaPursuer))
@@ -438,6 +535,9 @@ class DubinsCarPEEnv(gym.Env):
 
 
     def report(self):
+        """
+        report
+        """
         stateDim = self.state.shape[0]
         actionNum = self.action_space.n
         print("Env: mode---{:s}; doneType---{:s}".format(
@@ -470,6 +570,29 @@ class DubinsCarPEEnv(gym.Env):
 #== Trajectory Functions ==
     def simulate_one_trajectory(self, q_func, T=10, state=None, theta=None,
                                 keepOutOf=False, toEnd=False):
+        """
+        simulate_one_trajectory: simulate the trajectory given the state or
+            randomly initialized.
+
+        Args:
+            q_func (object): agent's Q-network.
+            T (int, optional): the maximum length of the trajectory. Defaults to 250.
+            state (np.ndarray, optional): if provided, set the initial state to
+                its value. Defaults to None.
+            theta (float, optional): if provided, set the theta to its value.
+                Defaults to None.
+            keepOutOf (bool, optional): smaple states inside the obstacles or not.
+                Defaults to False.
+            toEnd (bool, optional): simulate the trajectory until the robot crosses
+                the boundary or not. Defaults to False.
+
+        Returns:
+            np.ndarray: states of the evader, of the shape (length, 3).
+            np.ndarray: states of the pursuer, of the shape (length, 3).
+            int: the binary reach-avoid outcome.
+            float: the minimum reach-avoid value of the trajectory.
+            dictionary: extra information, (v_x, g_x, ell_x) along the trajectory.
+        """
         # reset
         sample_inside_obs = not keepOutOf
         sample_inside_tar = not keepOutOf
@@ -555,7 +678,28 @@ class DubinsCarPEEnv(gym.Env):
     def simulate_trajectories(  self, q_func, T=10,
                                 num_rnd_traj=None, states=None, theta=None,
                                 keepOutOf=False, toEnd=False):
+        """
+        simulate_trajectories: simulate the trajectories.
 
+        Args:
+            q_func (object): agent's Q-network.
+            T (int, optional): the maximum length of the trajectory. Defaults to 250.
+            num_rnd_traj (int, optional): #states. Defaults to None.
+            theta (float, optional): if provided, set the theta to its value.
+                Defaults to None.
+            states ([type], optional): if provided, set the initial states to
+                its value. Defaults to None.
+            keepOutOf (bool, optional): smaple states inside the obstacles or not.
+                Defaults to False.
+            toEnd (bool, optional): simulate the trajectory until the robot crosses
+                the boundary or not. Defaults to False.
+
+        Returns:
+            list of np.ndarray: each element is a tuple consisting of trajectories
+                of the evader and pursuer.
+            np.ndarray: the binary reach-avoid outcomes.
+            np.ndarray: the minimum reach-avoid values of the trajectories.
+        """
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
@@ -583,12 +727,32 @@ class DubinsCarPEEnv(gym.Env):
 
 
 #== Plotting Functions ==
-    # ? Check all plotting functions
     def visualize(  self, q_func,
                     vmin=-1, vmax=1, nx=101, ny=101, cmap='seismic',
                     labels=None, boolPlot=False, addBias=False, theta=0.,
                     rndTraj=False, num_rnd_traj=10, keepOutOf=False):
+        """
+        visualize
 
+        Args:
+            q_func (object): agent's Q-network.
+            vmin (int, optional): vmin in colormap. Defaults to -1.
+            vmax (int, optional): vmax in colormap. Defaults to 1.
+            nx (int, optional): # points in x-axis. Defaults to 101.
+            ny (int, optional): # points in y-axis. Defaults to 101.
+            cmap (str, optional): color map. Defaults to 'seismic'.
+            labels (list, optional): x- and y- labels. Defaults to None.
+            boolPlot (bool, optional): plot the values in binary form.
+                Defaults to False.
+            addBias (bool, optional): adding bias to the values or not.
+                Defaults to False.
+            theta (float, optional): if provided, set the theta to its value.
+                Defaults to np.pi/2.
+            rndTraj (bool, optional): random trajectories or not. Defaults to False.
+            num_rnd_traj (int, optional): #states. Defaults to None.
+            keepOutOf (bool, optional): smaple states inside the obstacles or not.
+                Defaults to False.
+        """
         fig, axes = plt.subplots(1,4, figsize=(16, 4))
 
         for i, (ax, state) in enumerate(zip(axes, self.visual_initial_states)):
@@ -622,33 +786,37 @@ class DubinsCarPEEnv(gym.Env):
         plt.tight_layout()
 
 
-    # ? 2D-plot based on evader's x and y
-    def plot_formatting(self, ax=None, labels=None):
-        axStyle = self.get_axes()
-        ax.plot([0., 0.], [axStyle[0][2], axStyle[0][3]], c='k', zorder=0)
-        ax.plot([axStyle[0][0], axStyle[0][1]], [0., 0.], c='k', zorder=0)
-        #== Formatting ==
-        ax.axis(axStyle[0])
-        ax.set_aspect(axStyle[1])  # makes equal aspect ratio
-        ax.grid(False)
-        if labels is not None:
-            ax.set_xlabel(labels[0], fontsize=52)
-            ax.set_ylabel(labels[1], fontsize=52)
-
-        ax.tick_params( axis='both', which='both',
-                        bottom=False, top=False,
-                        left=False, right=False)
-        ax.xaxis.set_major_locator(LinearLocator(5))
-        ax.xaxis.set_major_formatter('{x:.1f}')
-        ax.yaxis.set_major_locator(LinearLocator(5))
-        ax.yaxis.set_major_formatter('{x:.1f}')
-
-
-    # ? Check get_values, 2D-plot based on evader's x and y
+    #  2D-plot based on evader's x and y
     def plot_v_values(  self, q_func, theta=0, xPursuer=.5, yPursuer=.5, thetaPursuer=0,
                         ax=None, fig=None,
                         vmin=-1, vmax=1, nx=101, ny=101, cmap='seismic',
                         boolPlot=False, cbarPlot=True, addBias=False):
+        """
+        plot_v_values: plot state values.
+
+        Args:
+            q_func (object): agent's Q-network.
+            theta (float, optional): if provided, fix the evader's heading angle
+                to its value. Defaults to 0.
+            xPursuer (float, optional): if provided, fix the pursuer's x-position
+                to its value. Defaults to .5.
+            yPursuer (float, optional): if provided, fix the pursuer's y-position
+                to its value. Defaults to .5.
+            thetaPursuer (int, optional): if provided, fix the pursuer's heading
+                angle to its value. Defaults to 0.
+            ax (matplotlib.axes.Axes, optional): Defaults to None.
+            fig (matplotlib.figure, optional): Defaults to None.
+            vmin (int, optional): vmin in colormap. Defaults to -1.
+            vmax (int, optional): vmax in colormap. Defaults to 1.
+            nx (int, optional): # points in x-axis. Defaults to 201.
+            ny (int, optional): # points in y-axis. Defaults to 201.
+            cmap (str, optional): color map. Defaults to 'seismic'.
+            boolPlot (bool, optional): plot the values in binary form.
+                Defaults to False.
+            cbarPlot (bool, optional): plot the color bar or not. Defaults to True.
+            addBias (bool, optional): adding bias to the values or not.
+                Defaults to False.
+        """
         axStyle = self.get_axes()
 
         #== Plot V ==
@@ -666,10 +834,35 @@ class DubinsCarPEEnv(gym.Env):
                 cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=16)
 
 
-    # ? Plot trajectories based on x-y location of the evader and the pursuer
-    def plot_trajectories(  self, q_func, T=10, num_rnd_traj=None, states=None, theta=None,
-                            keepOutOf=False, toEnd=False, ax=None, c=[tiffany, 'y'], lw=2, orientation=0):
+    # Plot trajectories based on x-y location of the evader and the pursuer
+    def plot_trajectories(  self, q_func, T=100,
+            num_rnd_traj=None, states=None, theta=None, keepOutOf=False,
+            toEnd=False, ax=None, c=[tiffany, 'y'], lw=2, orientation=0):
+        """
+        plot_trajectories: plot trajectories given the agent's Q-network.
 
+        Args:
+            q_func (object): agent's Q-network.
+            T (int, optional): the maximum length of the trajectory.
+                Defaults to 100.
+            num_rnd_traj (int, optional): #states. Defaults to None.
+            states ([type], optional): if provided, set the initial states to
+                its value. Defaults to None.
+            theta (float, optional): if provided, set the car's heading angle to
+                its value. Defaults to None.
+            keepOutOf (bool, optional): smaple states inside the obstacles or not.
+                Defaults to False.
+            toEnd (bool, optional): simulate the trajectory until the robot crosses
+                the boundary or not. Defaults to False.
+            ax (matplotlib.axes.Axes, optional): Defaults to None.
+            c (list, optional): colors. Defaults to [tiffany, 'y'].
+            lw (int, optional): linewidth. Defaults to 2.
+            orientation (int, optional): counter-clockwise angle. Defaults to 0.
+
+        Returns:
+            np.ndarray: the binary reach-avoid outcomes.
+            np.ndarray: the minimum reach-avoid values of the trajectories.
+        """
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
@@ -706,15 +899,27 @@ class DubinsCarPEEnv(gym.Env):
         return results, minVs
 
 
-    # ! Analytic solutions available?
-    def plot_reach_avoid_set(self, ax, c='g', lw=3, orientation=0):
-        pass
-
-
-    # ? Plot evader's target, constraint and pursuer's capture range
-    def plot_target_failure_set(self, ax, xPursuer=.5, yPursuer=.5,
+    # Plot evader's target, constraint and pursuer's capture range
+    def plot_target_failure_set(self, ax=None, xPursuer=.5, yPursuer=.5,
         lw=3, showCapture=True, c_c='m', c_t='y', zorder=1):
+        """
+        plot_target_failure_set: plot the target and the failure set.
 
+        Args:
+            ax (matplotlib.axes.Axes, optional)
+            xPursuer (float, optional): if provided, fix the pursuer's x-position
+                to its value. Defaults to .5.
+            yPursuer (float, optional): if provided, fix the pursuer's y-position
+                to its value. Defaults to .5.
+            lw (float, optional): liewidth. Defaults to 3.
+            showCapture (bool, optional): show pursuer's capture range or not.
+                Defaults to True.
+            c_c (str, optional): color of the constraint set boundary.
+                Defaults to 'm'.
+            c_t (str, optional): color of the target set boundary.
+                Defaults to 'y'.
+            zorder (int, optional): graph layers order. Defaults to 1.
+        """        
         plot_circle(self.evader.constraint_center, self.evader.constraint_radius,
             ax, c=c_c, lw=lw, zorder=zorder)
         plot_circle(self.evader.target_center,     self.evader.target_radius,
@@ -722,3 +927,36 @@ class DubinsCarPEEnv(gym.Env):
         if showCapture:
             plot_circle(np.array([xPursuer, yPursuer]), self.capture_range,
                 ax, c=c_c, lw=lw, ls='--', zorder=zorder)
+
+
+    # ! Analytic solutions available?
+    def plot_reach_avoid_set(self):
+        pass
+
+
+    def plot_formatting(self, ax=None, labels=None):
+        """
+        plot_formatting: formatting the visualization
+
+        Args:
+            ax (matplotlib.axes.Axes, optional)
+            labels (list, optional): x- and y- labels. Defaults to None.
+        """   
+        axStyle = self.get_axes()
+        ax.plot([0., 0.], [axStyle[0][2], axStyle[0][3]], c='k', zorder=0)
+        ax.plot([axStyle[0][0], axStyle[0][1]], [0., 0.], c='k', zorder=0)
+        #== Formatting ==
+        ax.axis(axStyle[0])
+        ax.set_aspect(axStyle[1])  # makes equal aspect ratio
+        ax.grid(False)
+        if labels is not None:
+            ax.set_xlabel(labels[0], fontsize=52)
+            ax.set_ylabel(labels[1], fontsize=52)
+
+        ax.tick_params( axis='both', which='both',
+                        bottom=False, top=False,
+                        left=False, right=False)
+        ax.xaxis.set_major_locator(LinearLocator(5))
+        ax.xaxis.set_major_formatter('{x:.1f}')
+        ax.yaxis.set_major_locator(LinearLocator(5))
+        ax.yaxis.set_major_formatter('{x:.1f}')

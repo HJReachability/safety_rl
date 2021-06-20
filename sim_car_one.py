@@ -22,6 +22,7 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 #== ARGS ==
 # python3 sim_car_one.py -sf -of scratch -w -wi 5000 -g 0.9999 -n 9999
+# test: python3 sim_car_one.py -sf -of scratch -w -wi 50 -mu 1000 -cp 400 -n tmp
 parser = argparse.ArgumentParser()
 
 # environment parameters
@@ -342,7 +343,7 @@ if args.plotFigure or args.storeFigure:
         y = ys[idx[1]]
 
         state = np.array([x, y, 0.])
-        stateTensor = torch.FloatTensor(state).unsqueeze(0)
+        stateTensor = torch.FloatTensor(state).to(agent.device).unsqueeze(0)
         action_index = agent.Q_network(stateTensor).min(dim=1)[1].item()
         # u = env.discrete_controls[action_index]
         actDistMtx[idx] = action_index
@@ -365,7 +366,7 @@ if args.plotFigure or args.storeFigure:
     im = ax.imshow(resultMtx.T != 1, interpolation='none', extent=axStyle[0],
         origin="lower", cmap='seismic', vmin=0, vmax=1, zorder=-1)
     env.plot_trajectories(agent.Q_network, states=env.visual_initial_states,
-        toEnd=False, ax=ax, c='w', lw=1.5, T=100)
+        toEnd=False, ax=ax, c='w', lw=1.5, T=100, orientation=-np.pi/2)
     ax.set_xlabel('Rollout RA', fontsize=24)
 
     #= Value

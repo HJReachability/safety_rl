@@ -298,9 +298,11 @@ if args.plotFigure or args.storeFigure:
         y = ys[idx[1]]
 
         state = np.array([x, y, 0., -0.2, -0.3, .75*np.pi])
-        stateTensor = torch.FloatTensor(state).unsqueeze(0)
+        stateTensor = torch.FloatTensor(state).to(agent.device).unsqueeze(0)
         state_action_values = agent.Q_network(stateTensor)
+        print(state_action_values)
         Q_mtx = state_action_values.reshape(env.numActionList[0], env.numActionList[1])
+        print(Q_mtx)
         pursuerValues, colIndices = Q_mtx.max(dim=1)
         _, rowIdx = pursuerValues.min(dim=0)
         print(colIndices, rowIdx)

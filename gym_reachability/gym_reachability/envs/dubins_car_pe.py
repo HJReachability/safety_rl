@@ -336,7 +336,7 @@ class DubinsCarPEEnv(gym.Env):
         Args:
             capture_range (float, optional): set the capture radius of the pursuer.
                 Defaults to .1.
-        """        
+        """
         self.capture_range = capture_range
 
 
@@ -379,7 +379,30 @@ class DubinsCarPEEnv(gym.Env):
         self.pursuer.set_bounds(bounds)
 
 
+    def set_radius_rotation(self, R_turn=.6, verbose=False):
+        """
+        set_radius_rotation
+
+        Args:
+            R_turn (float, optional): turning radius. Defaults to .6.
+            verbose (bool, optional): print or not. Defaults to False.
+        """
+        self.R_turn = R_turn
+        self.evader.set_radius_rotation(R_turn=R_turn, verbose=verbose)
+        self.pursuer.set_radius_rotation(R_turn=R_turn, verbose=verbose)
+
+
     def set_constraint(self, center=np.array([0.,0.]), radius=1., car='evader'):
+        """
+        set_constraint: set the constraint set (complement of failure set).
+
+        Args:
+            center (np.ndarray, optional): center of the constraint set.
+                Defaults to np.array([0.,0.]).
+            radius (float, optional): radius of the constraint set.
+                Defaults to 1.0.
+            car (str, optional): which car to set. Defaults to 'evader'.
+        """
         if car == 'evader':
             self.evader_constraint_center = center
             self.evader_constraint_radius = radius
@@ -398,6 +421,15 @@ class DubinsCarPEEnv(gym.Env):
 
 
     def set_target(self, center=np.array([0.,0.]), radius=.4, car='evader'):
+        """
+        set_target: set the target set.
+
+        Args:
+            center (np.ndarray, optional): center of the target set.
+                Defaults to np.array([0.,0.]).
+            radius (float, optional): radius of the target set. Defaults to .4.
+            car (str, optional): which car to set. Defaults to 'evader'.
+        """
         if car == 'evader':
             self.evader_target_center = center
             self.evader_target_radius = radius
@@ -416,17 +448,28 @@ class DubinsCarPEEnv(gym.Env):
 
 
     def set_considerPursuerFailure(self, considerPursuerFailure):
+        """
+        set_considerPursuerFailure
+
+        Args:
+            considerPursuerFailure (bool): the game outcome considers
+                the pursuer hitting the failure set or not.
+        """
         self.considerPursuerFailure = considerPursuerFailure
-
-
-    def set_radius_rotation(self, R_turn=.6, verbose=False):
-        self.R_turn = R_turn
-        self.evader.set_radius_rotation(R_turn=R_turn, verbose=verbose)
-        self.pursuer.set_radius_rotation(R_turn=R_turn, verbose=verbose)
 
 
 #== Margin Functions ==
     def safety_margin(self, s):
+        """
+        safety_margin: Compute the margin (e.g. distance) between state and failue set.
+
+        Args:
+            s (np.ndarray): the state.
+
+
+        Returns:
+            float: safetyt margin. Postivive numbers indicate safety violation.
+        """
         evader_g_x = self.evader.safety_margin(s[:2])
         dist_evader_pursuer = np.linalg.norm(s[:2]-s[3:5], ord=2)
         capture_g_x = self.capture_range - dist_evader_pursuer
@@ -434,6 +477,16 @@ class DubinsCarPEEnv(gym.Env):
 
 
     def target_margin(self, s):
+        """
+        target_margin: Compute the margin (e.g. distance) between state and target set.
+
+        Args:
+            s (np.ndarray): the state.
+
+
+        Returns:
+            float: target margin. Negative numbers indicate reaching the target.
+        """
         evader_l_x = self.evader.target_margin(s[:2])
         if self.considerPursuerFailure:
             pursuer_g_x = self.evader.safety_margin(s[3:5])
@@ -520,6 +573,9 @@ class DubinsCarPEEnv(gym.Env):
 
 
     def report(self):
+        """
+        report
+        """        
         stateDim = self.state.shape[0]
         actionNum = self.action_space.n
         print("Env: mode---{:s}; doneType---{:s}".format(

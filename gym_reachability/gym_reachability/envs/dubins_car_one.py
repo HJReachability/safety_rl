@@ -273,7 +273,26 @@ class DubinsCarOneEnv(gym.Env):
         self.car.set_bounds(bounds)
 
 
+    def set_speed(self, speed=.5):
+        """
+        set_speed
+
+        Args:
+            speed (float, optional): spped of the car. Defaults to .5.
+        """
+        self.speed = speed
+        self.car.set_speed(speed=speed)
+
+
     def set_radius(self, target_radius=.3, constraint_radius=1., R_turn=.6):
+        """
+        set_radius: set target_radius, constraint_radius and turning radius.
+
+        Args:
+            target_radius (float, optional): Defaults to .3.
+            constraint_radius ([type], optional): Defaults to 1.0.
+            R_turn (float, optional): Defaults to .6.
+        """
         self.target_radius = target_radius
         self.constraint_radius = constraint_radius
         self.R_turn = R_turn
@@ -282,49 +301,72 @@ class DubinsCarOneEnv(gym.Env):
                             R_turn=R_turn)
 
 
+    def set_radius_rotation(self, R_turn=.6, verbose=False):
+        """
+        set_radius_rotation
+
+        Args:
+            R_turn (float, optional): turning radius. Defaults to .6.
+            verbose (bool, optional): print or not. Defaults to False.
+        """
+        self.R_turn = R_turn
+        self.car.set_radius_rotation(R_turn=R_turn, verbose=verbose)
+
+
     def set_constraint(self, center=np.array([0.,0.]), radius=1.):
+        """
+        set_constraint: set the constraint set (complement of failure set).
+
+        Args:
+            center (np.ndarray, optional): center of the constraint set.
+                Defaults to np.array([0.,0.]).
+            radius (float, optional): radius of the constraint set.
+                Defaults to 1.0.
+        """
         self.constraint_center = center
         self.constraint_radius = radius
         self.car.set_constraint(center=center, radius=radius)
 
 
     def set_target(self, center=np.array([0.,0.]), radius=.4):
+        """
+        set_target: set the target set.
+
+        Args:
+            center (np.ndarray, optional): center of the target set.
+                Defaults to np.array([0.,0.]).
+            radius (float, optional): radius of the target set. Defaults to .4.
+        """
         self.target_center = center
         self.target_radius = radius
         self.car.set_target(center=center, radius=radius)
 
 
-    def set_radius_rotation(self, R_turn=.6, verbose=False):
-        self.R_turn = R_turn
-        self.car.set_radius_rotation(R_turn=R_turn, verbose=verbose)
-
-
-    def set_speed(self, speed=.5):
-        self.speed = speed
-        self.car.set_speed(speed=speed)
-
-
 #== Margin Functions ==
     def safety_margin(self, s):
-        """ Computes the margin (e.g. distance) between state and failue set.
+        """
+        safety_margin: Compute the margin (e.g. distance) between state and failue set.
 
         Args:
-            s: State.
+            s (np.ndarray): the state.
+
 
         Returns:
-            Margin for the state s.
+            float: safetyt margin. Postivive numbers indicate safety violation.
         """
         return self.car.safety_margin(s[:2])
 
 
     def target_margin(self, s):
-        """ Computes the margin (e.g. distance) between state and target set.
+        """
+        target_margin: Compute the margin (e.g. distance) between state and target set.
 
         Args:
-            s: State.
+            s (np.ndarray): the state.
+
 
         Returns:
-            Margin for the state s.
+            float: target margin. Negative numbers indicate reaching the target.
         """
         return self.car.target_margin(s[:2])
 

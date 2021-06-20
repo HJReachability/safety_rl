@@ -393,6 +393,18 @@ class ZermeloShowEnv(gym.Env):
 
 #== Getting Margin ==
     def _calculate_margin(self, s, x_y_w_h, negativeInside=True):
+        """
+        _calculate_margin: calculate the margin to the box.
+
+        Args:
+            s (np.ndarray): the state.
+            x_y_w_h (box specification): (center_x, center_y, width, height).
+            negativeInside (bool, optional): add a negative sign to the distance
+                if inside the box. Defaults to True.
+
+        Returns:
+            float: margin.
+        """
         x, y, w, h = x_y_w_h
         delta_x = np.abs(s[0] - x)
         delta_y = np.abs(s[1] - y)
@@ -405,13 +417,15 @@ class ZermeloShowEnv(gym.Env):
 
 
     def safety_margin(self, s):
-        """ Computes the margin (e.g. distance) between state and failue set.
+        """
+        safety_margin: Compute the margin (e.g. distance) between state and failue set.
 
         Args:
-            s: State.
+            s (np.ndarray): the state.
+
 
         Returns:
-            Margin for the state s.
+            float: safetyt margin. Postivive numbers indicate safety violation.
         """
         g_x_list = []
 
@@ -431,13 +445,15 @@ class ZermeloShowEnv(gym.Env):
 
 
     def target_margin(self, s):
-        """ Computes the margin (e.g. distance) between state and target set.
+        """
+        target_margin: Compute the margin (e.g. distance) between state and target set.
 
         Args:
-            s: State.
+            s (np.ndarray): the state.
+
 
         Returns:
-            Margin for the state s.
+            float: target margin. Negative numbers indicate reaching the target.
         """
         l_x_list = []
 
@@ -453,6 +469,15 @@ class ZermeloShowEnv(gym.Env):
 
 #== Getting Information ==
     def check_within_env(self, state):
+        """
+        check_within_env: check if the robot is still in the environment.
+
+        Args:
+            state (np.ndarray): the state.
+
+        Returns:
+            bool: True if not in the environment.
+        """        
         outsideTop   = (state[1] >= self.bounds[1,1])
         outsideLeft  = (state[0] <= self.bounds[0,0])
         outsideRight = (state[0] >= self.bounds[0,1])
@@ -511,6 +536,42 @@ class ZermeloShowEnv(gym.Env):
         return target_set_boundary
 
 
+    def get_warmup_examples(self, num_warmup_samples=100):
+        x_min, x_max = self.bounds[0,:]
+        y_min, y_max = self.bounds[1,:]
+
+        xs = np.random.uniform(x_min, x_max, num_warmup_samples)
+        ys = np.random.uniform(y_min, y_max, num_warmup_samples)
+        heuristic_v = np.zeros((num_warmup_samples, self.action_space.n))
+        states = np.zeros((num_warmup_samples, self.observation_space.shape[0]))
+
+        for i in range(num_warmup_samples):
+            x, y = xs[i], ys[i]
+            l_x = self.target_margin(np.array([x, y]))
+            g_x = self.safety_margin(np.array([x, y]))
+            heuristic_v[i,:] = np.maximum(l_x, g_x)
+            states[i, :] = x, y
+
+        return states, heuristic_v
+
+
+    def get_axes(self):
+        """ Gets the bounds for the environment.
+
+        Returns:
+            List containing a list of bounds for each state coordinate and a
+        """
+        x_span = self.bounds[0,1] - self.bounds[0,0]
+        y_span = self.bounds[1,1] - self.bounds[1,0]
+        aspect_ratio = x_span / y_span
+        axes = np.array([
+            self.bounds[0,0]-.05,
+            self.bounds[0,1]+.05,
+            self.bounds[1,0]-.05,
+            self.bounds[1,1]+.05])
+        return [axes, aspect_ratio]
+
+
     def get_value(self, q_func, nx=41, ny=121, addBias=False):
         v = np.zeros((nx, ny))
         it = np.nditer(v, flags=['multi_index'])
@@ -536,42 +597,6 @@ class ZermeloShowEnv(gym.Env):
                 v[idx] = q_func(state).min(dim=1)[0].item()
             it.iternext()
         return xs, ys, v
-
-
-    def get_axes(self):
-        """ Gets the bounds for the environment.
-
-        Returns:
-            List containing a list of bounds for each state coordinate and a
-        """
-        x_span = self.bounds[0,1] - self.bounds[0,0]
-        y_span = self.bounds[1,1] - self.bounds[1,0]
-        aspect_ratio = x_span / y_span
-        axes = np.array([
-            self.bounds[0,0]-.05,
-            self.bounds[0,1]+.05,
-            self.bounds[1,0]-.05,
-            self.bounds[1,1]+.05])
-        return [axes, aspect_ratio]
-
-
-    def get_warmup_examples(self, num_warmup_samples=100):
-        x_min, x_max = self.bounds[0,:]
-        y_min, y_max = self.bounds[1,:]
-
-        xs = np.random.uniform(x_min, x_max, num_warmup_samples)
-        ys = np.random.uniform(y_min, y_max, num_warmup_samples)
-        heuristic_v = np.zeros((num_warmup_samples, self.action_space.n))
-        states = np.zeros((num_warmup_samples, self.observation_space.shape[0]))
-
-        for i in range(num_warmup_samples):
-            x, y = xs[i], ys[i]
-            l_x = self.target_margin(np.array([x, y]))
-            g_x = self.safety_margin(np.array([x, y]))
-            heuristic_v[i,:] = np.maximum(l_x, g_x)
-            states[i, :] = x, y
-
-        return states, heuristic_v
 
 
     def simulate_one_trajectory(self, q_func, T=250, state=None,

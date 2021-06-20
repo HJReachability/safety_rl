@@ -1,11 +1,9 @@
-# Copyright (c) 2020–2021, The Regents of the University of California.
-# All rights reserved.
-#
-# This file is subject to the terms and conditions defined in the LICENSE file
-# included in this repository.
-#
 # Please contact the author(s) of this library if you have any questions.
 # Authors: Kai-Chieh Hsu        ( kaichieh@princeton.edu )
+
+# This environment considers Dubins car dynamics. We construct this
+# environemnt to show reach-avoid Q-learning's performance on a well-known
+# reachability analysis benchmark.
 
 import gym.spaces
 import numpy as np

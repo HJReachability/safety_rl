@@ -1,11 +1,9 @@
-# Copyright (c) 2020–2021, The Regents of the University of California.
-# All rights reserved.
-#
-# This file is subject to the terms and conditions defined in the LICENSE file
-# included in this repository.
-#
 # Please contact the author(s) of this library if you have any questions.
 # Authors: Kai-Chieh Hsu        ( kaichieh@princeton.edu )
+
+# This environment considers Dubins car dynamics. We construct this
+# environemnt to investigate if the single-agent reach-avoid Q-learning can be
+# extended to a two-agent pursuit-evasion game.
 
 import gym.spaces
 import numpy as np

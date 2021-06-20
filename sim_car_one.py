@@ -306,7 +306,6 @@ if args.plotFigure or args.storeFigure:
     ax.plot(x, data, 'b-o')
     ax.set_xlabel('Index', fontsize=18)
     ax.set_xticks(x)
-    # ax.set_xticklabels(np.arange(data.shape[0]) + 1)
     ax.set_title('Success Rate', fontsize=18)
     ax.set_xlim(left=1, right=data.shape[0])
     ax.set_ylim(0, 0.8)

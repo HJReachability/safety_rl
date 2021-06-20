@@ -873,7 +873,7 @@ class ZermeloShowEnv(gym.Env):
         return results
 
 
-    def plot_target_failure_set(self, ax, c_c='m', c_t='y', lw=1.5,
+    def plot_target_failure_set(self, ax=None, c_c='m', c_t='y', lw=1.5,
             zorder=1):
         """
         plot_target_failure_set: plot the target and the failure set.
@@ -896,7 +896,7 @@ class ZermeloShowEnv(gym.Env):
                 zorder=zorder)
 
 
-    def plot_reach_avoid_set(self, ax, c='g', lw=3, zorder=1):
+    def plot_reach_avoid_set(self, ax=None, c='g', lw=3, zorder=1):
         """
         plot_reach_avoid_set: plot the analytic reach-avoid set.
 
@@ -947,7 +947,7 @@ class ZermeloShowEnv(gym.Env):
         ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
 
-    def plot_formatting(self, ax, labels=None):
+    def plot_formatting(self, ax=None, labels=None):
         """
         plot_formatting: formatting the visualization
 

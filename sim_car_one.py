@@ -22,6 +22,7 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 #== ARGS ==
 # python3 sim_car_one.py -sf -of scratch -w -wi 5000 -g 0.9999 -n 9999
+# test: python3 sim_car_one.py -sf -of scratch -w -wi 50 -mu 1000 -cp 400 -n tmp
 parser = argparse.ArgumentParser()
 
 # environment parameters

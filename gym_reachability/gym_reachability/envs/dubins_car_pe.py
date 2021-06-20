@@ -16,87 +16,12 @@ import torch
 import random
 
 from .dubins_car_dyn import DubinsCarDyn
-from .env_utils import plot_arc, plot_circle, rotatePoint
+from .env_utils import plot_circle, rotatePoint
 
 # Local Variables
 purple  = '#9370DB'
 tiffany = '#0abab5'
 silver = '#C0C0C0'
-
-# region: Local Functions
-# def plot_arc(center, r, thetaParam, ax, c='b', lw=1.5, orientation=0):
-#     """
-#     plot_arc
-
-#     Args:
-#         center (np.ndarray): center.
-#         r (float): radius.
-#         thetaParam (np.ndarray): [thetaInit, thetaFinal].
-#         ax (matplotlib.axes.Axes)
-#         c (str, optional): color. Defaults to 'b'.
-#         lw (float, optional): linewidth. Defaults to 1.5.
-#         orientation (int, optional): counter-clockwise angle. Defaults to 0.
-#     """
-#     x, y = center
-#     thetaInit, thetaFinal = thetaParam
-
-#     xtilde = x*np.cos(orientation) - y*np.sin(orientation)
-#     ytilde = y*np.cos(orientation) + x*np.sin(orientation)
-
-#     theta = np.linspace(thetaInit+orientation, thetaFinal+orientation, 100)
-#     xs = xtilde + r * np.cos(theta)
-#     ys = ytilde + r * np.sin(theta)
-
-#     ax.plot(xs, ys, c=c, lw=lw)
-
-
-# def plot_circle(center, r, ax, c='b', lw=1.5, ls='-', orientation=0, scatter=False, zorder=0):
-#     """
-#     plot_circle
-
-#     Args:
-#         center (np.ndarray): center.
-#         r (float): radius.
-#         ax (matplotlib.axes.Axes)
-#         c (str, optional): color. Defaults to 'b'.
-#         lw (float, optional): linewidth. Defaults to 1.5.
-#         ls (str, optional): linestyle. Defaults to '-'.
-#         orientation (int, optional): counter-clockwise angle. Defaults to 0.
-#         scatter (bool, optional): show center or not. Defaults to False.
-#         zorder (int, optional): graph layers order. Defaults to 0.
-#     """
-#     x, y = center
-#     xtilde = x*np.cos(orientation) - y*np.sin(orientation)
-#     ytilde = y*np.cos(orientation) + x*np.sin(orientation)
-
-#     theta = np.linspace(0, 2*np.pi, 200)
-#     xs = xtilde + r * np.cos(theta)
-#     ys = ytilde + r * np.sin(theta)
-#     ax.plot(xs, ys, c=c, lw=lw, linestyle=ls, zorder=zorder)
-#     if scatter:
-#         ax.scatter(xtilde+r, ytilde, c=c, s=80)
-#         ax.scatter(xtilde-r, ytilde, c=c, s=80)
-#         print(xtilde+r, ytilde, xtilde-r, ytilde)
-
-
-# def rotatePoint(state, orientation):
-#     """
-#     rotatePoint
-
-#     Args:
-#         state (np.ndarray): (x, y) position.
-#         orientation (int, optional): counter-clockwise angle.
-
-#     Returns:
-#         np.ndarray: rotated state.
-#     """
-#     x, y, theta = state
-#     xtilde = x*np.cos(orientation) - y*np.sin(orientation)
-#     ytilde = y*np.cos(orientation) + x*np.sin(orientation)
-#     thetatilde = theta+orientation
-
-#     return np.array([xtilde, ytilde, thetatilde])
-# endregion
 
 class DubinsCarPEEnv(gym.Env):
     def __init__(self, device, mode='RA', doneType='toEnd',
@@ -977,7 +902,7 @@ class DubinsCarPEEnv(gym.Env):
 
 
     # Plot evader's target, constraint and pursuer's capture range
-    def plot_target_failure_set(self, ax, xPursuer=.5, yPursuer=.5,
+    def plot_target_failure_set(self, ax=None, xPursuer=.5, yPursuer=.5,
         lw=3, showCapture=True, c_c='m', c_t='y', zorder=1):
         """
         plot_target_failure_set: plot the target and the failure set.
@@ -1011,7 +936,7 @@ class DubinsCarPEEnv(gym.Env):
         pass
 
 
-    def plot_formatting(self, ax, labels=None):
+    def plot_formatting(self, ax=None, labels=None):
         """
         plot_formatting: formatting the visualization
 

@@ -787,7 +787,7 @@ class DubinsCarOneEnv(gym.Env):
         return results, minVs
 
 
-    def plot_target_failure_set(self, ax, c_c='m', c_t='y', lw=3, zorder=0):
+    def plot_target_failure_set(self, ax=None, c_c='m', c_t='y', lw=3, zorder=0):
         """
         plot_target_failure_set: plot the target and the failure set.
 
@@ -806,7 +806,7 @@ class DubinsCarOneEnv(gym.Env):
             lw=lw, zorder=zorder)
 
 
-    def plot_reach_avoid_set(self, ax, c='g', lw=3, orientation=0, zorder=1):
+    def plot_reach_avoid_set(self, ax=None, c='g', lw=3, orientation=0, zorder=1):
         """
         plot_reach_avoid_set: plot the analytic reach-avoid set.
 
@@ -854,7 +854,7 @@ class DubinsCarOneEnv(gym.Env):
                 orientation=orientation, zorder=zorder)
 
 
-    def plot_formatting(self, ax, labels=None):
+    def plot_formatting(self, ax=None, labels=None):
         """
         plot_formatting: formatting the visualization
 
@@ -878,49 +878,3 @@ class DubinsCarOneEnv(gym.Env):
         ax.xaxis.set_major_formatter('{x:.1f}')
         ax.yaxis.set_major_locator(LinearLocator(5))
         ax.yaxis.set_major_formatter('{x:.1f}')
-
-
-    # @staticmethod
-    # def plot_arc(center, r, thetaParam, ax, c='b', lw=1.5, orientation=0,
-    #     zorder=0):
-    #     """
-    #     plot_arc
-
-    #     Args:
-    #         center (np.ndarray): center.
-    #         r (float): radius.
-    #         thetaParam (np.ndarray): [thetaInit, thetaFinal].
-    #         ax (matplotlib.axes.Axes)
-    #         c (str, optional): color. Defaults to 'b'.
-    #         lw (float, optional): linewidth. Defaults to 1.5.
-    #         orientation (int, optional): counter-clockwise angle. Defaults to 0.
-    #         zorder (int, optional): graph layers order. Defaults to 0.
-    #     """
-    #     x, y = center
-    #     thetaInit, thetaFinal = thetaParam
-
-    #     xtilde = x*np.cos(orientation) - y*np.sin(orientation)
-    #     ytilde = y*np.cos(orientation) + x*np.sin(orientation)
-
-    #     theta = np.linspace(thetaInit+orientation, thetaFinal+orientation, 100)
-    #     xs = xtilde + r * np.cos(theta)
-    #     ys = ytilde + r * np.sin(theta)
-
-    #     ax.plot(xs, ys, c=c, lw=lw, zorder=zorder)
-
-
-    # @staticmethod
-    # def plot_circle(center, r, ax, c='b', lw=1.5, orientation=0,
-    #     scatter=False, zorder=0):
-    #     x, y = center
-    #     xtilde = x*np.cos(orientation) - y*np.sin(orientation)
-    #     ytilde = y*np.cos(orientation) + x*np.sin(orientation)
-
-    #     theta = np.linspace(0, 2*np.pi, 200)
-    #     xs = xtilde + r * np.cos(theta)
-    #     ys = ytilde + r * np.sin(theta)
-    #     ax.plot(xs, ys, c=c, lw=lw, zorder=zorder)
-    #     if scatter:
-    #         ax.scatter(xtilde+r, ytilde, c=c, s=80, zorder=zorder)
-    #         ax.scatter(xtilde-r, ytilde, c=c, s=80, zorder=zorder)
-    #         print(xtilde+r, ytilde, xtilde-r, ytilde, zorder=zorder)

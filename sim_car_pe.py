@@ -7,12 +7,12 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib.ticker import LinearLocator
 import torch
-import pickle
 import os
 import argparse
 
-from KC_DQN.DDQNSingle import DDQNSingle
+from KC_DQN.DDQNPursuitEvasion import DDQNPursuitEvasion
 from KC_DQN.config import dqnConfig
 from KC_DQN.utils import save_obj
 
@@ -21,7 +21,8 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 
 #== ARGS ==
-# python3 sim_car_one.py -sf -of scratch -w -wi 5000 -g 0.9999 -n 9999
+# python3 sim_car_pe.py -sf -of scratch -w -wi 30000 -g 0.9999 -n 9999
+# test: python3 sim_car_pe.py -sf -of scratch -g 0.9999 -n tmp -mu 100 -cp 40
 parser = argparse.ArgumentParser()
 
 # environment parameters
@@ -31,30 +32,32 @@ parser.add_argument("-ct",  "--costType",       help="cost type",
     default='sparse',   type=str)
 parser.add_argument("-rnd", "--randomSeed",     help="random seed",
     default=0,          type=int)
+parser.add_argument("-cpf", "--cpf",            help="consider pursuer failure set",
+    action="store_true")
 
 # car dynamics
-parser.add_argument("-cr",  "--consRadius",     help="constraint radius",
+parser.add_argument("-cr",      "--constraintRadius",   help="constraint radius",
     default=1., type=float)
-parser.add_argument("-tr",  "--targetRadius",   help="target radius",
+parser.add_argument("-tr",      "--targetRadius",       help="target radius",
     default=.5, type=float)
-parser.add_argument("-turn","--turnRadius",     help="turning radius",
-    default=.6, type=float)
-parser.add_argument("-s",   "--speed",          help="speed",
-    default=.5, type=float)
+parser.add_argument("-turn",    "--turnRadius",         help="turning radius",
+    default=.25, type=float)
+parser.add_argument("-s",       "--speed",              help="speed",
+    default=.75, type=float)
 
 # training scheme
 parser.add_argument("-w",   "--warmup",         help="warmup Q-network",
     action="store_true")
 parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",
-    default=10000,  type=int)
+    default=30000,  type=int)
 parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",
     default=400000, type=int)
 parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",
     default=20,     type=int)
 parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",
-    default=1e4,    type=int)
+    default=50000,  type=int)
 parser.add_argument("-cp",  "--checkPeriod",    help="check period",
-    default=20000, type=int)
+    default=20000,  type=int)
 
 # hyper-parameters
 parser.add_argument("-a",   "--annealing",      help="gamma annealing",
@@ -91,19 +94,19 @@ print(args)
 
 
 #== CONFIGURATION ==
-env_name = "dubins_car-v1"
+env_name = "dubins_car_pe-v0"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 maxUpdates = args.maxUpdates
 updateTimes = args.updateTimes
 updatePeriod = int(maxUpdates / updateTimes)
 updatePeriodHalf = int(updatePeriod/2)
-maxSteps = 100
+maxSteps = 200
 
 fn = args.name + '-' + args.doneType
 if args.showTime:
     fn = fn + '-' + timestr
 
-outFolder = os.path.join(args.outFolder, 'car-DDQN', fn)
+outFolder = os.path.join(args.outFolder, 'car-pe-DDQN', fn)
 print(outFolder)
 figureFolder = os.path.join(outFolder, 'figure')
 os.makedirs(figureFolder, exist_ok=True)
@@ -111,99 +114,50 @@ os.makedirs(figureFolder, exist_ok=True)
 
 #== Environment ==
 print("\n== Environment Information ==")
-if args.doneType == 'toEnd':
-    sample_inside_obs=True
-elif args.doneType == 'TF' or args.doneType == 'fail':
-    sample_inside_obs=False
-
-env = gym.make(env_name, device=device, mode=args.mode, doneType=args.doneType,
-    sample_inside_obs=sample_inside_obs)
-
-stateNum = env.state.shape[0]
+env = gym.make(env_name, device=device, mode='RA', doneType=args.doneType,
+    sample_inside_obs=False, considerPursuerFailure=args.cpf)
+stateDim = env.state.shape[0]
 actionNum = env.action_space.n
 action_list = np.arange(actionNum)
-print("State Dimension: {:d}, ActionSpace Dimension: {:d}".format(
-    stateNum, actionNum))
-
-
-#== Setting in this Environment ==
-env.set_speed(speed=args.speed)
-env.set_target(radius=args.targetRadius)
-env.set_constraint(radius=args.consRadius)
-env.set_radius_rotation(R_turn=args.turnRadius)
-print("Dynamic parameters:")
-print("  CAR")
-print("    Constraint radius: {:.1f}, Target radius: {:.1f}, Turn radius: {:.2f}, Maximum speed: {:.2f}, Maximum angular speed: {:.2f}".format(
-    env.car.constraint_radius, env.car.target_radius, env.car.R_turn, env.car.speed, env.car.max_turning_rate))
-print("  ENV")
-print("    Constraint radius: {:.1f}, Target radius: {:.1f}, Turn radius: {:.2f}, Maximum speed: {:.2f}".format(
-    env.constraint_radius, env.target_radius, env.R_turn, env.speed))
-print(env.car.discrete_controls)
-if 2*env.R_turn-env.constraint_radius > env.target_radius:
-    print("Type II Reach-Avoid Set")
-else:
-    print("Type I Reach-Avoid Set")
 env.set_seed(args.randomSeed)
+env.report()
 
 
 #== Get and Plot max{l_x, g_x} ==
 if args.plotFigure or args.storeFigure:
     nx, ny = 101, 101
-    vmin = -1
-    vmax = 1
-
-    v = np.zeros((nx, ny))
-    l_x = np.zeros((nx, ny))
-    g_x = np.zeros((nx, ny))
+    theta, thetaPursuer = 0., 0.
+    v = np.zeros((4, nx, ny))
+    l_x = np.zeros((4, nx, ny))
+    g_x = np.zeros((4, nx, ny))
     xs = np.linspace(env.bounds[0,0], env.bounds[0,1], nx)
     ys =np.linspace(env.bounds[1,0], env.bounds[1,1], ny)
 
-    it = np.nditer(v, flags=['multi_index'])
+    xPursuerList=[.1, .3, .5, .8]
+    yPursuerList=[.1, .3, .5, .8]
+    for i, (xPursuer, yPursuer) in enumerate(zip(xPursuerList, yPursuerList)):
+        it = np.nditer(l_x[0], flags=['multi_index'])
 
-    while not it.finished:
-        idx = it.multi_index
-        x = xs[idx[0]]
-        y = ys[idx[1]]
+        while not it.finished:
+            idx = it.multi_index
+            x = xs[idx[0]]
+            y = ys[idx[1]]
+            
+            state = np.array([x, y, theta, xPursuer, yPursuer, thetaPursuer])
+            l_x[i][idx] = env.target_margin(state)
+            g_x[i][idx] = env.safety_margin(state)
 
-        l_x[idx] = env.target_margin(np.array([x, y]))
-        g_x[idx] = env.safety_margin(np.array([x, y]))
-
-        v[idx] = np.maximum(l_x[idx], g_x[idx])
-        it.iternext()
+            v[i][idx] = np.maximum(l_x[i][idx], g_x[i][idx])
+            it.iternext()
 
     axStyle = env.get_axes()
-
-    fig, axes = plt.subplots(1,3, figsize=(12,6))
-
-    ax = axes[0]
-    im = ax.imshow(l_x.T, interpolation='none', extent=axStyle[0],
-        origin="lower", cmap="seismic", vmin=vmin, vmax=vmax, zorder=-1)
-    cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95,
-        ticks=[vmin, 0, vmax])
-    cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
-    ax.set_title(r'$\ell(x)$', fontsize=18)
-
-    ax = axes[1]
-    im = ax.imshow(g_x.T, interpolation='none', extent=axStyle[0],
-        origin="lower", cmap="seismic", vmin=vmin, vmax=vmax, zorder=-1)
-    cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95,
-        ticks=[vmin, 0, vmax])
-    cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
-    ax.set_title(r'$g(x)$', fontsize=18)
-
-    ax = axes[2]
-    im = ax.imshow(v.T, interpolation='none', extent=axStyle[0],
-        origin="lower", cmap="seismic", vmin=vmin, vmax=vmax, zorder=-1)
-    env.plot_reach_avoid_set(ax)
-    cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95,
-        ticks=[vmin, 0, vmax])
-    cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
-    ax.set_title(r'$v(x)$', fontsize=18)
-
-    for ax in axes:
-        env.plot_target_failure_set(ax=ax)
-        env.plot_formatting(ax=ax)
-
+    fig, axes = plt.subplots(1,4, figsize=(16, 4))
+    for i, (ax, xPursuer, yPursuer) in enumerate(zip(axes, xPursuerList, yPursuerList)):
+        f = ax.imshow(v[i].T, interpolation='none', extent=axStyle[0], origin="lower", cmap="seismic", vmin=-1, vmax=1)
+        env.plot_target_failure_set(ax, xPursuer=xPursuer, yPursuer=yPursuer)
+        if i == 3:
+            fig.colorbar(f, ax=ax, pad=0.01, fraction=0.05, shrink=.95, ticks=[-1, 0, 1])
+        env.plot_formatting(ax)
     fig.tight_layout()
     if args.storeFigure:
         figurePath = os.path.join(figureFolder, 'env.png')
@@ -233,16 +187,14 @@ CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
     EPS_PERIOD=EPS_PERIOD, EPS_DECAY=0.7, EPS_RESET_PERIOD=EPS_RESET_PERIOD,
     LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
     MAX_MODEL=50)
-print(CONFIG.EPS_PERIOD, CONFIG.EPS_RESET_PERIOD)
-picklePath = outFolder+'/CONFIG.pkl'
-with open(picklePath, 'wb') as handle:
-    pickle.dump(CONFIG, handle, protocol=pickle.HIGHEST_PROTOCOL)
+# print(vars(CONFIG))
 
 
 #== AGENT ==
-dimList = [stateNum] + CONFIG.ARCHITECTURE + [actionNum]
-agent = DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList,
-    mode=args.mode, terminalType=args.terminalType)
+numActionList = env.numActionList
+numJoinAction = int(numActionList[0] * numActionList[1])
+dimList = [stateDim] + CONFIG.ARCHITECTURE + [actionNum]
+agent = DDQNPursuitEvasion(CONFIG, numActionList, dimList, mode='RA', terminalType='g')
 print("We want to use: {}, and Agent uses: {}".format(device, agent.device))
 print("Critic is using cuda: ", next(agent.Q_network.parameters()).is_cuda)
 
@@ -257,11 +209,16 @@ if args.warmup:
     if args.plotFigure or args.storeFigure:
         fig, ax = plt.subplots(1,1, figsize=(4, 4))
         tmp = np.arange(500, args.warmupIter)
-        # tmp = np.arange(args.warmupIter)
         ax.plot(tmp, lossList[tmp], 'b-')
+
+        ax.set_xlim(500, args.warmupIter)
         ax.set_xlabel('Iteration', fontsize=18)
         ax.set_ylabel('Loss', fontsize=18)
-        plt.tight_layout()
+        ax.xaxis.set_major_locator(LinearLocator(5))
+        ax.xaxis.set_major_formatter('{x:.1f}')
+        ax.yaxis.set_major_locator(LinearLocator(5))
+        ax.yaxis.set_major_formatter('{x:.1f}')
+        fig.tight_layout()
 
         if args.storeFigure:
             figurePath = os.path.join(figureFolder, 'initQ_Loss.png')
@@ -270,7 +227,6 @@ if args.warmup:
             plt.show()
             plt.pause(0.001)
         plt.close()
-
 
 print("\n== Training Information ==")
 vmin = -1
@@ -341,13 +297,19 @@ if args.plotFigure or args.storeFigure:
         x = xs[idx[0]]
         y = ys[idx[1]]
 
-        state = np.array([x, y, 0.])
+        state = np.array([x, y, 0., -0.2, -0.3, .75*np.pi])
         stateTensor = torch.FloatTensor(state).unsqueeze(0)
-        action_index = agent.Q_network(stateTensor).min(dim=1)[1].item()
-        # u = env.discrete_controls[action_index]
-        actDistMtx[idx] = action_index
+        state_action_values = agent.Q_network(stateTensor)
+        Q_mtx = state_action_values.reshape(env.numActionList[0], env.numActionList[1])
+        pursuerValues, colIndices = Q_mtx.max(dim=1)
+        _, rowIdx = pursuerValues.min(dim=0)
+        colIdx = colIndices[rowIdx]
 
-        _, result, _, _ = env.simulate_one_trajectory(agent.Q_network, T=250, state=state, toEnd=False)
+        uEvader = env.evader.discrete_controls[rowIdx]
+        uPursuer = env.pursuer.discrete_controls[colIdx]
+        actDistMtx[idx] = uEvader
+
+        _, _, result, _, _ = env.simulate_one_trajectory(agent.Q_network, T=250, state=state, toEnd=False)
         resultMtx[idx] = result
         it.iternext()
 
@@ -364,13 +326,13 @@ if args.plotFigure or args.storeFigure:
     ax = axes[1]
     im = ax.imshow(resultMtx.T != 1, interpolation='none', extent=axStyle[0],
         origin="lower", cmap='seismic', vmin=0, vmax=1, zorder=-1)
-    env.plot_trajectories(agent.Q_network, states=env.visual_initial_states,
-        toEnd=False, ax=ax, c='w', lw=1.5, T=100)
+    env.plot_trajectories(agent.Q_network, states=[env.visual_initial_states[1]],
+        toEnd=False, ax=ax, lw=1.5, T=200)
     ax.set_xlabel('Rollout RA', fontsize=24)
 
     #= Value
     ax = axes[0]
-    v = env.get_value(agent.Q_network, theta=0, nx=nx, ny=ny)
+    v = env.get_value(agent.Q_network, 0., -0.2, -0.3, .75*np.pi, nx, ny)
     im = ax.imshow(v.T, interpolation='none', extent=axStyle[0],
         origin="lower", cmap='seismic', vmin=vmin, vmax=vmax, zorder=-1)
     CS = ax.contour(xs, ys, v.T, levels=[0], colors='k', linewidths=2,
@@ -378,7 +340,7 @@ if args.plotFigure or args.storeFigure:
     ax.set_xlabel('Value', fontsize=24)
 
     for ax in axes:
-        env.plot_target_failure_set(ax=ax)
+        env.plot_target_failure_set(ax=ax, xPursuer=-0.2, yPursuer=-0.3)
         env.plot_reach_avoid_set(ax=ax)
         env.plot_formatting(ax=ax)
         

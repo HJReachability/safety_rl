@@ -10,21 +10,15 @@
 import gym.spaces
 import numpy as np
 import gym
+import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib.ticker import LinearLocator
 import torch
 import random
 
-from .dubins_car_dyn import DubinsCarDyn
 
-
-class DubinsCarOneEnv(gym.Env):
+class DubinsCarOneContEnv(gym.Env):
     def __init__(self, device, mode='normal', doneType='toEnd',
         sample_inside_obs=False, sample_inside_tar=True, seed=0):
-
-        # Set random seed.
-        self.set_seed(seed)
-
         # State bounds.
         self.bounds = np.array([[-1.1, 1.1],
                                 [-1.1, 1.1],
@@ -35,7 +29,6 @@ class DubinsCarOneEnv(gym.Env):
         self.sample_inside_tar = sample_inside_tar
 
         # Gym variables.
-        self.action_space = gym.spaces.Discrete(3)
         midpoint = (self.low + self.high)/2.0
         interval = self.high - self.low
         self.observation_space = gym.spaces.Box(np.float32(midpoint - interval/2),
@@ -58,10 +51,13 @@ class DubinsCarOneEnv(gym.Env):
         self.time_step = 0.05
         self.speed = 0.5 # v
         self.R_turn = .6
-        self.car = DubinsCarDyn(doneType=doneType)
+        self.car = DubinsCarDynCont(doneType=doneType)
         self.init_car()
 
-        # Visualization params
+        # Set random seed.
+        self.set_seed(seed)
+
+        # Visualization params 
         self.visual_initial_states =[   np.array([ .6*self.constraint_radius,  -.5, np.pi/2]),
                                         np.array([ -.4*self.constraint_radius, -.5, np.pi/2]),
                                         np.array([ -0.95*self.constraint_radius, 0., np.pi/2]),
@@ -75,8 +71,9 @@ class DubinsCarOneEnv(gym.Env):
         self.costType = 'sparse'
         self.device = device
 
-        print("Env: mode-{:s}; doneType-{:s}; sample_inside_obs-{}".format(
-            self.mode, self.doneType, self.sample_inside_obs))
+        print("Env: mode-{:s}; doneType-{:s}".format(self.mode, self.doneType))
+        print("Sample Type: inside obs-{}; inside tar-{}".format(
+            self.sample_inside_obs, self.sample_inside_tar))
 
 
     def init_car(self):
@@ -86,6 +83,7 @@ class DubinsCarOneEnv(gym.Env):
         self.car.set_speed(speed=self.speed)
         self.car.set_time_step(time_step=self.time_step)
         self.car.set_radius_rotation(R_turn=self.R_turn, verbose=False)
+        self.action_space = self.car.action_space
 
 
 #== Reset Functions ==
@@ -125,7 +123,10 @@ class DubinsCarOneEnv(gym.Env):
         if distance >= 1e-8:
             raise "There is a mismatch between the env state and car state: {:.2e}".format(distance)
 
-        state_nxt, _ = self.car.step(action)
+        if not np.isscalar(action):
+            action = action[0]
+
+        state_nxt = self.car.step(action)
         self.state = state_nxt
         l_x = self.target_margin(self.state[:2])
         g_x = self.safety_margin(self.state[:2])
@@ -133,7 +134,8 @@ class DubinsCarOneEnv(gym.Env):
         fail = g_x > 0
         success = l_x <= 0
 
-        # cost
+        #= `cost` signal
+        # cost = 0.
         if self.mode == 'RA':
             if fail:
                 cost = self.penalty
@@ -159,6 +161,7 @@ class DubinsCarOneEnv(gym.Env):
                     cost = 0.
 
         #= `done` signal
+        # done = fail
         if self.doneType == 'toEnd':
             done = not self.car.check_within_bounds(self.state)
         elif self.doneType == 'fail':
@@ -166,11 +169,11 @@ class DubinsCarOneEnv(gym.Env):
         elif self.doneType == 'TF':
             done = fail or success
         else:
-            raise ValueError("invalid done type!")
+            raise ValueError("invalid doneType")
 
         #= `info`
         if done and self.doneType == 'fail':
-            info = {"g_x": self.penalty*self.scaling, "l_x": l_x}
+            info = {"g_x": self.penalty, "l_x": l_x}
         else:
             info = {"g_x": g_x, "l_x": l_x}
         return np.copy(self.state), cost, done, info
@@ -192,6 +195,7 @@ class DubinsCarOneEnv(gym.Env):
         self.car.set_radius(target_radius=target_radius,
                             constraint_radius=constraint_radius,
                             R_turn=R_turn)
+        self.action_space = self.car.action_space
 
 
     def set_constraint(self, center=np.array([0.,0.]), radius=1.):
@@ -209,11 +213,13 @@ class DubinsCarOneEnv(gym.Env):
     def set_radius_rotation(self, R_turn=.6, verbose=False):
         self.R_turn = R_turn
         self.car.set_radius_rotation(R_turn=R_turn, verbose=verbose)
+        self.action_space = self.car.action_space
 
 
     def set_speed(self, speed=.5):
         self.speed = speed
         self.car.set_speed(speed=speed)
+        self.action_space = self.car.action_space
 
 
     def set_seed(self, seed):
@@ -227,9 +233,11 @@ class DubinsCarOneEnv(gym.Env):
         torch.manual_seed(self.seed_val)
         torch.cuda.manual_seed(self.seed_val)
         torch.cuda.manual_seed_all(self.seed_val)  # if you are using multi-GPU.
-        random.seed(self.seed_val)
+        random.seed(self.seed_val) 
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
+        self.car.set_seed(seed)
+        self.action_space = self.car.action_space
 
 
     def set_bounds(self, bounds):
@@ -250,6 +258,15 @@ class DubinsCarOneEnv(gym.Env):
         self.observation_space = gym.spaces.Box(np.float32(midpoint - interval/2),
                                                 np.float32(midpoint + interval/2))
         self.car.set_bounds(bounds)
+
+
+    def set_sample_type(self, sample_inside_obs=True, sample_inside_tar=True,
+        verbose=False):
+        self.sample_inside_obs = sample_inside_obs
+        self.sample_inside_tar = sample_inside_tar
+        if verbose:
+            print("Sample Type: inside obs-{}; inside tar-{}".format(
+                self.sample_inside_obs, self.sample_inside_tar))
 
 
 #== Margin Functions ==
@@ -279,16 +296,19 @@ class DubinsCarOneEnv(gym.Env):
 
 #== Getting Functions ==
     def get_warmup_examples(self, num_warmup_samples=100):
-        rv = np.random.uniform( low=self.low,
-                                high=self.high,
-                                size=(num_warmup_samples,3))
-        x_rnd, y_rnd, theta_rnd = rv[:,0], rv[:,1], rv[:,2]
+        # rv = np.random.uniform( low=self.low,
+        #                         high=self.high,
+        #                         size=(num_warmup_samples,3))
+        # x_rnd, y_rnd, theta_rnd = rv[:,0], rv[:,1], rv[:,2]
 
-        heuristic_v = np.zeros((num_warmup_samples, self.action_space.n))
+        heuristic_v = np.zeros((num_warmup_samples, 1))
         states = np.zeros((num_warmup_samples, self.observation_space.shape[0]))
 
         for i in range(num_warmup_samples):
-            x, y, theta = x_rnd[i], y_rnd[i], theta_rnd[i]
+            x, y, theta = self.car.sample_random_state(
+                sample_inside_obs=self.sample_inside_obs,
+                sample_inside_tar=self.sample_inside_tar)
+            # x, y, theta = x_rnd[i], y_rnd[i], theta_rnd[i]
             l_x = self.target_margin(np.array([x, y]))
             g_x = self.safety_margin(np.array([x, y]))
             heuristic_v[i,:] = np.maximum(l_x, g_x)
@@ -308,7 +328,7 @@ class DubinsCarOneEnv(gym.Env):
         return [axes, aspect_ratio]
 
 
-    def get_value(self, q_func, theta, nx=101, ny=101, addBias=False):
+    def get_value(self, q_func, policy, theta, nx=101, ny=101, addBias=False):
         v = np.zeros((nx, ny))
         it = np.nditer(v, flags=['multi_index'])
         xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)
@@ -321,20 +341,25 @@ class DubinsCarOneEnv(gym.Env):
             g_x = self.safety_margin(np.array([x, y]))
 
             if self.mode == 'normal' or self.mode == 'RA':
-                state = torch.FloatTensor([x, y, theta]).to(self.device).unsqueeze(0)
+                state = torch.FloatTensor([x, y, theta]).to(self.device)
             else:
                 z = max([l_x, g_x])
-                state = torch.FloatTensor([x, y, theta, z]).to(self.device).unsqueeze(0)
+                state = torch.FloatTensor([x, y, theta, z]).to(self.device)
+            with torch.no_grad():
+                action = policy(state)
+
+            xx = torch.cat([state, action]).to(self.device)
             if addBias:
-                v[idx] = q_func(state).min(dim=1)[0].item() + max(l_x, g_x)
+                v[idx] = q_func(xx).item() + max(l_x, g_x)
             else:
-                v[idx] = q_func(state).min(dim=1)[0].item()
+                v[idx] = q_func(xx).item()
+
             it.iternext()
         return v
 
 
 #== Trajectory Functions ==
-    def simulate_one_trajectory(self, q_func, T=10, state=None, theta=None,
+    def simulate_one_trajectory(self, policy, T=10, state=None, theta=None,
             sample_inside_obs=True, sample_inside_tar=True, toEnd=False):
         # reset
         if state is None:
@@ -378,68 +403,42 @@ class DubinsCarOneEnv(gym.Env):
                     result = 1 # succeeded
                     break
 
-            q_func.eval()
-            state_tensor = torch.FloatTensor(state).to(self.device).unsqueeze(0)
-            action_index = q_func(state_tensor).min(dim=1)[1].item()
-            u = self.car.discrete_controls[action_index]
-
+            state_tensor = torch.FloatTensor(state).to(self.device)
+            u = policy(state_tensor).detach().cpu().numpy()[0]
             state = self.car.integrate_forward(state, u)
         traj = np.array(traj)
         info = {'valueList':valueList, 'gxList':gxList, 'lxList':lxList}
         return traj, result, minV, info
 
 
-    def simulate_trajectories(  self, q_func, T=10,
-                                num_rnd_traj=None, states=None, theta=None,
-                                keepOutOf=False, toEnd=False):
+    def simulate_trajectories(  self, policy, T=10,
+        num_rnd_traj=None, states=None, theta=None,
+        keepOutOf=False, toEnd=False):
+
+        sample_inside_obs = not keepOutOf
+        sample_inside_tar = not keepOutOf
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
         trajectories = []
-        sample_inside_obs = not keepOutOf
-        sample_inside_tar = not keepOutOf
 
         if states is None:
-            nx=41
-            ny=nx
-            xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)
-            ys = np.linspace(self.bounds[1,0], self.bounds[1,1], ny)
-            results  = np.empty((nx, ny), dtype=int)
-            minVs  = np.empty((nx, ny), dtype=float)
-
-            it = np.nditer(results, flags=['multi_index'])
-            print()
-            while not it.finished:
-                idx = it.multi_index
-                print(idx, end='\r')
-                x = xs[idx[0]]
-                y = ys[idx[1]]
-                state = np.array([x, y, 0.])
-                traj, result, minV, _ = self.simulate_one_trajectory(
-                    q_func, T=T, state=state, toEnd=toEnd)
-                trajectories.append((traj))
+            results = np.empty(shape=(num_rnd_traj,), dtype=int)
+            minVs = np.empty(shape=(num_rnd_traj,), dtype=float)
+            for idx in range(num_rnd_traj):
+                traj, result, minV, _ = self.simulate_one_trajectory(policy,
+                    T=T, theta=theta, sample_inside_obs=sample_inside_obs,
+                    sample_inside_tar=sample_inside_tar, toEnd=toEnd)
+                trajectories.append(traj)
                 results[idx] = result
                 minVs[idx] = minV
-                it.iternext()
-            results = results.reshape(-1)
-            minVs = minVs.reshape(-1)
-
-            # results = np.empty(shape=(num_rnd_traj,), dtype=int)
-            # minVs = np.empty(shape=(num_rnd_traj,), dtype=float)
-            # for idx in range(num_rnd_traj):
-            #     traj, result, minV, _ = self.simulate_one_trajectory(
-            #         q_func, T=T, theta=theta, sample_inside_obs=sample_inside_obs,
-            #         sample_inside_tar=sample_inside_tar, toEnd=toEnd)
-            #     trajectories.append(traj)
-            #     results[idx] = result
-            #     minVs[idx] = minV
         else:
             results = np.empty(shape=(len(states),), dtype=int)
             minVs = np.empty(shape=(len(states),), dtype=float)
             for idx, state in enumerate(states):
-                traj, result, minV, _ = self.simulate_one_trajectory(
-                    q_func, T=T, state=state, toEnd=toEnd)
+                traj, result, minV, _ = self.simulate_one_trajectory(policy,
+                    T=T, state=state, toEnd=toEnd)
                 trajectories.append(traj)
                 results[idx] = result
                 minVs[idx] = minV
@@ -448,20 +447,22 @@ class DubinsCarOneEnv(gym.Env):
 
 
 #== Plotting Functions ==
-    def visualize(  self, q_func,
-                    vmin=-1, vmax=1, nx=101, ny=101, cmap='coolwarm',
-                    labels=None, boolPlot=False, addBias=False, theta=np.pi/2,
-                    rndTraj=False, num_rnd_traj=10, keepOutOf=False):
+    def visualize(  self, q_func, policy,
+        vmin=-1, vmax=1, nx=101, ny=101, cmap='seismic',
+        labels=None, boolPlot=False, addBias=False, theta=np.pi/2,
+        rndTraj=False, num_rnd_traj=10,
+        sample_inside_obs=True, sample_inside_tar=True):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
             q_func: NN or Tabular-Q
         """
+        axStyle = self.get_axes()
         thetaList = [np.pi/6, np.pi/3, np.pi/2]
         fig = plt.figure(figsize=(12,4))
         ax1 = fig.add_subplot(131)
         ax2 = fig.add_subplot(132)
-        ax3 = fig.add_subplot(133)
+        ax3 = fig.add_subplot(133)  
         axList = [ax1, ax2, ax3]
 
         for i, (ax, theta) in enumerate(zip(axList, thetaList)):
@@ -469,7 +470,7 @@ class DubinsCarOneEnv(gym.Env):
             ax.cla()
             if i == len(thetaList)-1:
                 cbarPlot=True
-            else:
+            else: 
                 cbarPlot=False
 
             #== Plot failure / target set ==
@@ -479,24 +480,27 @@ class DubinsCarOneEnv(gym.Env):
             self.plot_reach_avoid_set(ax, orientation=theta)
 
             #== Plot V ==
-            self.plot_v_values( q_func, ax=ax, fig=fig, theta=theta,
-                                vmin=vmin, vmax=vmax, nx=nx, ny=ny, cmap=cmap,
-                                boolPlot=boolPlot, cbarPlot=cbarPlot, addBias=addBias)
+            self.plot_v_values( q_func, policy, ax=ax, fig=fig, theta=theta,
+                vmin=vmin, vmax=vmax, nx=nx, ny=ny, cmap=cmap,
+                boolPlot=boolPlot, cbarPlot=cbarPlot, addBias=addBias)
             #== Formatting ==
             self.plot_formatting(ax=ax, labels=labels)
 
             #== Plot Trajectories ==
             if rndTraj:
-                self.plot_trajectories( q_func, T=200, num_rnd_traj=num_rnd_traj, theta=theta,
-                                        toEnd=False, keepOutOf=keepOutOf,
-                                        ax=ax, c='y', lw=2, orientation=0)
+                self.plot_trajectories(policy, T=200, num_rnd_traj=num_rnd_traj,
+                    theta=theta, toEnd=False,
+                    sample_inside_obs=sample_inside_obs,
+                    sample_inside_tar=sample_inside_tar,
+                    ax=ax, c='k', lw=2, orientation=0)
             else:
                 # `visual_initial_states` are specified for theta = pi/2. Thus,
                 # we need to use "orientation = theta-pi/2"
-                self.plot_trajectories( q_func, T=200, states=self.visual_initial_states, toEnd=False,
-                                        ax=ax, c='y', lw=2, orientation=theta-np.pi/2)
-
-            ax.set_xlabel(r'$\theta={:.0f}^\circ$'.format(theta*180/np.pi), fontsize=28)
+                self.plot_trajectories(policy, T=200,
+                    states=self.visual_initial_states, toEnd=False, 
+                    ax=ax, c='k', lw=2, orientation=theta-np.pi/2)
+            theta = theta*180/np.pi
+            ax.set_xlabel(r'$\theta={:.0f}^\circ$'.format(theta), fontsize=28)
 
         plt.tight_layout()
 
@@ -511,16 +515,15 @@ class DubinsCarOneEnv(gym.Env):
             ax.set_xlabel(labels[0], fontsize=52)
             ax.set_ylabel(labels[1], fontsize=52)
 
-        ax.tick_params( axis='both', which='both',
-                        bottom=False, top=False,
-                        left=False, right=False)
-        ax.xaxis.set_major_locator(LinearLocator(5))
-        ax.xaxis.set_major_formatter('{x:.1f}')
-        ax.yaxis.set_major_locator(LinearLocator(5))
-        ax.yaxis.set_major_formatter('{x:.1f}')
+        ax.tick_params( axis='both', which='both',  # both x and y axes, both major and minor ticks are affected
+                        bottom=False, top=False,    # ticks along the top and bottom edges are off
+                        left=False, right=False)    # ticks along the left and right edges are off
+        # ax.set_xticklabels([])
+        # ax.set_yticklabels([])
+        # ax.set_title(r"$\theta$={:.1f}".format(theta * 180 / np.pi), fontsize=24)
 
 
-    def plot_v_values(  self, q_func, theta=np.pi/2, ax=None, fig=None,
+    def plot_v_values(  self, q_func, policy, theta=np.pi/2, ax=None, fig=None,
                         vmin=-1, vmax=1, nx=201, ny=201, cmap='seismic',
                         boolPlot=False, cbarPlot=True, addBias=False):
         axStyle = self.get_axes()
@@ -530,7 +533,7 @@ class DubinsCarOneEnv(gym.Env):
         #== Plot V ==
         if theta == None:
             theta = 2.0 * np.random.uniform() * np.pi
-        v = self.get_value(q_func, theta, nx, ny, addBias=addBias)
+        v = self.get_value(q_func, policy, theta, nx, ny, addBias=addBias)
 
         if boolPlot:
             im = ax.imshow(v.T>0., interpolation='none', extent=axStyle[0],
@@ -543,9 +546,9 @@ class DubinsCarOneEnv(gym.Env):
                 cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=16)
 
 
-    def plot_trajectories(  self, q_func, T=100, num_rnd_traj=None, states=None,
-        theta=None, keepOutOf=False, toEnd=False, ax=None, c='y', lw=1.5,
-        orientation=0, zorder=2):
+    def plot_trajectories(  self, policy, T=10, num_rnd_traj=None, states=None,
+        theta=None, sample_inside_obs=True, sample_inside_tar=True, toEnd=False,
+        ax=None, c='k', lw=2, orientation=0, zorder=2):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -561,9 +564,9 @@ class DubinsCarOneEnv(gym.Env):
                 tmpStates.append(np.array([xtilde, ytilde, thetatilde]))
             states = tmpStates
 
-        trajectories, results, minVs = self.simulate_trajectories( q_func,
-            T=T, num_rnd_traj=num_rnd_traj, states=states, theta=theta,
-            keepOutOf=keepOutOf, toEnd=toEnd)
+        trajectories, results, minVs = self.simulate_trajectories(policy,
+            T=T, num_rnd_traj=num_rnd_traj, states=states, theta=theta, 
+            keepOutOf=False, toEnd=toEnd)
         if ax == None:
             ax = plt.gca()
         for traj in trajectories:
@@ -620,8 +623,7 @@ class DubinsCarOneEnv(gym.Env):
             lw=lw, zorder=zorder)
 
 
-    @staticmethod
-    def plot_arc(p, r, thetaParam, ax, c='b', lw=1.5, orientation=0,
+    def plot_arc(self, p, r, thetaParam, ax, c='b', lw=1.5, orientation=0,
         zorder=0):
         x, y = p
         thetaInit, thetaFinal = thetaParam
@@ -636,8 +638,7 @@ class DubinsCarOneEnv(gym.Env):
         ax.plot(xs, ys, c=c, lw=lw, zorder=zorder)
 
 
-    @staticmethod
-    def plot_circle(center, r, ax, c='b', lw=1.5, orientation=0,
+    def plot_circle(self, center, r, ax, c='b', lw=1.5, orientation=0,
         scatter=False, zorder=0):
         x, y = center
         xtilde = x*np.cos(orientation) - y*np.sin(orientation)

@@ -222,7 +222,6 @@ class ZermeloShowEnv(gym.Env):
                     raise ValueError("invalid cost type!")
 
         #= `done` signal
-        # done = fail
         if self.doneType == 'toEnd':
             done = self.check_within_env(self.state)
         elif self.doneType == 'fail':

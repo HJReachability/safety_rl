@@ -47,7 +47,7 @@ class DubinsCarDyn(object):
         self.safetyScaling = 1.
 
 
-    def reset(self, start=None, keepOutOf=False, theta=None):
+    def reset(self, start=None, theta=None, sample_inside_obs=False, sample_inside_tar=True):
         """ Reset the state of the environment.
 
         Args:
@@ -58,14 +58,17 @@ class DubinsCarDyn(object):
             The state the environment has been reset to.
         """
         if start is None:
-            x_rnd, y_rnd, theta_rnd = self.sample_random_state(keepOutOf=keepOutOf, theta=theta)
+            x_rnd, y_rnd, theta_rnd = self.sample_random_state(
+                sample_inside_obs=sample_inside_obs,
+                sample_inside_tar=sample_inside_tar,
+                theta=theta)
             self.state = np.array([x_rnd, y_rnd, theta_rnd])
         else:
             self.state = start
         return np.copy(self.state)
 
 
-    def sample_random_state(self, keepOutOf=False, theta=None):
+    def sample_random_state(self, sample_inside_obs=False, sample_inside_tar=True, theta=None):
         # random sample `theta`
         if theta is None:
             theta_rnd = 2.0 * np.random.uniform() * np.pi
@@ -79,11 +82,12 @@ class DubinsCarDyn(object):
             l_x = self.target_margin(rnd_state)
             g_x = self.safety_margin(rnd_state)
 
-            if l_x == None:
-                terminal = (g_x > 0)
+            if (not sample_inside_obs) and (g_x > 0):
+                flag = True
+            elif (not sample_inside_tar) and (l_x <= 0):
+                flag = True
             else:
-                terminal = (g_x > 0) or (l_x <= 0)
-            flag = terminal and keepOutOf
+                flag = False
         x_rnd, y_rnd = rnd_state
 
         return x_rnd, y_rnd, theta_rnd
@@ -147,16 +151,6 @@ class DubinsCarDyn(object):
 
 
 #== Setting Hyper-Parameter Functions ==
-    def set_seed(self, seed):
-        """ Set the random seed.
-
-        Args:
-            seed: Random seed.
-        """
-        self.seed_val = seed
-        np.random.seed(self.seed_val)
-
-
     def set_bounds(self, bounds):
         """ Set state bounds.
 

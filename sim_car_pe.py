@@ -304,7 +304,6 @@ if args.plotFigure or args.storeFigure:
         # Q_mtx = Q_mtx.detach().cpu()
         pursuerValues, colIndices = Q_mtx.max(dim=1)
         _, rowIdx = pursuerValues.min(dim=0)
-        print(colIndices, rowIdx)
         colIdx = colIndices[rowIdx]
 
         uEvader = env.evader.discrete_controls[rowIdx]

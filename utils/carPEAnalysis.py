@@ -4,6 +4,7 @@ import torch
 import pickle
 from gym_reachability import gym_reachability  # Custom Gym env.
 import gym
+import os
 
 from KC_DQN.config import dqnConfig
 from KC_DQN.DDQNPursuitEvasion import DDQNPursuitEvasion
@@ -593,11 +594,12 @@ def loadAgent(args, device, stateNum, actionNum, numActionList,
     verbose=True):
     if verbose:
         print("\n== Agent Information ==")
-    configFile = '{:s}/CONFIG.pkl'.format(args.modelFolder)
+    modelFolder = os.path.join(args.modelFolder, 'model')
+    configFile = os.path.join(modelFolder, 'CONFIG.pkl')
     with open(configFile, 'rb') as handle:
         tmpConfig = pickle.load(handle)
     CONFIG = dqnConfig()
-    for key, value in tmpConfig.__dict__.items():
+    for key, _ in tmpConfig.__dict__.items():
         CONFIG.__dict__[key] = tmpConfig.__dict__[key]
     CONFIG.DEVICE = device
     CONFIG.SEED = 0
@@ -605,8 +607,7 @@ def loadAgent(args, device, stateNum, actionNum, numActionList,
     dimList = [stateNum] + CONFIG.ARCHITECTURE + [actionNum]
     agent = DDQNPursuitEvasion(CONFIG, numActionList, dimList,
         CONFIG.ACTIVATION, verbose=verbose)
-    modelFile = '{:s}/model-{:d}.pth'.format(args.modelFolder+'/model', 4000000)
-    agent.restore(modelFile, verbose)
+    agent.restore(1000000, args.modelFolder)
 
     if verbose:
         print(vars(CONFIG))

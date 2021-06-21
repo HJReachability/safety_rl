@@ -1,7 +1,6 @@
 # == ESTIMATION ERROR ==
 # 1. We want to evaluate how well we learned from the data.
-# 2. We compare the DDQN-predicted value vs. the rollout value by DDQN-induced
-    # policies.
+# 2. We compare the DDQN-predicted value vs. the rollout value by DDQN-induced policies.
 # 3. Pre-processing:
     # we need to run `genEstSamples.py` beforehand to get state samples
 
@@ -34,7 +33,7 @@ import pickle
 import argparse
 from multiprocessing import Pool
 
-from utils.carPEAnalysis import *
+from utils.carPEAnalysis import loadAgent, loadEnv
 
 
 def multiExp(args, posAtt, thetaAttIdx, samplesDef, thetas,
@@ -49,9 +48,7 @@ def multiExp(args, posAtt, thetaAttIdx, samplesDef, thetas,
     device = env.device
 
     #== AGENT ==
-    configFile = '{:s}/CONFIG.pkl'.format(args.modelFolder)
-    agent = loadAgent(
-        args, device, stateNum, actionNum, numActionList, verbose)
+    agent = loadAgent(args, device, stateNum, actionNum, numActionList, verbose)
 
     # print("I'm process", os.getpid())
     numTheta = thetas.shape[0]
@@ -70,7 +67,7 @@ def multiExp(args, posAtt, thetaAttIdx, samplesDef, thetas,
         state[2] = thetas[thetaAttIdx]
         state[3:5] = samplesDef[idx[0], :]
         state[5] = thetas[idx[1]]
-        traj, _, result, minV, _ = env.simulate_one_trajectory(
+        traj, _, _, minV, _ = env.simulate_one_trajectory(
             agent.Q_network, T=maxLength, state=state, toEnd=toEnd)
         trajLength[idx] = traj.shape[0]
         rolloutValue[idx] = minV
@@ -90,7 +87,7 @@ def multiExp(args, posAtt, thetaAttIdx, samplesDef, thetas,
     carPEDict['trajLength']    = trajLength
     carPEDict['ddqnValue']     = ddqnValue
     carPEDict['rolloutValue']  = rolloutValue
-    carPEDict['thetaAttIdx']  = thetaAttIdx
+    carPEDict['thetaAttIdx']   = thetaAttIdx
     return carPEDict
 
 
@@ -104,7 +101,6 @@ def run(args):
     [samplesAtt, samplesDef, thetas] = samples
     numTheta = thetas.shape[0]
     numDef = samplesDef.shape[0]
-    numAtt = samplesAtt.shape[0]
     posAtt = samplesAtt[args.index, :]
     print(posAtt, numTheta, numDef)
 

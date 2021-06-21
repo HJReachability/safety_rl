@@ -313,7 +313,7 @@ if args.plotFigure or args.storeFigure:
 
         uEvader = env.evader.discrete_controls[rowIdx]
         uPursuer = env.pursuer.discrete_controls[colIdx]
-        actDistMtx[idx] = uEvader
+        actDistMtx[idx] = rowIdx
 
         _, _, result, _, _ = env.simulate_one_trajectory(agent.Q_network, T=250, state=state, toEnd=False)
         resultMtx[idx] = result

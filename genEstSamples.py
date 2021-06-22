@@ -86,7 +86,7 @@ if __name__ == '__main__':
     parser.add_argument("-rnd", "--randomSeed", help="random seed",
         default=0, type=int)
     parser.add_argument("-ns", "--numSample",   help="#samples",
-        default=10, type=int)
+        default=15, type=int)
 
     # File Parameters
     parser.add_argument("-of", "--outFile", help="output file",

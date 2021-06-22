@@ -26,6 +26,7 @@ def run(args):
         for i in indices:
             not_obtain[i] = False
         print(np.arange(args.number)[not_obtain])
+        return
     numTest = len(results)
     for i, resultFile in enumerate(results):
         print('Load from {:s} ...'.format(resultFile), end='\r')

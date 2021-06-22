@@ -20,20 +20,35 @@ def run(args):
     sampleType = sampleTypeList[args.sampleType]
     dataFolder = os.path.join(args.modelFolder, 'data/', sampleType)
     results = glob.glob(os.path.join(dataFolder, args.dataFile+sampleType+'*'))
+    start = len(args.dataFile+sampleType)
+    indices = np.array([int(li.split('/')[-1][start:-4]) for li in results])
+    if len(indices) < args.number:
+        print("we should get {} results but only get {}, missing:".format(
+            args.number, len(indices)))
+        not_obtain = np.full(shape=(args.number), fill_value=True, dtype=bool)
+        for i in indices:
+            not_obtain[i] = False
+        print(np.arange(args.number)[not_obtain])
+        return
+
     numTest = len(results)
     states = np.empty(shape=(numTest, 6), dtype=float)
-    dictList = []
-    rolloutValueList = []
-    stateIdxList = []
-    testIdxList = []
+    dictList = np.empty(shape=(numTest),  dtype=object)
+    rolloutValueList = np.empty(shape=(numTest),  dtype=object)
+    stateIdxList = np.empty(shape=(numTest),  dtype=object)
+    # dictList = []
+    # rolloutValueList = []
+    # stateIdxList = []
+    # testIdxList = []
     for i, resultFile in enumerate(results):
         print('Load from {:s} ...'.format(resultFile), end='\r')
         read_dictionary = np.load(resultFile, allow_pickle='TRUE').item()
-        states[i, :] = read_dictionary['state']
-        dictList.append(read_dictionary['dict'])
-        testIdxList.append(read_dictionary['testIdx'])
-        stateIdxList.append(read_dictionary['stateIdx'])
-        rolloutValueList.append(read_dictionary['rolloutValue'])
+        test_idx = read_dictionary['testIdx'] 
+        states[test_idx, :] = read_dictionary['state']
+        dictList[test_idx] = read_dictionary['dict']
+        # testIdxList.append(read_dictionary['testIdx'])
+        stateIdxList[test_idx] = read_dictionary['stateIdx']
+        rolloutValueList[test_idx] = read_dictionary['rolloutValue']
         if i == 0:
             maxLength = read_dictionary['maxLength']
             numPursuerStep = read_dictionary['numPursuerStep']
@@ -42,11 +57,11 @@ def run(args):
     finalDict['states'] = states
     finalDict['dictList'] = dictList
     finalDict['stateIdxList'] = stateIdxList
-    finalDict['testIdxList'] = testIdxList
+    # finalDict['testIdxList'] = testIdxList
     finalDict['maxLength'] = maxLength
     finalDict['numPursuerStep'] = numPursuerStep
     finalDict['rolloutValueList'] = rolloutValueList
-    print(testIdxList[:5])
+    # print(testIdxList[:5])
     print(stateIdxList[:5])
 
     outFolder = os.path.join(args.modelFolder, 'data/')
@@ -65,6 +80,8 @@ if __name__ == '__main__':
         default=0, type=int)
 
     # File Parameters
+    parser.add_argument("-n",  "--number", help="#files assumed to obtain",
+        default='500', type=int)
     parser.add_argument("-of", "--outFile", help="output file",
         default='valDict', type=str)
     parser.add_argument("-mf", "--modelFolder", help="model folder", 

@@ -27,7 +27,8 @@ import time
 import os
 from multiprocessing import Pool
 
-from utils.carPEAnalysis import *
+from utils.carPEAnalysis import loadEnv, loadAgent
+from utils.carPEAnalysis import checkCapture, exhaustiveDefenderSearch
 simplefilter(action='ignore', category=FutureWarning)
 np.set_printoptions(precision=3, suppress=True, floatmode='fixed')
 
@@ -168,7 +169,6 @@ def run(args):
     for i in range(3):
         for j in range(3):
             info = dictList[cnt]
-            idx = (i, j)
             rolloutValue[i, j] = info['rolloutValue']
             minV = info['maxminV']
             captureFlagTmp = info['captureFlag']

@@ -60,7 +60,6 @@ def multiExp(firstIdx, args, state, maxLength, numPursuerStep, verbose=False):
     device = env.device
 
     #== AGENT ==
-    configFile = '{:s}/CONFIG.pkl'.format(args.modelFolder)
     agent = loadAgent(
         args, device, stateNum, actionNum, numActionList, verbose)
 

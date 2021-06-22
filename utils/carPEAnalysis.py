@@ -273,8 +273,6 @@ def exhaustiveDefenderSearch(env, agent, state, actionSeq, maxLength=40):
 
     for t in range(maxLength):
         state = np.concatenate((stateEvader, statePursuer), axis=0)
-        doneEvader = not env.evader.check_within_bounds(stateEvader)
-        donePursuer = not env.pursuer.check_within_bounds(statePursuer)
 
         g_x = env.safety_margin(state)
         l_x = env.target_margin(state)
@@ -298,11 +296,9 @@ def exhaustiveDefenderSearch(env, agent, state, actionSeq, maxLength=40):
         with torch.no_grad():
             state_action_values = agent.Q_network(stateTensor)
         Q_mtx = state_action_values.reshape(env.numActionList[0], env.numActionList[1])
-        pursuerValues, colIndices = Q_mtx.max(dim=1)
-        minmaxValue, rowIdx = pursuerValues.min(dim=0)
-        colIdx = colIndices[rowIdx]
+        pursuerValues, _ = Q_mtx.max(dim=1)
+        _, rowIdx = pursuerValues.min(dim=0)
 
-        # If cars are within the boundary, we update their states according to the controls
         uEvader = env.evader.discrete_controls[rowIdx]
         stateEvader = env.evader.integrate_forward(stateEvader, uEvader)
         actionIdx = actionSeq[pursuerActionSeqIdx]

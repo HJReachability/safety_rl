@@ -455,7 +455,6 @@ def analyzeValidationResult(validationFile, env, verbose=True):
     valDict = np.load(validationFile, allow_pickle='TRUE').item()
 
     dictList = valDict['dictList']
-    testIdxList = valDict['testIdxList']
     failureList = []
     successList = []
     for i, dictTmp in enumerate(dictList):

@@ -9,15 +9,23 @@
 
 import numpy as np
 import argparse
-import time
 import os
 import glob
 
 
 def run(args):
     print('\n== Collecting Results ==')
-    dataFolder = os.path.join(args.modelFolder, 'data/', 'est/')
+    dataFolder = os.path.join(args.modelFolder, 'data', 'est')
     results = glob.glob(os.path.join(dataFolder, 'estError*'))
+    start = len('estError')
+    indices = np.array([int(li.split('/')[-1][start:-4]) for li in results])
+    if len(indices) < args.number:
+        print("we should get {} results but only get {}, missing:".format(
+            args.number, len(indices)))
+        not_obtain = np.full(shape=(args.number), fill_value=True, dtype=bool)
+        for i in indices:
+            not_obtain[i] = False
+        print(np.arange(args.number)[not_obtain])
     numTest = len(results)
     for i, resultFile in enumerate(results):
         print('Load from {:s} ...'.format(resultFile), end='\r')
@@ -61,6 +69,8 @@ if __name__ == '__main__':
     # File Parameters
     parser.add_argument("-of", "--outFile", help="output file",
         default='estError', type=str)
+    parser.add_argument("-n",  "--number", help="#files assumed to obtain",
+        default='225', type=int)
     parser.add_argument("-mf", "--modelFolder", help="model folder", 
         default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str)
 

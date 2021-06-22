@@ -34,10 +34,10 @@ def run(args):
     numTest = len(results)
     states = np.empty(shape=(numTest, 6), dtype=float)
     dictList = np.empty(shape=(numTest),  dtype=object)
-    rolloutValueList = np.empty(shape=(numTest),  dtype=object)
+    exhaustiveValueList = np.empty(shape=(numTest),  dtype=object)
     stateIdxList = np.empty(shape=(numTest),  dtype=object)
     # dictList = []
-    # rolloutValueList = []
+    # exhaustiveValueList = []
     # stateIdxList = []
     # testIdxList = []
     for i, resultFile in enumerate(results):
@@ -48,7 +48,7 @@ def run(args):
         dictList[test_idx] = read_dictionary['dict']
         # testIdxList.append(read_dictionary['testIdx'])
         stateIdxList[test_idx] = read_dictionary['stateIdx']
-        rolloutValueList[test_idx] = read_dictionary['rolloutValue']
+        exhaustiveValueList[test_idx] = read_dictionary['rolloutValue']
         if i == 0:
             maxLength = read_dictionary['maxLength']
             numPursuerStep = read_dictionary['numPursuerStep']
@@ -60,7 +60,7 @@ def run(args):
     # finalDict['testIdxList'] = testIdxList
     finalDict['maxLength'] = maxLength
     finalDict['numPursuerStep'] = numPursuerStep
-    finalDict['rolloutValueList'] = rolloutValueList
+    finalDict['exhaustiveValueList'] = exhaustiveValueList
     # print(testIdxList[:5])
     print(stateIdxList[:5])
 

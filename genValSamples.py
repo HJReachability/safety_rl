@@ -51,12 +51,12 @@ def run(args):
     indices = np.random.randint(low=0, high=length, size=(args.numTest,))
     states = np.empty(shape=(args.numTest, 6), dtype=float)
     ddqnList = np.empty(shape=(args.numTest), dtype=float)
-    rollvalList = np.empty(shape=(args.numTest), dtype=float)
+    rolloutPolicyValueList = np.empty(shape=(args.numTest), dtype=float)
     idxList = []
     for cnt, i in enumerate(indices):
         idx = tuple(pickIndices[i])
         ddqnList[cnt] = ddqnValue[idx]
-        rollvalList[cnt] = rolloutValue[idx]
+        rolloutPolicyValueList[cnt] = rolloutValue[idx]
         states[cnt, 0:2] = samplesAtt[idx[0], :]
         states[cnt, 2]   = thetas[idx[1]]
         states[cnt, 3:5] = samplesDef[idx[2], :]
@@ -68,15 +68,15 @@ def run(args):
     print('indices:', idxList[:5])
     print('states:', states[:5, :])
     # print(np.all(ddqnList[:] <= 0))
-    # print(np.all(rollvalList[:] <= 0))
+    # print(np.all(rolloutPolicyValueList[:] <= 0))
     print('DDQN:', ddqnList[:endIdx])
-    print('rollout:', rollvalList[:endIdx])
+    print('rollout:', rolloutPolicyValueList[:endIdx])
 
     finalDict = {}
     finalDict['states'] = states
     finalDict['idxList'] = idxList
     finalDict['ddqnList'] = ddqnList
-    finalDict['rollvalList'] = rollvalList
+    finalDict['rolloutPolicyValueList'] = rolloutPolicyValueList
 
     outFolder = os.path.join(dataFolder, sampleType)
     os.makedirs(outFolder, exist_ok=True)

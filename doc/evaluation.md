@@ -7,7 +7,10 @@ Here we evaluate two kinds of errors:
 1. We want to evaluate how well we learned from the data
 2. We compare the DDQN-predicted value vs. the DDQN rollout value
 
-### python3 genEstSamples.py -ns `numSample` -mf `modelPath`
+### Get Samples
+```
+python3 genEstSamples.py -ns `numSample` -mf `modelPath`
+``` 
 * -rnd `seed`: use random seed
 * sample attacker positions uniformly in the ring between constraint set and
 the target set for `numSample^2` samples
@@ -19,7 +22,10 @@ spacing
 * create a directory `data` under `modelPath` and save `samplesEst.npy` under
 this directory
 
-### python3 sim_est_error.py -idx `index` -mf `modelPath`
+### Run Simulations
+```
+python3 sim_est_error.py -idx `index` -mf `modelPath`
+```
 * -te: simulate the trajectory until the agent goes beyond the boundary
 * -cpf: if the environment considers the failure set of the defender
 * -ml `maxLength`: the maximum length of the trajectory
@@ -32,7 +38,10 @@ on the `samples`
 under this directory
 * 1 hour and 30 minutes to finish $15^6$ initial states.
 
-### python3 colEstError.py -mf `modelPath`
+### Collect Results
+```
+python3 colEstError.py -mf `modelPath`
+```
 * collect estimation error from all files under `modelPath/data/est`
 * save `estError.npy` under `modelPath/data`
 
@@ -43,7 +52,10 @@ trajectories, so that we can be confident that our system truly succeeds not
 only against the “oracle adversary” predicted by the Q-network, but also against
 any possible adversary
 
-### python3 genValSamples.py -nt `numTest` -t `sampleType` -mf `modelPath`
+### Get Samples
+```
+python3 genValSamples.py -nt `numTest` -t `sampleType` -mf `modelPath`
+```
 * -t `sampleType`, SIX sample types:
     * 0 - 6 corresponds to ['TN', 'TP', 'FN', 'FP', 'POS', 'NEG', 'ALL']
     * 'POS'/'NEG' refer to +/- rollout values.
@@ -54,7 +66,10 @@ any possible adversary
 * create a directory `sampleType` (str version) under `modelPath/data` and save
 `samples{$sampleType}.npy`
 
-### python3 sim_approx_defender.py -t `sampleType` -idx `index` -mf `modelPath`
+### Run Simulations
+```
+python3 sim_approx_defender.py -t `sampleType` -idx `index` -mf `modelPath`
+```
 * -cpf: if the environment considers the failure set of the defender
 * -ml `maxLength`: the maximum length of the trajectory
 * -nps `numPursuerStep`: the number of chunks in defender's action sequence
@@ -67,6 +82,9 @@ defender action sequences (exhaustive way)
 an array job, 32 jobs in parallel at most, it takes about 9 hours and 40 minutes
 to finish.
 
-### python3 colValResult.py -t `sampleType` -mf `modelPath`
+### Collect Results
+```
+python3 colValResult.py -t `sampleType` -mf `modelPath`
+```
 * collect validation results from all files under `modelPath/data/{$sampleType}`
 * save `valDict{$sampleType}.npy` under `modelPath/data`

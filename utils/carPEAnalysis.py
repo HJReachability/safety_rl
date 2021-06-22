@@ -4,6 +4,7 @@ import torch
 import pickle
 from gym_reachability import gym_reachability  # Custom Gym env.
 import gym
+import os
 
 from KC_DQN.config import dqnConfig
 from KC_DQN.DDQNPursuitEvasion import DDQNPursuitEvasion
@@ -272,8 +273,6 @@ def exhaustiveDefenderSearch(env, agent, state, actionSeq, maxLength=40):
 
     for t in range(maxLength):
         state = np.concatenate((stateEvader, statePursuer), axis=0)
-        doneEvader = not env.evader.check_within_bounds(stateEvader)
-        donePursuer = not env.pursuer.check_within_bounds(statePursuer)
 
         g_x = env.safety_margin(state)
         l_x = env.target_margin(state)
@@ -297,11 +296,9 @@ def exhaustiveDefenderSearch(env, agent, state, actionSeq, maxLength=40):
         with torch.no_grad():
             state_action_values = agent.Q_network(stateTensor)
         Q_mtx = state_action_values.reshape(env.numActionList[0], env.numActionList[1])
-        pursuerValues, colIndices = Q_mtx.max(dim=1)
-        minmaxValue, rowIdx = pursuerValues.min(dim=0)
-        colIdx = colIndices[rowIdx]
+        pursuerValues, _ = Q_mtx.max(dim=1)
+        _, rowIdx = pursuerValues.min(dim=0)
 
-        # If cars are within the boundary, we update their states according to the controls
         uEvader = env.evader.discrete_controls[rowIdx]
         stateEvader = env.evader.integrate_forward(stateEvader, uEvader)
         actionIdx = actionSeq[pursuerActionSeqIdx]
@@ -458,7 +455,6 @@ def analyzeValidationResult(validationFile, env, verbose=True):
     valDict = np.load(validationFile, allow_pickle='TRUE').item()
 
     dictList = valDict['dictList']
-    testIdxList = valDict['testIdxList']
     failureList = []
     successList = []
     for i, dictTmp in enumerate(dictList):
@@ -593,11 +589,12 @@ def loadAgent(args, device, stateNum, actionNum, numActionList,
     verbose=True):
     if verbose:
         print("\n== Agent Information ==")
-    configFile = '{:s}/CONFIG.pkl'.format(args.modelFolder)
+    modelFolder = os.path.join(args.modelFolder, 'model')
+    configFile = os.path.join(modelFolder, 'CONFIG.pkl')
     with open(configFile, 'rb') as handle:
         tmpConfig = pickle.load(handle)
     CONFIG = dqnConfig()
-    for key, value in tmpConfig.__dict__.items():
+    for key, _ in tmpConfig.__dict__.items():
         CONFIG.__dict__[key] = tmpConfig.__dict__[key]
     CONFIG.DEVICE = device
     CONFIG.SEED = 0
@@ -605,8 +602,7 @@ def loadAgent(args, device, stateNum, actionNum, numActionList,
     dimList = [stateNum] + CONFIG.ARCHITECTURE + [actionNum]
     agent = DDQNPursuitEvasion(CONFIG, numActionList, dimList,
         CONFIG.ACTIVATION, verbose=verbose)
-    modelFile = '{:s}/model-{:d}.pth'.format(args.modelFolder+'/model', 4000000)
-    agent.restore(modelFile, verbose)
+    agent.restore(1000000, args.modelFolder)
 
     if verbose:
         print(vars(CONFIG))

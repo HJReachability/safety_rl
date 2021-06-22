@@ -36,17 +36,12 @@ def run(args):
     dictList = np.empty(shape=(numTest),  dtype=object)
     exhaustiveValueList = np.empty(shape=(numTest),  dtype=object)
     stateIdxList = np.empty(shape=(numTest),  dtype=object)
-    # dictList = []
-    # exhaustiveValueList = []
-    # stateIdxList = []
-    # testIdxList = []
     for i, resultFile in enumerate(results):
         print('Load from {:s} ...'.format(resultFile), end='\r')
         read_dictionary = np.load(resultFile, allow_pickle='TRUE').item()
         test_idx = read_dictionary['testIdx'] 
         states[test_idx, :] = read_dictionary['state']
         dictList[test_idx] = read_dictionary['dict']
-        # testIdxList.append(read_dictionary['testIdx'])
         stateIdxList[test_idx] = read_dictionary['stateIdx']
         exhaustiveValueList[test_idx] = read_dictionary['rolloutValue']
         if i == 0:
@@ -57,11 +52,9 @@ def run(args):
     finalDict['states'] = states
     finalDict['dictList'] = dictList
     finalDict['stateIdxList'] = stateIdxList
-    # finalDict['testIdxList'] = testIdxList
     finalDict['maxLength'] = maxLength
     finalDict['numPursuerStep'] = numPursuerStep
     finalDict['exhaustiveValueList'] = exhaustiveValueList
-    # print(testIdxList[:5])
     print(stateIdxList[:5])
 
     outFolder = os.path.join(args.modelFolder, 'data/')

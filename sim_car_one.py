@@ -15,7 +15,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import torch
-import pickle
 import os
 import argparse
 
@@ -239,10 +238,6 @@ CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
     EPS_PERIOD=EPS_PERIOD, EPS_DECAY=0.7, EPS_RESET_PERIOD=EPS_RESET_PERIOD,
     LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
     MAX_MODEL=50)
-print(CONFIG.EPS_PERIOD, CONFIG.EPS_RESET_PERIOD)
-picklePath = outFolder+'/CONFIG.pkl'
-with open(picklePath, 'wb') as handle:
-    pickle.dump(CONFIG, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 #== AGENT ==

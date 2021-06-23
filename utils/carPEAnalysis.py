@@ -585,8 +585,7 @@ def loadEnv(args, verbose=True):
     return env
 
 
-def loadAgent(args, device, stateNum, actionNum, numActionList,
-    verbose=True):
+def loadAgent(args, device, stateNum, actionNum, numActionList, verbose=True):
     if verbose:
         print("\n== Agent Information ==")
     modelFolder = os.path.join(args.modelFolder, 'model')

@@ -25,8 +25,6 @@
 from warnings import simplefilter 
 simplefilter(action='ignore', category=FutureWarning)
 
-from gym_reachability import gym_reachability  # Custom Gym env.
-import gym
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -34,11 +32,10 @@ import matplotlib.pyplot as plt
 import torch
 import os
 import time
-import pickle
 from multiprocessing import Pool
 import argparse
 
-from utils.carOneAnalysis import *
+from utils.carOneAnalysis import loadAgent, loadEnv
 
 
 def multiExp(env, agent, samples, firstIdx, numSample, maxLength, toEnd):
@@ -209,7 +206,7 @@ if __name__ == '__main__':
     parser.add_argument("-ns",  "--numSample",      help="#samples",
         default=101, type=int)
     parser.add_argument("-nw",  "--numWorker",      help="#workers",
-        default=6, type=int)
+        default=5, type=int)
     parser.add_argument("-ml",  "--maxLength",      help="max length",
         default=100, type=int)
 

@@ -179,6 +179,7 @@ def plot_reach_avoid_type_2(R, R_turn, r, orientation, ax, extent,
     tmpY = (R**2 + 2*R_turn*r - r**2) / (2*R_turn)
     tmpX = np.sqrt(R**2 - tmpY**2)
     tmpTheta = np.arcsin( tmpX / (R_turn-r))
+    tmpTheta2 = np.arcsin( tmpX / R)
     plot_arc((0.,  R_turn), R_turn-r, (np.pi/2+tmpTheta, 3*np.pi/2), ax, c='g',
         lw=lw, orientation=orientation, zorder=zorder)
     plot_arc((0., -R_turn), R_turn-r, (np.pi/2, 3*np.pi/2-tmpTheta), ax, c='g',
@@ -187,5 +188,6 @@ def plot_reach_avoid_type_2(R, R_turn, r, orientation, ax, extent,
     plot_arc((0., 0), r, (np.pi/2, -np.pi/2), ax, c='g', lw=lw,
         orientation=orientation, zorder=zorder)
     # outer boundary
-    plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c='g', lw=lw,
+    plot_arc((0., 0), R, (np.pi/2+tmpTheta2, 3*np.pi/2-tmpTheta2),
+        ax, c='g', lw=lw,
         orientation=orientation, zorder=zorder)

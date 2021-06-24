@@ -121,13 +121,14 @@ class DDQN():
             self.saved = True
 
 
-    def restore(self, step, logs_path):
+    def restore(self, step, logs_path, verbose=True):
         logs_path = os.path.join(logs_path, 'model', 'Q-{}.pth'.format(step))
         self.Q_network.load_state_dict(
             torch.load(logs_path, map_location=self.device))
         self.target_network.load_state_dict(
             torch.load(logs_path, map_location=self.device))
-        print('  => Restore {}' .format(logs_path))
+        if verbose:
+            print('  => Restore {}' .format(logs_path))
 
 
     def unpack_batch(self, batch):

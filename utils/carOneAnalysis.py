@@ -58,7 +58,7 @@ def loadAgent(args, device, stateNum, actionNum, actionList, verbose=True):
     CONFIG.SEED = 0
 
     dimList = [stateNum] + CONFIG.ARCHITECTURE + [actionNum]
-    agent = DDQNSingle(CONFIG, actionNum, actionList, dimList)
+    agent = DDQNSingle(CONFIG, actionNum, actionList, dimList, verbose=verbose)
     agent.restore(400000, args.modelFolder)
 
     return agent

@@ -34,6 +34,9 @@ def loadEnv(args, verbose=True):
     print("  CAR")
     print("    Constraint radius: {:.1f}, Target radius: {:.1f}, Turn radius: {:.2f}, Maximum speed: {:.2f}, Maximum angular speed: {:.3f}".format(
         env.car.constraint_radius, env.car.target_radius, env.car.R_turn, env.car.speed, env.car.max_turning_rate))
+    print("  ENV")
+    print("    Constraint radius: {:.1f}, Target radius: {:.1f}, Turn radius: {:.2f}, Maximum speed: {:.2f}".format(
+        env.constraint_radius, env.target_radius, env.R_turn, env.speed))
     print(env.car.discrete_controls)
     if 2*env.car.R_turn-env.car.constraint_radius > env.car.target_radius:
         print("Type II Reach-Avoid Set")

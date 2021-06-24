@@ -75,11 +75,12 @@ class DubinsCarOneEnv(gym.Env):
         self.init_car()
 
         # Visualization params
-        self.visual_initial_states =[   np.array([ .6*self.constraint_radius,  -.5, np.pi/2]),
-                                        np.array([ -.4*self.constraint_radius, -.5, np.pi/2]),
-                                        np.array([ -0.95*self.constraint_radius, 0., np.pi/2]),
-                                        np.array([ self.R_turn, 0.95*(self.constraint_radius-self.R_turn), np.pi/2]),
-                                    ]
+        self.visual_initial_states = [   
+            np.array([ .6*self.constraint_radius,  -.5, np.pi/2]),
+            np.array([ -.4*self.constraint_radius, -.5, np.pi/2]),
+            np.array([ -0.95*self.constraint_radius, 0., np.pi/2]),
+            np.array([ self.R_turn, 0.95*(self.constraint_radius-self.R_turn), np.pi/2])
+        ]
         # Cost Params
         self.targetScaling = 1.
         self.safetyScaling = 1.
@@ -840,6 +841,7 @@ class DubinsCarOneEnv(gym.Env):
             tmpY = (R**2 + 2*R_turn*r - r**2) / (2*R_turn)
             tmpX = np.sqrt(R**2 - tmpY**2)
             tmpTheta = np.arcsin( tmpX / (R_turn-r))
+            tmpTheta2 = np.arcsin( tmpX / R)
             plot_arc((0.,  R_turn), R_turn-r, (np.pi/2+tmpTheta, 3*np.pi/2),
                 ax, c=c, lw=lw, orientation=orientation, zorder=zorder)
             plot_arc((0., -R_turn), R_turn-r, (np.pi/2, 3*np.pi/2-tmpTheta),
@@ -848,7 +850,8 @@ class DubinsCarOneEnv(gym.Env):
             plot_arc((0., 0), r, (np.pi/2, -np.pi/2), ax, c=c, lw=lw,
                 orientation=orientation, zorder=zorder)
             # outer boundary
-            plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c=c, lw=lw,
+            plot_arc((0., 0), R, (np.pi/2+tmpTheta2, 3*np.pi/2-tmpTheta2),
+                ax, c=c, lw=lw,
                 orientation=orientation, zorder=zorder)
 
 

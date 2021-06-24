@@ -3,6 +3,7 @@ import torch
 import pickle
 from gym_reachability import gym_reachability  # Custom Gym env.
 import gym
+import os
 
 from KC_DQN.config import dqnConfig
 from KC_DQN.DDQNSingle import DDQNSingle
@@ -33,6 +34,9 @@ def loadEnv(args, verbose=True):
     print("  CAR")
     print("    Constraint radius: {:.1f}, Target radius: {:.1f}, Turn radius: {:.2f}, Maximum speed: {:.2f}, Maximum angular speed: {:.3f}".format(
         env.car.constraint_radius, env.car.target_radius, env.car.R_turn, env.car.speed, env.car.max_turning_rate))
+    print("  ENV")
+    print("    Constraint radius: {:.1f}, Target radius: {:.1f}, Turn radius: {:.2f}, Maximum speed: {:.2f}".format(
+        env.constraint_radius, env.target_radius, env.R_turn, env.speed))
     print(env.car.discrete_controls)
     if 2*env.car.R_turn-env.car.constraint_radius > env.car.target_radius:
         print("Type II Reach-Avoid Set")
@@ -41,22 +45,20 @@ def loadEnv(args, verbose=True):
     return env
 
 
-def loadAgent(args, device, stateNum, actionNum, actionList,
-    verbose=True):
+def loadAgent(args, device, stateNum, actionNum, actionList, verbose=True):
     print("\n== Agent Information ==")
-    configFile = '{:s}/CONFIG.pkl'.format(args.modelFolder)
+    modelFolder = os.path.join(args.modelFolder, 'model')
+    configFile = os.path.join(modelFolder, 'CONFIG.pkl')
     with open(configFile, 'rb') as handle:
         tmpConfig = pickle.load(handle)
     CONFIG = dqnConfig()
-    for key, value in tmpConfig.__dict__.items():
+    for key, _ in tmpConfig.__dict__.items():
         CONFIG.__dict__[key] = tmpConfig.__dict__[key]
     CONFIG.DEVICE = device
     CONFIG.SEED = 0
-    print(vars(CONFIG))
 
     dimList = [stateNum] + CONFIG.ARCHITECTURE + [actionNum]
-    agent = DDQNSingle(CONFIG, actionNum, actionList, dimList, actType=CONFIG.ACTIVATION)
-    modelFile = '{:s}/model-{:d}.pth'.format(args.modelFolder + '/model', 4000000)
-    agent.restore(modelFile)
+    agent = DDQNSingle(CONFIG, actionNum, actionList, dimList, verbose=verbose)
+    agent.restore(400000, args.modelFolder)
 
     return agent

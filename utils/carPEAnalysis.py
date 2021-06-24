@@ -30,17 +30,17 @@ def plotTrajStep(state, env, agent, c=[tiffany, 'y'], lw=2, nx=101, ny=101, toEn
 
     Returns:
         [type]: [description]
-    
+
     Example:
         state = np.array([-.9, 0., 0., -.5, -.3, .75*np.pi])
         valueList, lxList, gxList = plotTrajStep(state, env, agent)
-    """    
+    """
     trajEvader, trajPursuer, result, minV, info = env.simulate_one_trajectory(agent.Q_network, T=T, state=state, toEnd=toEnd)
     valueList = info['valueList']
     gxList = info['gxList']
     lxList = info['lxList']
     print('trajectory length is {:d}'.format(trajEvader.shape[0]))
-    
+
     #== PLOT ==
     trajEvaderX = trajEvader[:,0]
     trajEvaderY = trajEvader[:,1]
@@ -130,7 +130,7 @@ def plotAndObtainValueDictIdx(env, dictList, testIdxList, indices,
         testIdx = testIdxList[pick]
         maxminV = dictTmp['maxminV']
         valueList[i] = maxminV
-        
+
         #= PLOT =
         if i < numAx:
             rowIdx = int(i/numCol)
@@ -388,7 +388,7 @@ def validateEvaderPolicy(env, agent, state, maxLength=40, numChunk=10):
     shapeTmp = np.ones(numChunk, dtype=int)*env.numActionList[1]
     rolloutResult = np.empty(shape=shapeTmp, dtype=int)
     it = np.nditer(rolloutResult, flags=['multi_index'])
-    responseDict={'state':state, 'maxLength':maxLength, 
+    responseDict={'state':state, 'maxLength':maxLength,
         'numChunk':numChunk}
     flag = True
     while not it.finished:
@@ -422,7 +422,7 @@ def checkCapture(env, trajEvader, trajPursuer):
         dist_evader_pursuer = np.linalg.norm(posEvader-posPursuer, ord=2)
         capture_g_x = env.capture_range - dist_evader_pursuer
         # however, the value can be lower than this captureValue because we care
-        # about the minimum value along the trajectory. 
+        # about the minimum value along the trajectory.
         if capture_g_x > 0:
             captureFlag = True
             captureInstant = t
@@ -521,14 +521,14 @@ def colUnfinishedSamples(unfinishedList, valDict, valSamplesDict):
             'idxList': the index of states by `genEstSamples.py`
             'rollvalList': the rollout values of states by `genEstSamples.py`
             'ddqnList': the DDQN values of states by `genEstSamples.py`
-    """    
+    """
     #== add to valSamplesTN ==
     unfinishedStateIdxList = []
     unfinishedStateList = np.empty(shape=(len(unfinishedList), 6), dtype=float)
     newRolloutValueList = np.empty(shape=(len(unfinishedList),), dtype=float)
     newDdqnValueList    = np.empty(shape=(len(unfinishedList),), dtype=float)
     unfinishedValueList = np.empty(shape=(len(unfinishedList),), dtype=float)
-    
+
     dictList = valDict['dictList']
     stateIdxList = valDict['stateIdxList']
     testIdxList = valDict['testIdxList']
@@ -585,8 +585,7 @@ def loadEnv(args, verbose=True):
     return env
 
 
-def loadAgent(args, device, stateNum, actionNum, numActionList,
-    verbose=True):
+def loadAgent(args, device, stateNum, actionNum, numActionList, verbose=True):
     if verbose:
         print("\n== Agent Information ==")
     modelFolder = os.path.join(args.modelFolder, 'model')

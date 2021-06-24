@@ -15,7 +15,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import torch
-import pickle
 import os
 import argparse
 
@@ -125,11 +124,11 @@ elif args.doneType == 'TF' or args.doneType == 'fail':
 env = gym.make(env_name, device=device, mode=args.mode, doneType=args.doneType,
     sample_inside_obs=sample_inside_obs)
 
-stateNum = env.state.shape[0]
+stateDim = env.state.shape[0]
 actionNum = env.action_space.n
-action_list = np.arange(actionNum)
+actionList = np.arange(actionNum)
 print("State Dimension: {:d}, ActionSpace Dimension: {:d}".format(
-    stateNum, actionNum))
+    stateDim, actionNum))
 
 
 #== Setting in this Environment ==
@@ -239,15 +238,11 @@ CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
     EPS_PERIOD=EPS_PERIOD, EPS_DECAY=0.7, EPS_RESET_PERIOD=EPS_RESET_PERIOD,
     LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
     MAX_MODEL=50)
-print(CONFIG.EPS_PERIOD, CONFIG.EPS_RESET_PERIOD)
-picklePath = outFolder+'/CONFIG.pkl'
-with open(picklePath, 'wb') as handle:
-    pickle.dump(CONFIG, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 #== AGENT ==
-dimList = [stateNum] + CONFIG.ARCHITECTURE + [actionNum]
-agent = DDQNSingle(CONFIG, actionNum, action_list, dimList=dimList,
+dimList = [stateDim] + CONFIG.ARCHITECTURE + [actionNum]
+agent = DDQNSingle(CONFIG, actionNum, actionList, dimList=dimList,
     mode=args.mode, terminalType=args.terminalType)
 print("We want to use: {}, and Agent uses: {}".format(device, agent.device))
 print("Critic is using cuda: ", next(agent.Q_network.parameters()).is_cuda)

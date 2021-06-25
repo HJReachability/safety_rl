@@ -133,12 +133,5 @@ q, stats = learn(get_learning_rate=get_alpha,
                  vis_T=500)
 
 v = v_from_q(q)
-#print(env.ground_truth_comparison_v(v))
 visualize_matrix(v.T)
 visualize_matrix(np.sign(v).T)
-#print(np.shape(v))
-#print(np.shape(env.analytic_v()))
-#visualize_matrix(env.analytic_v())
-#visualize_matrix(np.sign(env.analytic_v()))
-#env.visualize_analytic_comparison(v)
-#visualize_matrix(np.sum(stats['state_action_visits'], axis=2))

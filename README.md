@@ -1,10 +1,10 @@
 # Safety and Liveness Guarantees throughReach-Avoid Reinforcement Learning
 This is the companion code to RSS 2021 paper:
-Kai-Chieh Hsu\*, Vicenç Rubies-Royo\*, Claire J. Tomlin and Jaime F. Fisac, 
+Kai-Chieh Hsu\*, Vicenç Rubies-Royo\*, Claire J. Tomlin and Jaime F. Fisac,
 ''Safety and Liveness Guarantees through Reach-Avoid Reinforcement Learning'',
 *Proceedings of Robotics: Science and Systems (RSS)*, Jul. 2021.
 
-We implemented reach-avoid Q-learning and evaluated our proposed framework on a 
+We implemented reach-avoid Q-learning and evaluated our proposed framework on a
 range of nonlinear systems.
 
 ## Dependencies
@@ -38,11 +38,13 @@ range of nonlinear systems.
 ## Paper Citation
 If you use this code or find it helpful, please consider cite this paper with:
 ```
-@inproceedings{hsu2021ra_Q_learning,
-  title={Safety and Liveness Guarantees through Reach-Avoid Reinforcement Learning},
-  author={Kai-Chieh Hsu$^*$ and Vicenç Rubies-Royo$^*$ and Claire J. Tomlin and Jaime F. Fisac},
-  booktitle={Proceedings of Robotics: Science and Systems (RSS)},
-  year={2021},
-  month={July}
+@INPROCEEDINGS{hsu2021safety,
+    AUTHOR    = {Kai-Chieh Hsu$^*$ and Vicenç Rubies-Royo$^*$ and Claire J. Tomlin and Jaime F. Fisac},
+    TITLE     = {{Safety and Liveness Guarantees through Reach-Avoid Reinforcement Learning}},
+    BOOKTITLE = {Proceedings of Robotics: Science and Systems},
+    YEAR      = {2021},
+    ADDRESS   = {Virtual},
+    MONTH     = {July},
+    DOI       = {10.15607/RSS.2021.XVII.077}
 }
 ```

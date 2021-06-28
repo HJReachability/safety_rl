@@ -1,6 +1,10 @@
 # Please contact the author(s) of this library if you have any questions.
 # Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
+# This experiment runs double deep Q-network with the discounted reach-avoid
+# Bellman equation (DRABE) proposed in [RSS21] on a 6-dimensional Dubins car
+# attack-defense problem. We use this script to generate Fig. 7 in the paper.
+
 # Examples:
     # RA: python3 sim_car_pe.py -sf -of scratch -w -wi 30000 -g 0.9999 -n 9999
     # test: python3 sim_car_pe.py -sf -of scratch -n tmp -mu 100 -cp 40

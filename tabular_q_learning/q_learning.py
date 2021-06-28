@@ -164,20 +164,25 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
                 episode + 1, max_episodes, alpha, gamma, epsilon,
                 redundant_comp/(total_steps + 1.0)), end="")
             sys.stdout.flush()
+        # checkPeriod = int(max_episodes/20)
+        checkPeriod = 100000
         if ((num_rnd_traj is not None or visualization_states is not None)
-                and (episode + 1) % int(max_episodes/20) == 0):
+                and (episode + 1) % checkPeriod == 0):
             modelPath = os.path.join(modelFolder, str(episode + 1)+'.npy')
             np.save(modelPath, q_values)
             fig, ax = plt.subplots(1, 1, figsize=(4, 4))
             env.visualize_analytic_comparison(v_from_q(q_values), True, 
                 labels=["",""], boolPlot=False, fig=fig, ax=ax)
-            env.plot_reach_avoid_set(ax=ax)
+            env.plot_reach_avoid_set(ax=ax, lw=3)
             env.plot_trajectories(q_values, T=vis_T, num_rnd_traj=num_rnd_traj,
-                states=visualization_states, ax=ax)
+                states=visualization_states, ax=ax, lw=3)
+            env.plot_target_failure_set(ax, lw=4)
+            env.plot_formatting(ax=ax, labels=["",""])
+            ax.set_xlabel(r'$\gamma={:.6f}$'.format(gamma), fontsize=32)
             fig.tight_layout()
             figPath = os.path.join(figureFolder, str(episode + 1)+'.eps')
-            fig.savefig(figPath)
-            plt.pause(0.05)
+            fig.savefig(figPath, dpi=200)
+            # plt.pause(0.05)
             plt.close()
             print()
         state = env.reset()

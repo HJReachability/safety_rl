@@ -427,11 +427,7 @@ class PointMassEnv(gym.Env):
         else:
             im = ax.imshow(v.T, interpolation='none', extent=axes[0], origin="lower",
                        cmap=cmap, vmin=vmin, vmax=vmax)
-            fig.colorbar(im, pad=0.01, shrink=0.95)
-        
-        # Plot bounadries of constraint set.
-        self.plot_target_failure_set(ax)
-        self.plot_formatting(ax=ax, labels=labels)
+            # fig.colorbar(im, pad=0.01, shrink=0.95)
 
     def simulate_one_trajectory(self, q_func, T=10, state=None):
 
@@ -481,7 +477,7 @@ class PointMassEnv(gym.Env):
         return trajectories
 
     def plot_trajectories(self, q_func, T=250, num_rnd_traj=None, states=None, 
-        keepOutOf=False, toEnd=False, ax=None, c='k', lw=2, zorder=2):
+        keepOutOf=False, toEnd=False, ax=None, c='k', lw=2, zorder=3):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
@@ -504,34 +500,7 @@ class PointMassEnv(gym.Env):
         # Plot boundaries of target set.
         ax.plot(self.x_box4_pos, self.y_box4_pos, color=c_t, lw=lw, zorder=zorder)
 
-    # def analytic_v(self):
-    #     """ Computes the discretized analytic value function.
-
-    #     Returns:
-    #         Discretized form of the analytic state value function.
-    #     """
-    #     x_low = self.target_low[0]
-    #     x_high = self.target_high[0]
-    #     u_max = self.control_bounds[1]  # Assumes u_max = -u_min.
-
-    #     def analytic_function(x, x_dot):
-    #         if x_dot >= 0:
-    #             return min(x - x_low,
-    #                        x_high - x - x_dot ** 2 / (2 * u_max))
-    #         else:
-    #             return min(x_high - x,
-    #                        x - x_dot ** 2 / (2 * u_max) - x_low)
-
-    #     v = np.zeros(self.grid_cells)
-    #     it = np.nditer(v, flags=['multi_index'])
-    #     while not it.finished:
-    #         x, x_dot = index_to_state(self.grid_cells, self.bounds,
-    #                                   it.multi_index)
-    #         v[it.multi_index] = analytic_function(x, x_dot)
-    #         it.iternext()
-    #     return v
-
-    def plot_reach_avoid_set(self, ax=None, c='g', lw=3, zorder=1):
+    def plot_reach_avoid_set(self, ax=None, c='g', lw=3, zorder=2):
         slope = self.upward_speed / self.horizontal_rate
 
         def get_line(slope, end_point, x_limit, ns=100):

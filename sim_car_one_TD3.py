@@ -5,6 +5,7 @@ from gym_reachability import gym_reachability  # Custom Gym env.
 import gym
 import numpy as np
 import matplotlib
+from matplotlib.ticker import LinearLocator
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import torch
@@ -13,6 +14,7 @@ import argparse
 
 from KC_DQN.TD3 import TD3
 from KC_DQN.config import actorCriticConfig
+from KC_DQN.utils import save_obj
 
 import time
 timestr = time.strftime("%Y-%m-%d-%H_%M")
@@ -23,6 +25,7 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
     # python3 sim_car_one_TD3.py -w -wi 5 -mu 200 -cp 100 -arc 20 -of scratch -sf -n tmp
 # default
     # python3 sim_car_one_TD3.py -sf -of scratch -g 0.9999 -n 9999
+    # python3 sim_car_one_TD3.py -sf -of scratch -g 0.9999 -n 9999 -tr .4 -turn .75
 parser = argparse.ArgumentParser()
 
 # training scheme
@@ -49,7 +52,7 @@ parser.add_argument("-tt",  "--terminalType",   help="terminal value",
 parser.add_argument("-a",   "--annealing",      help="gamma annealing",
     action="store_true")
 parser.add_argument("-arc", "--architecture",   help="NN architecture",
-    default=[100, 20],  nargs="*",  type=int)
+    default=[100, 100, 100],  nargs="*",  type=int)
 parser.add_argument("-act", "--actType",        help="activation type",
     default=['Tanh', 'ReLU'],   nargs=2,    type=str)
 parser.add_argument("-lrA", "--lrA",            help="learning rate actor",
@@ -266,11 +269,16 @@ trainRecords, trainProgress = agent.learn(env,
     vmin=vmin, vmax=vmax, checkPeriod=args.checkPeriod, outFolder=outFolder,
     plotFigure=plotFigure, storeFigure=storeFigure, saveBest=False)
 
+trainDict = {}
+trainDict['trainRecords'] = trainRecords
+trainDict['trainProgress'] = trainProgress
+filePath = os.path.join(outFolder, 'train')
 
 if plotFigure or storeFigure:
-    #region: loss
+    #region: loss and success
     cList = ['b', 'r']
-    fig, axes = plt.subplots(1, 2, figsize=(6,3))
+    nList = ['loss_critic', 'loss_actor']
+    fig, axes = plt.subplots(1, 3, figsize=(9, 3))
 
     for i in range(2):
         ax = axes[i]
@@ -278,9 +286,28 @@ if plotFigure or storeFigure:
         c = cList[i]
 
         ax.plot(data, '-', color=c)
-        ax.set_xlabel('Iteration', fontsize=18)
-        ax.set_ylabel('Loss', fontsize=18)
+        ax.set_xlabel('Iteration (x 1e5)', fontsize=18)
+        ax.set_xticks(np.linspace(0, maxUpdates, 5))
+        ax.set_xticklabels(np.linspace(0, maxUpdates, 5) / 1e5)
+        ax.set_xlim(left=0, right=maxUpdates)
+        ax.set_title(nList[i], fontsize=18)
 
+    data = trainProgress[:, 0]
+    ax = axes[2]
+    x = np.arange(data.shape[0]) + 1
+    ax.plot(x, data, 'b-o')
+    ax.set_xlim(left=1, right=data.shape[0])
+    ax.set_xlabel('Index', fontsize=18)
+    ax.xaxis.set_major_locator(LinearLocator(5))
+    ax.xaxis.set_major_formatter('{x:.0f}')
+    ax.set_title('Success Rate', fontsize=18)
+    ax.set_ylim(0, 0.8)
+
+    for ax in axes:
+        ax.yaxis.set_major_locator(LinearLocator(5))
+        ax.yaxis.set_major_formatter('{x:.1f}')
+
+    fig.tight_layout()
     if storeFigure:
         figurePath = os.path.join(figureFolder, 'training_Loss.png')
         fig.savefig(figurePath)
@@ -315,6 +342,9 @@ if plotFigure or storeFigure:
         resultMtx[idx] = result
         actionMtx[idx] = u
         it.iternext()
+
+    trainDict['resultMtx'] = resultMtx
+    trainDict['actDistMtx'] = actionMtx
 
     fig2, axes = plt.subplots(1, 3, figsize=(12, 4), sharex=True, sharey=True)
 
@@ -363,3 +393,5 @@ if plotFigure or storeFigure:
         plt.pause(0.001)
     plt.close()
     #endregion
+
+save_obj(trainDict, filePath)

@@ -5,8 +5,8 @@ from gym_reachability import gym_reachability  # Custom Gym env.
 import gym
 import os
 
-from KC_DQN.config import dqnConfig
-from KC_DQN.DDQNSingle import DDQNSingle
+from RARL.config import dqnConfig
+from RARL.DDQNSingle import DDQNSingle
 
 tiffany = '#0abab5'
 

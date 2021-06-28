@@ -6,8 +6,8 @@ from gym_reachability import gym_reachability  # Custom Gym env.
 import gym
 import os
 
-from KC_DQN.config import dqnConfig
-from KC_DQN.DDQNPursuitEvasion import DDQNPursuitEvasion
+from RARL.config import dqnConfig
+from RARL.DDQNPursuitEvasion import DDQNPursuitEvasion
 
 
 #== PLOTTING ==

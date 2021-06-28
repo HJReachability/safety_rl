@@ -19,9 +19,9 @@ import torch
 import os
 import argparse
 
-from KC_DQN.DDQNPursuitEvasion import DDQNPursuitEvasion
-from KC_DQN.config import dqnConfig
-from KC_DQN.utils import save_obj
+from RARL.DDQNPursuitEvasion import DDQNPursuitEvasion
+from RARL.config import dqnConfig
+from RARL.utils import save_obj
 
 import time
 timestr = time.strftime("%Y-%m-%d-%H_%M")

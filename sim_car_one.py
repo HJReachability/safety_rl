@@ -18,9 +18,9 @@ import torch
 import os
 import argparse
 
-from KC_DQN.DDQNSingle import DDQNSingle
-from KC_DQN.config import dqnConfig
-from KC_DQN.utils import save_obj
+from RARL.DDQNSingle import DDQNSingle
+from RARL.config import dqnConfig
+from RARL.utils import save_obj
 
 import time
 timestr = time.strftime("%Y-%m-%d-%H_%M")

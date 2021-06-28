@@ -7,6 +7,12 @@
 # Please contact the author(s) of this library if you have any questions.
 # Authors: Vicenc Rubies-Royo   ( vrubies@berkeley.edu )
 
+# This experiment runs tabular Q-learning with the discounted reach-avoid
+# Bellman equation (DRABE) proposed in [RSS21] on a 2-dimensional point mass
+# problem. The accuracy of the tabular solution is contingent on the number of
+# episodes and the degree of exploration set through the opimization parameters
+# in the code. We use the following setting to generate Fig. 2 in the paper.
+
 from warnings import simplefilter
 simplefilter(action='ignore', category=FutureWarning)
 
@@ -20,14 +26,6 @@ from utils.utils import make_linear_schedule, make_stepped_schedule, v_from_q
 from utils.utils import visualize_matrix
 from utils.utils import make_inverse_visit_schedule
 
-
-"""
-This experiment runs tabular Q-learning with the discounted reach-avoid Bellman
-equation (DRABE) proposed in [RSS21] on a 2-dimensional point mass problem. The
-accuracy of the tabular solution is contingent on the number of episodes and
-the degree of exploration set through the opimization parameters in the code.
-We use the following setting to generate Fig. 2 in the paper.
-"""
 
 # == Environment ==
 max_episode_length = 1

@@ -319,6 +319,7 @@ class ActorCritic(object):
                             figurePath = os.path.join(figureFolder,
                                 '{:d}.png'.format(self.cntUpdate))
                             plt.savefig(figurePath)
+                            plt.close()
                         if plotFigure:
                             plt.show()
                             plt.pause(0.001)

@@ -1,15 +1,13 @@
-from warnings import simplefilter 
+from warnings import simplefilter
 simplefilter(action='ignore', category=FutureWarning)
 
 from gym_reachability import gym_reachability  # Custom Gym env.
 import gym
 import numpy as np
-import random
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import torch
-import pickle
 import os
 import argparse
 
@@ -22,45 +20,74 @@ timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 #== ARGS ==
 # test
-    # python3 sim_car_one_TD3.py -w -wi 5 -mu 2400 -ut 12 -cp 100 -arc 20 -of scratch/tmp -sf
+    # python3 sim_car_one_TD3.py -w -wi 5 -mu 200 -cp 100 -arc 20 -of scratch -sf -n tmp
 # default
-    # python3 sim_car_one_TD3.py -w -sf -of scratch/tmp
+    # python3 sim_car_one_TD3.py -sf -of scratch -g 0.9999 -n 9999
 parser = argparse.ArgumentParser()
 
 # training scheme
-parser.add_argument("-w",   "--warmup",         help="warmup Q-network",            action="store_true")
-parser.add_argument("-rnd", "--randomSeed",     help="random seed",                 default=0,          type=int)
-parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",   default=1200000,    type=int)
-parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",              default=50000,      type=int)
-parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",         default=12,         type=int)
-parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",            default=5000,       type=int)
-parser.add_argument("-cp",  "--checkPeriod",    help="check period",                default=50000,      type=int)
-parser.add_argument("-dt",  "--doneType",       help="when to raise done flag",     default='fail',     type=str)
-parser.add_argument("-tt",  "--terminalType",   help="terminal value",              default='g',        type=str)
+parser.add_argument("-w",   "--warmup",         help="warmup Q-network",
+    action="store_true")
+parser.add_argument("-rnd", "--randomSeed",     help="random seed",
+    default=0,          type=int)
+parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",
+    default=400000,     type=int)
+parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",
+    default=10000,      type=int)
+parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",
+    default=10,         type=int)
+parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",
+    default=5000,       type=int)
+parser.add_argument("-cp",  "--checkPeriod",    help="check period",
+    default=20000,      type=int)
+parser.add_argument("-dt",  "--doneType",       help="when to raise done flag",
+    default='fail',     type=str)
+parser.add_argument("-tt",  "--terminalType",   help="terminal value",
+    default='g',        type=str)
 
 # hyper-parameters
-parser.add_argument("-arc", "--architecture",   help="NN architecture",         default=[100, 100, 100],    nargs="*", type=int)
-parser.add_argument("-act", "--actType",        help="activation type",         default=['Sin', 'ReLU'],    nargs=2,   type=str)
-parser.add_argument("-lrA", "--lrA",            help="learning rate actor",     default=1e-3,   type=float)
-parser.add_argument("-lrC", "--lrC",            help="learning rate critic",    default=1e-3,   type=float)
-parser.add_argument("-g",   "--gamma",          help="contraction coeff.",      default=0.99,   type=float)
+parser.add_argument("-a",   "--annealing",      help="gamma annealing",
+    action="store_true")
+parser.add_argument("-arc", "--architecture",   help="NN architecture",
+    default=[100, 20],  nargs="*",  type=int)
+parser.add_argument("-act", "--actType",        help="activation type",
+    default=['Tanh', 'ReLU'],   nargs=2,    type=str)
+parser.add_argument("-lrA", "--lrA",            help="learning rate actor",
+    default=1e-3,   type=float)
+parser.add_argument("-lrC", "--lrC",            help="learning rate critic",
+    default=1e-3,   type=float)
+parser.add_argument("-g",   "--gamma",          help="contraction coeff.",
+    default=0.99,   type=float)
 
 # car dynamics
-parser.add_argument("-cr",      "--constraintRadius",   help="constraint radius",   default=1., type=float)
-parser.add_argument("-tr",      "--targetRadius",       help="target radius",       default=.5, type=float)
-parser.add_argument("-turn",    "--turnRadius",         help="turning radius",      default=.6, type=float)
-parser.add_argument("-s",       "--speed",              help="speed",               default=.5, type=float)
+parser.add_argument("-cr",      "--constraintRadius",   help="constraint radius",
+    default=1., type=float)
+parser.add_argument("-tr",      "--targetRadius",       help="target radius",
+    default=.5, type=float)
+parser.add_argument("-turn",    "--turnRadius",         help="turning radius",
+    default=.6, type=float)
+parser.add_argument("-s",       "--speed",              help="speed",
+    default=.5, type=float)
 
 # Lagrange RL
-parser.add_argument("-r",   "--reward",         help="when entering target set",    default=-1,     type=float)
-parser.add_argument("-p",   "--penalty",        help="when entering failure set",   default=1,      type=float)
-parser.add_argument("-sc",  "--scaling",        help="scaling of ell/g",            default=4,      type=float)
+parser.add_argument("-r",   "--reward",         help="when entering target set",
+    default=-1, type=float)
+parser.add_argument("-p",   "--penalty",        help="when entering failure set",
+    default=1,  type=float)
+parser.add_argument("-sc",  "--scaling",        help="scaling of ell/g",
+    default=4,  type=float)
 
 # file
-parser.add_argument("-n",   "--name",           help="extra name",      default='',                         type=str)
-parser.add_argument("-of",  "--outFolder",      help="output file",     default='/scratch/gpfs/kaichieh/',  type=str)
-parser.add_argument("-pf",  "--plotFigure",     help="plot figures",    action="store_true")
-parser.add_argument("-sf",  "--storeFigure",    help="store figures",   action="store_true")
+parser.add_argument("-st",  "--showTime",       help="show timestr",
+    action="store_true")
+parser.add_argument("-n",   "--name",           help="extra name",
+    default='', type=str)
+parser.add_argument("-of",  "--outFolder",      help="output file",
+    default='/scratch/gpfs/kaichieh/',  type=str)
+parser.add_argument("-pf",  "--plotFigure",     help="plot figures",
+    action="store_true")
+parser.add_argument("-sf",  "--storeFigure",    help="store figures",
+    action="store_true")
 
 args = parser.parse_args()
 print(args)
@@ -76,8 +103,13 @@ maxSteps = 100
 storeFigure = args.storeFigure
 plotFigure = args.plotFigure
 
-outFolder = os.path.join(args.outFolder, 'car-TD3', args.name + timestr)
-figureFolder = os.path.join(outFolder, 'figure/')
+fn = args.name + '-' + args.doneType
+if args.showTime:
+    fn = fn + '-' + timestr
+
+outFolder = os.path.join(args.outFolder, 'car-TD3', fn)
+print(outFolder)
+figureFolder = os.path.join(outFolder, 'figure')
 os.makedirs(figureFolder, exist_ok=True)
 
 
@@ -129,7 +161,7 @@ if plotFigure or storeFigure:
         idx = it.multi_index
         x = xs[idx[0]]
         y = ys[idx[1]]
-        
+
         l_x[idx] = env.target_margin(np.array([x, y]))
         g_x[idx] = env.safety_margin(np.array([x, y]))
 
@@ -160,6 +192,11 @@ if plotFigure or storeFigure:
 
 #== Agent CONFIG ==
 print("\n== Agent Information ==")
+if args.annealing:
+    GAMMA_END = 0.9999
+else:
+    GAMMA_END = args.gamma
+
 actType={'critic': args.actType[0], 'actor': args.actType[1]}
 CONFIG = actorCriticConfig(
     ENV_NAME=env_name,
@@ -177,7 +214,7 @@ CONFIG = actorCriticConfig(
     LR_A_DECAY=0.9,
     # =================== LEARNING RATE .
     GAMMA=args.gamma,
-    GAMMA_END=0.9999,
+    GAMMA_END=GAMMA_END,
     GAMMA_PERIOD=updatePeriod,
     GAMMA_DECAY=0.5,
     # ===================
@@ -231,6 +268,7 @@ trainRecords, trainProgress = agent.learn(env,
 
 
 if plotFigure or storeFigure:
+    #region: loss
     cList = ['b', 'r']
     fig, axes = plt.subplots(1, 2, figsize=(6,3))
 
@@ -238,7 +276,7 @@ if plotFigure or storeFigure:
         ax = axes[i]
         data = trainRecords[:, i]
         c = cList[i]
-        
+
         ax.plot(data, '-', color=c)
         ax.set_xlabel('Iteration', fontsize=18)
         ax.set_ylabel('Loss', fontsize=18)
@@ -250,13 +288,15 @@ if plotFigure or storeFigure:
         plt.show()
         plt.pause(0.001)
     plt.close()
+    #endregion
 
-    #= Rollout Reach-Avoid Set
-    nx=201
-    ny=201
+    #region: Rollout Reach-Avoid Set
+    nx=101
+    ny=101
     orientation = 0.
 
     resultMtx = np.empty((nx, ny), dtype=int)
+    actionMtx = np.empty((nx, ny), dtype=float)
     xs = np.linspace(env.bounds[0,0], env.bounds[0,1], nx)
     ys = np.linspace(env.bounds[1,0], env.bounds[1,1], ny)
     it = np.nditer(resultMtx, flags=['multi_index'])
@@ -268,17 +308,23 @@ if plotFigure or storeFigure:
         y = ys[idx[1]]
 
         state = np.array([x, y, orientation])
-        _, result, _, _ = env.simulate_one_trajectory(agent.actor, T=100, state=state, toEnd=False)
+        _, result, _, _ = env.simulate_one_trajectory(agent.actor, T=100,
+                            state=state, toEnd=False)
+        state_tensor = torch.FloatTensor(state).to(agent.device)
+        u = agent.actor(state_tensor).detach().cpu().numpy()[0]
         resultMtx[idx] = result
+        actionMtx[idx] = u
         it.iternext()
 
-    figRoVal, axes = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True)
+    fig2, axes = plt.subplots(1, 3, figsize=(12, 4), sharex=True, sharey=True)
 
     #= Rollout
     ax = axes[0]
     axStyle = env.get_axes()
     im = ax.imshow(resultMtx.T != 1, interpolation='none', extent=axStyle[0],
         origin="lower", cmap='coolwarm', vmin=0, vmax=1, zorder=-1)
+    env.plot_trajectories(agent.actor, states=env.visual_initial_states,
+        toEnd=False, ax=ax, c='w', lw=1.5, T=100, orientation=-np.pi/2)
     ax.set_xlabel('Rollout', fontsize=24)
 
     #= Value
@@ -287,24 +333,33 @@ if plotFigure or storeFigure:
     # Plot V
     im = ax.imshow(v.T, interpolation='none', extent=axStyle[0],
         origin="lower", cmap='seismic', vmin=vmin, vmax=vmax, zorder=-1)
-    cbar = figRoVal.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95,
-        ticks=[vmin, 0, vmax])
-    cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
     CS = ax.contour(xs, ys, v.T, levels=[0], colors='k', linewidths=2,
         linestyles='dashed')
-    # Plot Trajectories
-    env.plot_trajectories(agent.actor, states=env.visual_initial_states, toEnd=False, ax=ax)
     ax.set_xlabel('Value', fontsize=24)
+
+    #= Action
+    ax = axes[2]
+    omega = env.car.max_turning_rate[0]
+    vticks = [-omega, 0, omega]
+    vticklabels = [ '{:.2f}'.format(x) for x in vticks]
+    im = ax.imshow(actionMtx.T, interpolation='none', extent=axStyle[0],
+        origin="lower", cmap='seismic', vmin=-omega, vmax=omega, zorder=-1)
+    cbar = fig2.colorbar(im, ax=ax, pad=0.02, fraction=0.05, shrink=.8, ticks=vticks)
+    cbar.ax.set_yticklabels(labels=vticklabels, fontsize=16)
+    ax.set_xlabel('Action', fontsize=24)
+
     # Formatting
     for ax in axes:
         env.plot_target_failure_set(ax=ax)
         env.plot_reach_avoid_set(ax)
         env.plot_formatting(ax=ax)
+    fig.tight_layout()
 
     if storeFigure:
-        figurePath = os.path.join(figureFolder, 'rollout.png')
-        figRoVal.savefig(figurePath)
+        figurePath = os.path.join(figureFolder, 'value_rollout_action.png')
+        fig2.savefig(figurePath)
     if plotFigure:
         plt.show()
         plt.pause(0.001)
     plt.close()
+    #endregion

@@ -67,11 +67,11 @@ actionDim = envHigh.action_space.shape[0]
 #== AGENT ==
 print("\n== Get agents ==")
 dataFolder, config, dimLists = getModelInfo(os.path.join('car-TD3', 'H0-2021-05-16-03_42'))
-agentT_H = TD3(config, envHigh.action_space, dimLists, verbose=False)
+agentT_H = TD3(config, envHigh.action_space, dimLists, verbose=True)
 agentT_H.restore(1200000, dataFolder)
 
 dataFolder, config, dimLists = getModelInfo(os.path.join('car-SAC', 'H-A-2021-05-16-09_16'))
-agentS_H_A = SAC(config, envHigh.action_space, dimLists, verbose=False)
+agentS_H_A = SAC(config, envHigh.action_space, dimLists, verbose=True)
 agentS_H_A.restore(1200000, dataFolder)
 
 dataFolder, config, dimLists = getModelInfo(os.path.join('car-SAC', 'H-F-2021-05-16-04_03'))
@@ -130,7 +130,7 @@ for i in range(2):
             _, result, _, _ = env.simulate_one_trajectory(agent.actor, T=100, state=state, toEnd=False)
             resultMtx[idx] = result
             it.iternext()
-            
+
         resultMtxArray[i, j] = resultMtx
         actDistArray[i, j] = actDistMtx
         print()

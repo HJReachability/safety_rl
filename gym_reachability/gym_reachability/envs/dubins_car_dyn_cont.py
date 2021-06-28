@@ -3,6 +3,7 @@
 
 import numpy as np
 import gym
+from .env_utils import calculate_margin_circle, calculate_margin_rect
 
 
 class DubinsCarDynCont(object):
@@ -187,6 +188,7 @@ class DubinsCarDynCont(object):
             dtype=np.float32) # w
         self.action_space = gym.spaces.Box(
             -self.max_turning_rate, self.max_turning_rate)
+        self.action_space.seed(self.seed_val)
 
 
     def set_time_step(self, time_step=.05):
@@ -209,6 +211,7 @@ class DubinsCarDynCont(object):
             dtype=np.float32) # w
         self.action_space = gym.spaces.Box(
             -self.max_turning_rate, self.max_turning_rate)
+        self.action_space.seed(self.seed_val)
 
 
     def set_radius(self, target_radius=.3, constraint_radius=1., R_turn=.6):
@@ -228,30 +231,6 @@ class DubinsCarDynCont(object):
 
 
 #== Compute Margin ==
-    @staticmethod
-    def _calculate_margin_rect(s, x_y_w_h, negativeInside=True):
-        x, y, w, h = x_y_w_h
-        delta_x = np.abs(s[0] - x)
-        delta_y = np.abs(s[1] - y)
-        margin = max(delta_y - h/2, delta_x - w/2)
-
-        if negativeInside:
-            return margin
-        else:
-            return - margin
-
-    @staticmethod
-    def _calculate_margin_circle(s, c_r, negativeInside=True):
-        center, radius = c_r
-        dist_to_center = np.linalg.norm(s[:2] - center)
-        margin = dist_to_center - radius
-
-        if negativeInside:
-            return margin
-        else:
-            return - margin
-
-
     def safety_margin(self, s):
         """ Computes the margin (e.g. distance) between state and failue set.
 
@@ -263,11 +242,11 @@ class DubinsCarDynCont(object):
         """
         x, y = (self.low + self.high)[:2] / 2.0
         w, h = (self.high - self.low)[:2]
-        boundary_margin = self._calculate_margin_rect(s, [x, y, w, h], negativeInside=True)
+        boundary_margin = calculate_margin_rect(s, [x, y, w, h], negativeInside=True)
         g_xList = [boundary_margin]
 
         if self.constraint_center is not None and self.constraint_radius is not None:
-            g_x = self._calculate_margin_circle(s, [self.constraint_center, self.constraint_radius],
+            g_x = calculate_margin_circle(s, [self.constraint_center, self.constraint_radius],
                 negativeInside=True)
             g_xList.append(g_x)
 
@@ -285,7 +264,7 @@ class DubinsCarDynCont(object):
             Margin for the state s.
         """
         if self.target_center is not None and self.target_radius is not None:
-            target_margin = self._calculate_margin_circle(s, [self.target_center, self.target_radius],
+            target_margin = calculate_margin_circle(s, [self.target_center, self.target_radius],
                     negativeInside=True)
             return self.targetScaling * target_margin
         else:

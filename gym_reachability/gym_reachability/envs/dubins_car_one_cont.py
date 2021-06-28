@@ -10,12 +10,14 @@
 import gym.spaces
 import numpy as np
 import gym
-import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.ticker import LinearLocator
 import torch
 import random
 
 from .dubins_car_dyn_cont import DubinsCarDynCont
+from .env_utils import plot_arc, plot_circle
+
 
 
 class DubinsCarOneContEnv(gym.Env):
@@ -520,9 +522,10 @@ class DubinsCarOneContEnv(gym.Env):
         ax.tick_params( axis='both', which='both',  # both x and y axes, both major and minor ticks are affected
                         bottom=False, top=False,    # ticks along the top and bottom edges are off
                         left=False, right=False)    # ticks along the left and right edges are off
-        # ax.set_xticklabels([])
-        # ax.set_yticklabels([])
-        # ax.set_title(r"$\theta$={:.1f}".format(theta * 180 / np.pi), fontsize=24)
+        ax.xaxis.set_major_locator(LinearLocator(5))
+        ax.xaxis.set_major_formatter('{x:.1f}')
+        ax.yaxis.set_major_locator(LinearLocator(5))
+        ax.yaxis.set_major_formatter('{x:.1f}')
 
 
     def plot_v_values(  self, q_func, policy, theta=np.pi/2, ax=None, fig=None,
@@ -590,67 +593,36 @@ class DubinsCarOneContEnv(gym.Env):
             tmpX = np.sqrt(r**2 - tmpY**2)
             tmpTheta = np.arcsin(tmpX / (R-R_turn))
             # two sides
-            self.plot_arc((0.,  R_turn), R-R_turn, (tmpTheta-np.pi/2, np.pi/2),
+            plot_arc((0.,  R_turn), R-R_turn, (tmpTheta-np.pi/2, np.pi/2),
                 ax, c=c, lw=lw, orientation=orientation, zorder=zorder)
-            self.plot_arc((0., -R_turn), R-R_turn, (-np.pi/2, np.pi/2-tmpTheta),
+            plot_arc((0., -R_turn), R-R_turn, (-np.pi/2, np.pi/2-tmpTheta),
                 ax, c=c, lw=lw, orientation=orientation, zorder=zorder)
             # middle
             tmpPhi = np.arcsin(tmpX/r)
-            self.plot_arc((0., 0), r, (tmpPhi - np.pi/2, np.pi/2-tmpPhi), ax,
+            plot_arc((0., 0), r, (tmpPhi - np.pi/2, np.pi/2-tmpPhi), ax,
                 c=c, lw=lw, orientation=orientation, zorder=zorder)
             # outer boundary
-            self.plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c=c, lw=lw,
+            plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c=c, lw=lw,
                 orientation=orientation, zorder=zorder)
         else:
             # two sides
             tmpY = (R**2 + 2*R_turn*r - r**2) / (2*R_turn)
             tmpX = np.sqrt(R**2 - tmpY**2)
             tmpTheta = np.arcsin( tmpX / (R_turn-r))
-            self.plot_arc((0.,  R_turn), R_turn-r, (np.pi/2+tmpTheta, 3*np.pi/2),
+            plot_arc((0.,  R_turn), R_turn-r, (np.pi/2+tmpTheta, 3*np.pi/2),
                 ax, c=c, lw=lw, orientation=orientation, zorder=zorder)
-            self.plot_arc((0., -R_turn), R_turn-r, (np.pi/2, 3*np.pi/2-tmpTheta),
+            plot_arc((0., -R_turn), R_turn-r, (np.pi/2, 3*np.pi/2-tmpTheta),
                 ax, c=c, lw=lw, orientation=orientation, zorder=zorder)
             # middle
-            self.plot_arc((0., 0), r, (np.pi/2, -np.pi/2), ax, c=c, lw=lw,
+            plot_arc((0., 0), r, (np.pi/2, -np.pi/2), ax, c=c, lw=lw,
                 orientation=orientation, zorder=zorder)
             # outer boundary
-            self.plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c=c, lw=lw,
+            plot_arc((0., 0), R, (np.pi/2, 3*np.pi/2), ax, c=c, lw=lw,
                 orientation=orientation, zorder=zorder)
 
 
     def plot_target_failure_set(self, ax, c_c='m', c_t='y', lw=3, zorder=0):
-        self.plot_circle(self.constraint_center, self.constraint_radius, ax,
+        plot_circle(self.constraint_center, self.constraint_radius, ax,
             c=c_c, lw=lw, zorder=zorder)
-        self.plot_circle(self.target_center, self.target_radius, ax, c=c_t,
+        plot_circle(self.target_center, self.target_radius, ax, c=c_t,
             lw=lw, zorder=zorder)
-
-
-    def plot_arc(self, p, r, thetaParam, ax, c='b', lw=1.5, orientation=0,
-        zorder=0):
-        x, y = p
-        thetaInit, thetaFinal = thetaParam
-
-        xtilde = x*np.cos(orientation) - y*np.sin(orientation)
-        ytilde = y*np.cos(orientation) + x*np.sin(orientation)
-
-        theta = np.linspace(thetaInit+orientation, thetaFinal+orientation, 100)
-        xs = xtilde + r * np.cos(theta)
-        ys = ytilde + r * np.sin(theta)
-
-        ax.plot(xs, ys, c=c, lw=lw, zorder=zorder)
-
-
-    def plot_circle(self, center, r, ax, c='b', lw=1.5, orientation=0,
-        scatter=False, zorder=0):
-        x, y = center
-        xtilde = x*np.cos(orientation) - y*np.sin(orientation)
-        ytilde = y*np.cos(orientation) + x*np.sin(orientation)
-
-        theta = np.linspace(0, 2*np.pi, 200)
-        xs = xtilde + r * np.cos(theta)
-        ys = ytilde + r * np.sin(theta)
-        ax.plot(xs, ys, c=c, lw=lw, zorder=zorder)
-        if scatter:
-            ax.scatter(xtilde+r, ytilde, c=c, s=80, zorder=zorder)
-            ax.scatter(xtilde-r, ytilde, c=c, s=80, zorder=zorder)
-            print(xtilde+r, ytilde, xtilde-r, ytilde, zorder=zorder)

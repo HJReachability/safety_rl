@@ -289,9 +289,9 @@ class ActorCritic(object):
                     results= env.simulate_trajectories(actor_sim,
                         T=MAX_EP_STEPS, num_rnd_traj=numRndTraj,
                         keepOutOf=False, toEnd=False)[1]
-                    success  = np.sum(results==1) / results.shape[0]
-                    failure  = np.sum(results==-1)/ results.shape[0]
-                    unfinish = np.sum(results==0) / results.shape[0]
+                    success  = np.sum(results==1) / numRndTraj
+                    failure  = np.sum(results==-1)/ numRndTraj
+                    unfinish = np.sum(results==0) / numRndTraj
                     trainProgress.append([success, failure, unfinish])
                     if verbose:
                         lr = self.actorOptimizer.state_dict()['param_groups'][0]['lr']

@@ -428,40 +428,15 @@ class DubinsCarOneContEnv(gym.Env):
         trajectories = []
 
         if states is None:
-            nx=41
-            ny=nx
-            xs = np.linspace(self.bounds[0,0], self.bounds[0,1], nx)
-            ys = np.linspace(self.bounds[1,0], self.bounds[1,1], ny)
-            results  = np.empty((nx, ny), dtype=int)
-            minVs  = np.empty((nx, ny), dtype=float)
-
-            it = np.nditer(results, flags=['multi_index'])
-            print()
-            while not it.finished:
-                idx = it.multi_index
-                print(idx, end='\r')
-                x = xs[idx[0]]
-                y = ys[idx[1]]
-                state = np.array([x, y, 0.])
+            results = np.empty(shape=(num_rnd_traj,), dtype=int)
+            minVs = np.empty(shape=(num_rnd_traj,), dtype=float)
+            for idx in range(num_rnd_traj):
                 traj, result, minV, _ = self.simulate_one_trajectory(policy,
                     T=T, theta=theta, sample_inside_obs=sample_inside_obs,
                     sample_inside_tar=sample_inside_tar, toEnd=toEnd)
-                trajectories.append((traj))
+                trajectories.append(traj)
                 results[idx] = result
                 minVs[idx] = minV
-                it.iternext()
-            results = results.reshape(-1)
-            minVs = minVs.reshape(-1)
-
-            # results = np.empty(shape=(num_rnd_traj,), dtype=int)
-            # minVs = np.empty(shape=(num_rnd_traj,), dtype=float)
-            # for idx in range(num_rnd_traj):
-            #     traj, result, minV, _ = self.simulate_one_trajectory(policy,
-            #         T=T, theta=theta, sample_inside_obs=sample_inside_obs,
-            #         sample_inside_tar=sample_inside_tar, toEnd=toEnd)
-            #     trajectories.append(traj)
-            #     results[idx] = result
-            #     minVs[idx] = minV
         else:
             results = np.empty(shape=(len(states),), dtype=int)
             minVs = np.empty(shape=(len(states),), dtype=float)

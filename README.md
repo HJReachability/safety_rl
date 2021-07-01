@@ -17,7 +17,7 @@ range of nonlinear systems.
 ## Running
 1. for Figure 1
 ```python
-    python3 sim_naive.py -w -sf -of scratch -a -g 0.9 -mu 12000000 -cp 600000 -ut 20 -n anneal
+    python3 sim_naive.py -sf -of scratch -a -g 0.9 -mu 12000000 -cp 600000 -ut 20 -n anneal
 ```
 2. for Figure 3
 ```python
@@ -30,7 +30,7 @@ range of nonlinear systems.
 4. for lunar lander
 ```python
 ```
-5. for Dubins car -- PE
+5. for Dubins car attack-defense game
 ```python
     python3 sim_car_pe.py -sf -of scratch -w -wi 30000 -g 0.9999 -n 9999
 ```

@@ -188,7 +188,7 @@ class DDQNSingle(DDQN):
             a, a_idx = self.select_action(s, explore=True)
             s_, r, done, info = env.step(a_idx)
             s_ = None if done else s_
-            self.store_transition(s, a, r, s_, info)
+            self.store_transition(s, a_idx, r, s_, info)
             if done:
                 s = env.reset()
             else:

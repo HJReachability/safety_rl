@@ -20,7 +20,7 @@ range of nonlinear systems.
 1. for lunar lander in Figure 1
 ```python
 ```
-2. for point mass in Figure 2
+2. for point mass in Figure 2
 ```python
     python3 sim_naive.py -w -sf -of scratch -a -g 0.9 -mu 12000000 -cp 600000 -ut 20 -n anneal
 ```

@@ -1,4 +1,6 @@
 # Safety and Liveness Guarantees throughReach-Avoid Reinforcement Learning
+[![License](https://img.shields.io/badge/license-BSD-blue.svg)](LICENSE)
+
 This is the companion code to RSS 2021 paper:
 Kai-Chieh Hsu\*, Vicenç Rubies-Royo\*, Claire J. Tomlin and Jaime F. Fisac,
 ''[Safety and Liveness Guarantees through Reach-Avoid Reinforcement Learning](https://roboticsconference.org/program/papers/077/)'',
@@ -15,22 +17,22 @@ range of nonlinear systems.
 5. numpy
 
 ## Running
-1. for Figure 1
+1. for lunar lander in Figure 1
+```python
+```
+2. for point mass in Figure 2
 ```python
     python3 sim_naive.py -w -sf -of scratch -a -g 0.9 -mu 12000000 -cp 600000 -ut 20 -n anneal
 ```
-2. for Figure 3
+3. for point mass in Figure 4
 ```python
     python3 sim_show.py -sf -of scratch -n 9999
 ```
-3. for Dubins car
+4. for Dubins car in Figure 5
 ```python
     python3 sim_car_one.py -sf -of scratch -w -wi 5000 -g 0.9999 -n 9999
 ```
-4. for lunar lander
-```python
-```
-5. for Dubins car -- PE
+5. for Dubins car: Attack-Defense game in Figure 7
 ```python
     python3 sim_car_pe.py -sf -of scratch -w -wi 30000 -g 0.9999 -n 9999
 ```

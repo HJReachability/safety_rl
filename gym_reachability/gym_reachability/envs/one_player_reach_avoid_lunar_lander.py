@@ -42,9 +42,8 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
                  rnd_seed=0,
                  terrain=None,  # Used for world-related avoid set.
                  target_type='default',
-                 doneType='toFailureOrSuccess',
-                 obstacle_sampling=False,
-                 discrete=True):
+                 doneType='toEnd',
+                 obstacle_sampling=False):
 
         self.parent_init = False
         super(OnePlayerReachAvoidLunarLander, self).__init__(
@@ -54,8 +53,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
             param_dict=param_dict,
             rnd_seed=rnd_seed,
             doneType=doneType,
-            obstacle_sampling=obstacle_sampling,
-            discrete=discrete)
+            obstacle_sampling=obstacle_sampling)
         self.parent_init = True
 
         # safety problem limits in --> simulator self.SCALE <--
@@ -132,22 +130,16 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
         return super().step(action)
 
     def target_margin(self, state, soft=False):
-        # States come in sim_space.
         if not self.parent_init:
             return 0
         x = state[0]
         y = state[1]
-        vx = state[2]
-        vy = state[3]
-        speed = np.sqrt(vx**2 + vy**2)
         p = Point(x, y)
         L2_distance = self.target_xy_polygon.exterior.distance(p)
         inside = 2*self.target_xy_polygon.contains(p) - 1
-        vel_l = speed - self.vy_bound/10.0
-        return max(-inside*L2_distance, vel_l)
+        return -inside*L2_distance
 
     def safety_margin(self, state):
-        # States come in sim_space.
         if not self.parent_init:
             return 0
         x = state[0]
@@ -174,7 +166,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
         """
         self.doneType = doneType
 
-    def simulate_one_trajectory(self, policy, T=10, state=None, init_q=False):
+    def simulate_one_trajectory(self, q_func, T=10, state=None, init_q=False):
         """
         simulates one trajectory in observation scale.
         """
@@ -195,13 +187,9 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
             # print("T_Margin: ", t_margin)
 
             state_tensor = torch.FloatTensor(state).to(self.device).unsqueeze(0)
-            if self.discrete:
-                action = policy(state_tensor).min(dim=1)[1].item()
-                if initial_q is None:
-                    initial_q = policy(state_tensor).min(dim=1)[0].item()
-            else:
-                action = policy(state_tensor).detach().numpy()[0]
-            assert isinstance(action, np.ndarray), "Not numpy array for action!"
+            action_index = q_func(state_tensor).min(dim=1)[1].item()
+            if initial_q is None:
+                initial_q = q_func(state_tensor).min(dim=1)[0].item()
 
             if s_margin > 0:
                 result = -1  # Failed.
@@ -210,7 +198,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
                 result = 1  # Succeeded.
                 break
 
-            state, _, done, _ = self.step(action)
+            state, _, done, _ = self.step(action_index)
             traj_x.append(state[0])
             traj_y.append(state[1])
             if done:
@@ -225,7 +213,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
             return traj_x, traj_y, result, initial_q
         return traj_x, traj_y, result
 
-    def simulate_trajectories(self, policy, T=10, num_rnd_traj=None,
+    def simulate_trajectories(self, q_func, T=10, num_rnd_traj=None,
                               states=None, *args, **kwargs):
 
         assert ((num_rnd_traj is None and states is not None) or
@@ -237,20 +225,20 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
             results = np.empty(shape=(num_rnd_traj,), dtype=int)
             for idx in range(num_rnd_traj):
                 traj_x, traj_y, result = self.simulate_one_trajectory(
-                    policy, T=T)
+                    q_func, T=T)
                 trajectories.append((traj_x, traj_y))
                 results[idx] = result
         else:
             results = np.empty(shape=(len(states),), dtype=int)
             for idx, state in enumerate(states):
                 traj_x, traj_y, result = self.simulate_one_trajectory(
-                    policy, T=T, state=state)
+                    q_func, T=T, state=state)
                 trajectories.append((traj_x, traj_y))
                 results[idx] = result
 
         return trajectories, results
 
-    def plot_trajectories(self, policy, T=10, num_rnd_traj=None, states=None,
+    def plot_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None,
                           c='w', ax=None):
         # plt.figure(2)
         assert ((num_rnd_traj is None and states is not None) or
@@ -268,7 +256,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
 
         return results
 
-    def get_value(self, q_func, policy=None, nx=41, ny=121, x_dot=0, y_dot=0, theta=0, theta_dot=0,
+    def get_value(self, q_func, nx=41, ny=121, x_dot=0, y_dot=0, theta=0, theta_dot=0,
                   addBias=False):
         v = np.zeros((nx, ny))
         max_lg = np.zeros((nx, ny))
@@ -296,25 +284,15 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
 
             if self.mode == 'normal' or self.mode == 'RA':
                 state = torch.FloatTensor(
-                    [x, y, x_dot, y_dot, theta, theta_dot]).to(self.device)
+                    [x, y, x_dot, y_dot, theta, theta_dot]).to(self.device).unsqueeze(0)
             else:
                 z = max([l_x, g_x])
                 state = torch.FloatTensor(
-                    [x, y, x_dot, y_dot, theta, theta_dot, z]).to(self.device)
-
-            if self.discrete:
-                if policy is None:
-                    v[idx] = q_func(state).min(dim=1)[0].item()
-                else:
-                    q_vals = q_func(state)
-                    action = policy(state).max(dim=1)[0]  # Pick the action from softmax.
-                    v[idx] = q_vals[action].item()
+                    [x, y, x_dot, y_dot, theta, theta_dot, z]).to(self.device).unsqueeze(0)
+            if addBias:
+                v[idx] = q_func(state).min(dim=1)[0].item() + max(l_x, g_x)
             else:
-                # Need to have an actor when actions are continuous.
-                assert policy is not None, "Need actor-policy for continuous actions."
-                action = policy(state)
-                xx = torch.cat([state, action.detach()]).to(self.device)
-                v[idx] = q_func(xx).item()
+                v[idx] = q_func(state).min(dim=1)[0].item()
             # v[idx] = max(g_x, min(l_x, v[idx]))
             it.iternext()
         # print("End value collection on grid.")
@@ -347,7 +325,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
                    interpolation='none', extent=extent,
                    origin='upper', alpha=alpha)
 
-    def visualize(self, q_func, policy=None, no_show=False,
+    def visualize(self, q_func, no_show=False,
                   vmin=-50, vmax=50, nx=91, ny=91,
                   labels=['', ''],
                   boolPlot=False, plotZero=False,
@@ -374,7 +352,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
                 ax = self.axes[y_jj][x_ii]
                 ax.cla()
                 # print("Subplot -> ", y_jj*len(self.slices_y)+x_ii+1)
-                v, xs, ys = self.get_value(q_func, policy=policy, nx=nx, ny=ny,
+                v, xs, ys = self.get_value(q_func, nx, ny,
                                            x_dot=x_dot, y_dot=y_dot, theta=0,
                                            theta_dot=0, addBias=addBias)
 
@@ -398,7 +376,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
                             state = np.array([x, y, x_dot, y_dot, 0, 0])
                             (traj_x, traj_y,
                                 result) = self.simulate_one_trajectory(
-                                q_func, policy=policy, T=400, state=state)
+                                q_func, T=400, state=state)
 
                             resultMtx[idx] = result
                             it.iternext()
@@ -446,9 +424,8 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
                     return
         plt.tight_layout()
 
-        if not no_show:
-            plt.pause(0.1)
-            # plt.show()
+        # if not no_show:
+        #     plt.show()
 
     def get_warmup_examples(self, num_warmup_samples=100, s_margin=True):
 

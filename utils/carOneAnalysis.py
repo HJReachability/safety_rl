@@ -1,4 +1,6 @@
-import numpy as np
+# Please contact the author(s) of this library if you have any questions.
+# Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
+
 import torch
 import pickle
 from gym_reachability import gym_reachability  # Custom Gym env.

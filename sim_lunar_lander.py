@@ -57,7 +57,7 @@ parser.add_argument("-mu",  "--maxUpdates",
 parser.add_argument("-ms",  "--maxSteps",
     help="maximal length of rollouts",      default=100,  type=int)
 parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",
-    default=1e4,    type=int)
+    default=1e5,    type=int)
 parser.add_argument("-cp",  "--checkPeriod",   help="check the success ratio",
     default=50000,  type=int)
 parser.add_argument("-upe",  "--update_period_eps",

@@ -1,4 +1,4 @@
-# Copyright (c) 2019–2020, The Regents of the University of California.
+# Copyright (c) 2021–2022, The Regents of the University of California.
 # All rights reserved.
 #
 # This file is based on Denny Britz's implementation of (tabular) Q-Learning,
@@ -6,14 +6,15 @@
 #
 # https://github.com/dennybritz/reinforcement-learning/blob/master/TD/Q-Learning%20Solution.ipynb
 #
-# The code in this file allows using Q-Learning with the Safety Bellman Equation
-# (SBE) from Equation (7) in [ICRA19].
+# The code in this file allows using Q-Learning with the Reach-Avoid Bellman
+# Equation in [RSS21].
 #
 # This file is subject to the terms and conditions defined in the LICENSE file
 # included in this code repository.
 #
 # Please contact the author(s) of this library if you have any questions.
-# Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
+# Authors: Vicenc Rubies-Royo ( vrubies@berkeley.edu )
+#          Neil Lugovoy   ( nflugovoy@berkeley.edu )
 
 import sys
 import time
@@ -34,8 +35,8 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
           state_bounds, env, max_episode_length=None, q_values=None,
           start_episode=None, suppress_print=False, seed=0,
           fictitious_terminal_val=None, visualization_states=None,
-          num_rnd_traj=None, vis_T=10, use_sbe=True, save_freq=None,
-          outFolder = os.path.join('scratch', 'naive', 'TQ')):
+          num_rnd_traj=None, vis_T=10, use_ra=True, save_freq=None,
+          outFolder = os.path.join('experiments', 'naive', 'TQ')):
     """ Computes state-action value function in tabular form.
 
     Args:
@@ -63,8 +64,8 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
             avoids the need of adding grid cells inside the failure set. Note
             that we are assuming that gym steps returning done==True correspond
             to violations of the constraints.
-        use_sbe: Whether to use the Safety Bellman Equation backup from
-            equation (7) in [ICRA19]. If false the standard sum of discounted
+        use_ra: Whether to use the Reach-Avoid Bellman Equation backup from
+            in [RSS21]. If false the standard sum of discounted
             rewards backup is used.
         save_freq: How often to save q_values and stats.
 
@@ -73,8 +74,6 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
         contains the q_values value function. For example in cartpole the
         dimensions are q_values[x][x_dot][theta][theta_dot][action].
     """
-    # TODO(vrubies): sbe change
-    # TODO(vrubies): reach_margin, avoid_margin
     # Time-related variables for performace analysis.
     start = time.process_time()
     now = datetime.now()
@@ -106,9 +105,6 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
             q_values[it.multi_index] = max(l_x, g_x)
             viz_fail[it.multi_index[:-1]] = g_x
             it.iternext()
-        # env.visualize_analytic_comparison(viz_fail * (viz_fail < 0) +
-        #                                   (viz_fail > 0), True)
-        # plt.pause(0.01)
     elif not np.array_equal(np.shape(q_values)[:-1], grid_cells):
         raise ValueError(
             "The shape of q_values excluding the last dimension must be the "
@@ -164,14 +160,14 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
                 episode + 1, max_episodes, alpha, gamma, epsilon,
                 redundant_comp/(total_steps + 1.0)), end="")
             sys.stdout.flush()
-        # checkPeriod = int(max_episodes/20)
-        checkPeriod = 100000
+
+        checkPeriod = 500000
         if ((num_rnd_traj is not None or visualization_states is not None)
                 and (episode + 1) % checkPeriod == 0):
             modelPath = os.path.join(modelFolder, str(episode + 1)+'.npy')
             np.save(modelPath, q_values)
             fig, ax = plt.subplots(1, 1, figsize=(4, 4))
-            env.visualize_analytic_comparison(v_from_q(q_values), True, 
+            env.visualize_analytic_comparison(v_from_q(q_values), True,
                 labels=["",""], boolPlot=False, fig=fig, ax=ax)
             env.plot_reach_avoid_set(ax=ax, lw=3)
             env.plot_trajectories(q_values, T=vis_T, num_rnd_traj=num_rnd_traj,
@@ -218,22 +214,12 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
             gamma = get_gamma(episode + start_episode, num_visits)
 
             # Perform Bellman backup.
-            if use_sbe:  # Safety Bellman Equation backup.
+            if use_ra:  # Safety Bellman Equation backup.
                 l_x = reward
                 min_term = min(l_x, np.amin(q_values[next_state_ix]))
                 new_q = (
                     (1.0 - gamma) * max(l_x, g_x) +
                     gamma * max(min_term, g_x))
-                # if not done:
-                #     min_term = min(l_x, np.amin(q_values[next_state_ix]))
-                #     new_q = (
-                #         (1.0 - gamma) * max(l_x, g_x) +
-                #         gamma * max(min_term, g_x))
-                # else:
-                #     if fictitious_terminal_val and g_x <= 0.0 and l_x <= 0.0:
-                #         new_q = -fictitious_terminal_val
-                #     else:
-                #         new_q = max(l_x, g_x)
             else:       # Sum of discounted rewards backup.
                 if not done:
                     new_q = (reward + gamma *

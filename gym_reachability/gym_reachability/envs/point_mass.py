@@ -1,4 +1,4 @@
-# Copyright (c) 2020–2021, The Regents of the University of California.
+# Copyright (c) 2021–2022, The Regents of the University of California.
 # All rights reserved.
 #
 # This file is subject to the terms and conditions defined in the LICENSE file
@@ -25,10 +25,8 @@ class PointMassEnv(gym.Env):
     def __init__(self):
 
         # State bounds.
-        self.bounds = np.array([[-2, 2],  # axis_0 = state, axis_1 = bounds.
+        self.bounds = np.array([[-2, 2],  # axis_0 = state, axis_1=bounds.
                                 [-2, 10]])
-        # self.bounds = np.array([[-10, 10],  # axis_0 = state, axis_1 = bounds.
-        #                         [-10, 10]])
         self.low = self.bounds[:, 0]
         self.high = self.bounds[:, 1]
 
@@ -72,11 +70,12 @@ class PointMassEnv(gym.Env):
         self.box4_x_y_length = np.array([0, 9.25, 1.5])  # Top.
 
         # Gym variables.
-        self.action_space = gym.spaces.Discrete(3)  # horizontal_rate = {-1,0,1}
+        self.action_space = gym.spaces.Discrete(3)  # horizontal_rate={-1,0,1}
         self.midpoint = (self.low + self.high)/2.0
         self.interval = self.high - self.low
-        self.observation_space = gym.spaces.Box(np.float32(self.midpoint - self.interval/2),
-                                                np.float32(self.midpoint + self.interval/2))
+        self.observation_space = gym.spaces.Box(
+            np.float32(self.midpoint - self.interval/2),
+            np.float32(self.midpoint + self.interval/2))
         self.viewer = None
 
         # Discretization.
@@ -120,29 +119,8 @@ class PointMassEnv(gym.Env):
         return np.copy(self.state)
 
     def sample_random_state(self):
-        # Sample states uniformly until one is found inside the constraint set
-        # but outside target.
-        # rnd_sector = np.random.randint(0, 3)
-        # if rnd_sector == 0:
-        #     rnd_state = np.random.uniform(low=self.low,
-        #                                   high=np.array([self.corners1[2],
-        #                                                  self.corners1[1]]))
-        # elif rnd_sector == 1:
-        #     rnd_state = np.random.uniform(low=np.array([self.corners2[0],
-        #                                                 self.corners2[3]]),
-        #                                   high=np.array([self.corners3[0],
-        #                                                  self.high[1]]))
-        # elif rnd_sector == 2:
-        #     rnd_state = np.random.uniform(low=np.array([self.corners3[2],
-        #                                                 self.corners1[3]]),
-        #                                   high=self.high)
-        # else:
-        #     print("ERROR rnd_sector needs to be 0, 1 or 2.")
         rnd_state = np.random.uniform(low=self.low,
                                       high=self.high)
-        # while ((self.safety_margin(rnd_state) > 0) or (
-        #         self.target_margin(rnd_state) > 0)):
-        #     rnd_state = np.random.uniform(low=self.low, high=self.high)
         return rnd_state
 
     def step(self, action):
@@ -272,8 +250,9 @@ class PointMassEnv(gym.Env):
         # Double the range in each state dimension for Gym interface.
         midpoint = (self.low + self.high)/2.0
         interval = self.high - self.low
-        self.observation_space = gym.spaces.Box(np.float32(self.midpoint - self.interval/2),
-                                                np.float32(self.midpoint + self.interval/2))
+        self.observation_space = gym.spaces.Box(
+            np.float32(self.midpoint - self.interval/2),
+            np.float32(self.midpoint + self.interval/2))
 
     def set_discretization(self, grid_cells, bounds):
         """ Set number of grid cells and state bounds.
@@ -287,48 +266,6 @@ class PointMassEnv(gym.Env):
 
     def render(self, mode='human'):
         pass
-
-    # def ground_truth_comparison(self, q_func):
-    #     """ Compares the state-action value function to the ground truth.
-
-    #     The state-action value function is first converted to a state value
-    #     function, and then compared to the ground truth analytical solution.
-
-    #     Args:
-    #         q_func: State-action value function.
-
-    #     Returns:
-    #         Tuple containing number of misclassified safe and misclassified
-    #         unsafe states.
-    #     """
-    #     computed_v = v_from_q(
-    #         q_values_from_q_func(q_func, self.grid_cells, self.bounds, 2))
-    #     return self.ground_truth_comparison_v(computed_v)
-
-    # def ground_truth_comparison_v(self, computed_v):
-    #     """ Compares the state value function to the analytical solution.
-
-    #     The state value function is compared to the ground truth analytical
-    #     solution by checking for sign mismatches between state-value pairs.
-
-    #     Args:
-    #         computed_v: State value function.
-
-    #     Returns:
-    #         Tuple containing number of misclassified safe and misclassified
-    #         unsafe states.
-    #     """
-    #     analytic_v = self.analytic_v()
-    #     misclassified_safe = 0
-    #     misclassified_unsafe = 0
-    #     it = np.nditer(analytic_v, flags=['multi_index'])
-    #     while not it.finished:
-    #         if analytic_v[it.multi_index] < 0 < computed_v[it.multi_index]:
-    #             misclassified_safe += 1
-    #         elif computed_v[it.multi_index] < 0 < analytic_v[it.multi_index]:
-    #             misclassified_unsafe += 1
-    #         it.iternext()
-    #     return misclassified_safe, misclassified_unsafe
 
     def constraint_set_boundary(self):
         """ Computes the safe set boundary based on the analytic solution.
@@ -408,10 +345,10 @@ class PointMassEnv(gym.Env):
             self.box4_x_y_length[1] - self.box4_x_y_length[-1]/2.0])
 
         return (x_box4_pos, y_box4_pos)
-    
+
 
     def visualize_analytic_comparison( self, v, no_show=False,
-                                       labels=["x", "y"], 
+                                       labels=["x", "y"],
                                        vmin=-1, vmax=1, boolPlot=False,
                                        cmap='seismic', fig=None, ax=None):
         """ Overlays analytic safe set on top of state value function.
@@ -420,13 +357,13 @@ class PointMassEnv(gym.Env):
             v: State value function.
         """
         axes = self.get_axes()
-        
+
         if boolPlot:
-            im = ax.imshow(v.T>vmin, interpolation='none', extent=axes[0], origin="lower",
-                       cmap='coolwarm')
+            im = ax.imshow(v.T > vmin, interpolation='none', extent=axes[0],
+                           origin="lower", cmap='coolwarm')
         else:
-            im = ax.imshow(v.T, interpolation='none', extent=axes[0], origin="lower",
-                       cmap=cmap, vmin=vmin, vmax=vmax)
+            im = ax.imshow(v.T, interpolation='none', extent=axes[0],
+                           origin="lower", cmap=cmap, vmin=vmin, vmax=vmax)
             # fig.colorbar(im, pad=0.01, shrink=0.95)
 
     def simulate_one_trajectory(self, q_func, T=10, state=None):
@@ -438,9 +375,9 @@ class PointMassEnv(gym.Env):
         traj_y = [y]
 
         for t in range(T):
-            outsideTop   = (state[1] >= self.bounds[1,1])
-            outsideLeft  = (state[0] <= self.bounds[0,0])
-            outsideRight = (state[0] >= self.bounds[0,1])
+            outsideTop   = (state[1] >= self.bounds[1, 1])
+            outsideLeft  = (state[0] <= self.bounds[0, 0])
+            outsideRight = (state[0] >= self.bounds[0, 1])
             done = outsideTop or outsideLeft or outsideRight
             if done:
                 break
@@ -476,14 +413,14 @@ class PointMassEnv(gym.Env):
 
         return trajectories
 
-    def plot_trajectories(self, q_func, T=250, num_rnd_traj=None, states=None, 
+    def plot_trajectories(self, q_func, T=250, num_rnd_traj=None, states=None,
         keepOutOf=False, toEnd=False, ax=None, c='k', lw=2, zorder=3):
 
         assert ((num_rnd_traj is None and states is not None) or
                 (num_rnd_traj is not None and states is None) or
                 (len(states) == num_rnd_traj))
 
-        trajectories = self.simulate_trajectories(q_func, T=T, 
+        trajectories = self.simulate_trajectories(q_func, T=T,
             num_rnd_traj=num_rnd_traj, states=states)
 
         for traj in trajectories:
@@ -491,14 +428,19 @@ class PointMassEnv(gym.Env):
             ax.scatter(traj_x[0], traj_y[0], s=48, c=c, zorder=zorder)
             ax.plot(traj_x, traj_y, color=c, linewidth=lw, zorder=zorder)
 
-    def plot_target_failure_set(self, ax=None, c_c='m', c_t='y', lw=1.5, zorder=1):
+    def plot_target_failure_set(self, ax=None, c_c='m', c_t='y', lw=1.5,
+                                zorder=1):
         # Plot bounadries of constraint set.
-        ax.plot(self.x_box1_pos, self.y_box1_pos, color=c_c, lw=lw, zorder=zorder)
-        ax.plot(self.x_box2_pos, self.y_box2_pos, color=c_c, lw=lw, zorder=zorder)
-        ax.plot(self.x_box3_pos, self.y_box3_pos, color=c_c, lw=lw, zorder=zorder)
+        ax.plot(self.x_box1_pos, self.y_box1_pos, color=c_c, lw=lw,
+                zorder=zorder)
+        ax.plot(self.x_box2_pos, self.y_box2_pos, color=c_c, lw=lw,
+                zorder=zorder)
+        ax.plot(self.x_box3_pos, self.y_box3_pos, color=c_c, lw=lw,
+                zorder=zorder)
 
         # Plot boundaries of target set.
-        ax.plot(self.x_box4_pos, self.y_box4_pos, color=c_t, lw=lw, zorder=zorder)
+        ax.plot(self.x_box4_pos, self.y_box4_pos, color=c_t, lw=lw,
+                zorder=zorder)
 
     def plot_reach_avoid_set(self, ax=None, c='g', lw=3, zorder=2):
         slope = self.upward_speed / self.horizontal_rate
@@ -512,34 +454,34 @@ class PointMassEnv(gym.Env):
             return xs, ys
 
         # left unsafe set
-        x = self.box2_x_y_length[0] + self.box2_x_y_length[2]/2.0 
+        x = self.box2_x_y_length[0] + self.box2_x_y_length[2]/2.0
         y = self.box2_x_y_length[1] - self.box2_x_y_length[2]/2.0
-        xs, ys = get_line(slope, end_point=[x,y], x_limit=-2.)
+        xs, ys = get_line(slope, end_point=[x, y], x_limit=-2.)
         ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
         # right unsafe set
-        x = self.box1_x_y_length[0] - self.box1_x_y_length[2]/2.0 
+        x = self.box1_x_y_length[0] - self.box1_x_y_length[2]/2.0
         y = self.box1_x_y_length[1] - self.box1_x_y_length[2]/2.0
-        xs, ys = get_line(-slope, end_point=[x,y], x_limit=2.)
+        xs, ys = get_line(-slope, end_point=[x, y], x_limit=2.)
         ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
         # middle unsafe set
-        x1 = self.box3_x_y_length[0] - self.box3_x_y_length[2]/2.0 
+        x1 = self.box3_x_y_length[0] - self.box3_x_y_length[2]/2.0
         x2 = self.box3_x_y_length[0] + self.box3_x_y_length[2]/2.0
         x3 = self.box3_x_y_length[0]
         y = self.box3_x_y_length[1] - self.box3_x_y_length[2]/2.0
-        xs, ys = get_line(-slope, end_point=[x1,y], x_limit=x3)
+        xs, ys = get_line(-slope, end_point=[x1, y], x_limit=x3)
         ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
-        xs, ys = get_line(slope, end_point=[x2,y], x_limit=x3)
+        xs, ys = get_line(slope, end_point=[x2, y], x_limit=x3)
         ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
         # border unsafe set
         x1 = self.box4_x_y_length[0] - self.box4_x_y_length[2]/2.0
         x2 = self.box4_x_y_length[0] + self.box4_x_y_length[2]/2.0
         y = self.box4_x_y_length[1] + self.box4_x_y_length[2]/2.0
-        xs, ys = get_line(slope, end_point=[x1,y], x_limit=-2.)
+        xs, ys = get_line(slope, end_point=[x1, y], x_limit=-2.)
         ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
-        xs, ys = get_line(-slope, end_point=[x2,y], x_limit=2.)
+        xs, ys = get_line(-slope, end_point=[x2, y], x_limit=2.)
         ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
 
@@ -566,12 +508,12 @@ class PointMassEnv(gym.Env):
         Returns:
             List containing a list of bounds for each state coordinate and a
         """
-        x_span = self.bounds[0,1] - self.bounds[0,0]
-        y_span = self.bounds[1,1] - self.bounds[1,0]
+        x_span = self.bounds[0, 1] - self.bounds[0, 0]
+        y_span = self.bounds[1, 1] - self.bounds[1, 0]
         aspect_ratio = x_span / y_span
         axes = np.array([
-            self.bounds[0,0]-.05,
-            self.bounds[0,1]+.05,
-            self.bounds[1,0]-.05,
-            self.bounds[1,1]+.05])
+            self.bounds[0, 0]-.05,
+            self.bounds[0, 1]+.05,
+            self.bounds[1, 0]-.05,
+            self.bounds[1, 1]+.05])
         return [axes, aspect_ratio]

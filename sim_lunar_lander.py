@@ -6,9 +6,7 @@
 # problem. We use this script to generate Fig. 1 in the paper.
 
 # Examples:
-#   python3 sim_lunar_lander.py
-  # RA: python3 sim_car_one.py -sf -of scratch -w -wi 5000 -g 0.9999 -n 9999
-  # test: python3 sim_car_one.py -sf -of scratch -w -wi 50 -mu 1000 -cp 400 -n tmp
+#   python3 sim_lunar_lander.py -sf
 
 
 from warnings import simplefilter
@@ -48,24 +46,32 @@ parser.add_argument("-rnd", "--randomSeed",     help="random seed",
     default=0,          type=int)
 parser.add_argument("-dt",  "--doneType",       help="when to raise done flag",
     default='toThreshold',    type=str)
+parser.add_argument("-p",   "--path",            help="path to model",
+    default='toThreshold',    type=str)
+parser.add_argument("-cfg",  "--config_path",   help="path to CONFIG.pkl file",
+    default='toThreshold',    type=str)
 
 # training scheme
+parser.add_argument("-w",   "--warmup",         help="warmup Q-network",
+    action="store_true")
+parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",
+    default=10000,  type=int)
 parser.add_argument("-ab",  "--addBias",        help="add bias term for RA",
     action="store_true")
 parser.add_argument("-mu",  "--maxUpdates",
-    help="maximal #gradient updates", default=4e6, type=int)
+    help="maximal #gradient updates", default=5e6, type=int)
 parser.add_argument("-ms",  "--maxSteps",
-    help="maximal length of rollouts",      default=100,  type=int)
+    help="maximal length of rollouts",      default=200,  type=int)
 parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",
-    default=1e5,    type=int)
+    default=150000,    type=int)
 parser.add_argument("-cp",  "--checkPeriod",   help="check the success ratio",
     default=50000,  type=int)
 parser.add_argument("-upe",  "--update_period_eps",
-    help="update period for eps scheduler",     default=int(4e6/30),  type=int)
+    help="update period for eps scheduler",     default=500000,  type=int)
 parser.add_argument("-upg",  "--update_period_gamma",
-    help="update period for gamma scheduler",   default=int(4e6/20),  type=int)
+    help="update period for gamma scheduler",   default=500000,  type=int)
 parser.add_argument("-upl",  "--update_period_lr",
-    help="update period for lr cheduler",       default=int(4e6/20),  type=int)
+    help="update period for lr cheduler",       default=250000,  type=int)
 
 # hyper-parameters
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",
@@ -78,7 +84,7 @@ parser.add_argument("-arc", "--architecture",
     help="neural network architecture", default=[512, 512],  nargs="*",
     type=int)
 parser.add_argument("-act", "--actType",        help="activation type",
-    default='Tanh', type=str)
+    default='ReLU', type=str)
 parser.add_argument("-dbl", "--double",         help="double DQN",
     action="store_true")
 parser.add_argument("-bs",  "--batchsize",      help="batch size",
@@ -125,19 +131,19 @@ CONFIG = dqnConfig(
             # =================== EXPLORATION PARAMS.
             EPSILON=args.eps,            # Initial exploration rate.
             EPS_END=0.05,            # Final explortation rate.
-            EPS_PERIOD=args.update_period_eps,  # How often to update EPS.
+            EPS_PERIOD=args.update_period_eps / 10,  # How often to update EPS.
             EPS_DECAY=0.8,           # Rate of decay.
-            EPS_RESET_PERIOD=args.update_period_eps * 10,
+            EPS_RESET_PERIOD=args.update_period_eps,
             # =================== LEARNING RATE PARAMS.
             LR_C=args.learningRate,  # Learning rate.
-            LR_C_END=args.learningRate * 0.1,           # Final learning rate.
+            LR_C_END=args.learningRate * 0.5,           # Final learning rate.
             LR_C_PERIOD=args.update_period_lr,  # How often to update lr.
-            LR_C_DECAY=0.9,          # Learning rate decay rate.
+            LR_C_DECAY=0.8,          # Learning rate decay rate.
             # =================== LEARNING RATE .
             GAMMA=args.gamma,         # Inital gamma.
             GAMMA_END=0.999,    # Final gamma.
             GAMMA_PERIOD=args.update_period_gamma,  # How often to update gamma.
-            GAMMA_DECAY=0.9,         # Rate of decay of gamma.
+            GAMMA_DECAY=0.1,         # Rate of decay of gamma.
             # ===================
             TAU=0.01,
             HARD_UPDATE=1,
@@ -145,7 +151,7 @@ CONFIG = dqnConfig(
             MEMORY_CAPACITY=args.memoryCapacity,
             BATCH_SIZE=args.batchsize,  # Number of examples to use to update Q.
             RENDER=False,
-            MAX_MODEL=20,            # How many models to store while training.
+            MAX_MODEL=10,            # How many models to store while training.
             DOUBLE=args.double,
             ARCHITECTURE=args.architecture,
             ACTIVATION=args.actType,
@@ -167,8 +173,15 @@ env.set_costParam(penalty=CONFIG.PENALTY, reward=CONFIG.REWARD)
 
 
 # == EXPERIMENT ==
-def run_experiment(args, CONFIG, env, report_period=1000):
+def run_experiment(args, CONFIG, env):
+    """
+    run_experiment: It runs the reach-avoid training algorithm.
 
+    Args:
+        args: parsed arguments.
+        CONFIG (config, object): configuration parameters.
+        env (gym.Env): environment used for training.
+    """
     # == AGENT ==
     s_dim = env.observation_space.shape[0]
     numAction = env.action_space.n
@@ -187,8 +200,8 @@ def run_experiment(args, CONFIG, env, report_period=1000):
         MAX_UPDATES=CONFIG.MAX_UPDATES,
         MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
         warmupBuffer=True,
-        warmupQ=True,           # Need to implement inside env.
-        warmupIter=10000,
+        warmupQ=args.warmup,
+        warmupIter=args.warmupIter,
         addBias=args.addBias,
         doneTerminate=True,
         runningCostThr=None,
@@ -206,18 +219,21 @@ def run_experiment(args, CONFIG, env, report_period=1000):
     return trainProgress
 
 
-def test_experiment(args, CONFIG, env, doneType='toFailureOrSuccess',
-                    sim_only=False):
+def test_experiment(path, config_path, env,
+                    doneType='toFailureOrSuccess'):
+    """
+    test_experiment: It plots the value function slices.
+
+    Args:
+        path (string): path to the model file *.pth.
+        config_path (string): path to the CONFIG.pkl file of the experiment.
+        env (gym.Env): environment used for training.
+        doneType (string, optional): termination type for episodes.
+    """
     s_dim = env.observation_space.shape[0]
     numAction = env.action_space.n
     actionList = np.arange(numAction)
-    if ".pth" not in path:
-        model_list = glob.glob(os.path.join(path, '*.pth'))
-        max_step = max([int(li.split('/')[-1][6:-4]) for li in model_list])
-        path += 'model-{}.pth'.format(max_step)
 
-    # If CONFIG.pkl file exists overwrite CONFIG object.
-    config_path = path.split(path.split("/")[-1])[0] + "CONFIG.pkl"
     if os.path.isfile(config_path):
         CONFIG_ = pickle.load(open(config_path, 'rb'))
         for k in CONFIG_.__dict__:
@@ -233,50 +249,13 @@ def test_experiment(args, CONFIG, env, doneType='toFailureOrSuccess',
                        mode='RA', actType=CONFIG.ACTIVATION)
     agent.restore(path)
 
-    # Show policy in velocity 0 space.
-    env.scatter_actions(agent.Q_network, num_states=20000)
+    # Visualize value function.
+    env.visualize(agent.Q_network, True, nx=91, ny=91, boolPlot=False,
+                  trueRAZero=False, addBias=False, lvlset=0)
     plt.show()
 
-    if not sim_only:
-        # Print confusion matrix.
-        print(env.confusion_matrix(agent.Q_network, num_states=100))
 
-        # Visualize value function.
-        env.visualize(agent.Q_network, True, nx=91, ny=91, boolPlot=False,
-                      trueRAZero=False, addBias=False, lvlset=0)
-        plt.show()
-
-    my_images = []
-    fig, ax = plt.subplots(figsize=(12, 7))
-    s_trajs = []
-    total_reward = 0
-    s = env.reset()
-    tmp_int = 0
-    tmp_ii = 0
-    while True:
-        state_tensor = torch.FloatTensor(s).to(device).unsqueeze(0)
-        action_index = agent.Q_network(state_tensor).min(dim=1)[1].item()
-        s, r, done, info = env.step(action_index)
-        s_trajs.append([s[0], s[1]])
-        total_reward += r
-        tmp_ii += 1
-
-        my_images.append(env.render(mode="rgb_array"))
-
-        if done or tmp_ii > 1000:
-            tmp_ii = 0
-            env.reset()
-            if tmp_int > 20:
-                break
-            else:
-                tmp_int += 1
-    env.close()
-
-# trainProgress = run_experiment(args, CONFIG, env)
-# test_experiment(args, CONFIG, env, sim_only=False)
-model = "models/RA2021-07-26-16_34_43/"
 if args.test:
-    test_experiment(args, CONFIG, env, model,
-                    doneType='toThreshold', sim_only=False)
+    test_experiment(args.path, args.config_path, env)
 else:
-    run_experiment(args, CONFIG, env)  #, skip=args.skip)
+    run_experiment(args, CONFIG, env)

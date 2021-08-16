@@ -1,4 +1,4 @@
-# Copyright (c) 2019–2020, The Regents of the University of California.
+# Copyright (c) 2021–2022, The Regents of the University of California.
 # All rights reserved.
 #
 # This file is subject to the terms and conditions defined in the LICENSE file
@@ -6,6 +6,7 @@
 #
 # Please contact the author(s) of this library if you have any questions.
 # Authors: Neil Lugovoy   ( nflugovoy@berkeley.edu )
+#          Vicenc Rubies-Royo (vrubies@berkeley.edu )
 
 import _pickle as cPickle
 import os

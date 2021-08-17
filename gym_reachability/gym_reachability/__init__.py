@@ -46,11 +46,6 @@ register(
 )
 
 register(
-    id="zermelo_kc-v0",
-    entry_point="gym_reachability.gym_reachability.envs:ZermeloKCEnv"
-)
-
-register(
     id="zermelo_show-v0",
     entry_point="gym_reachability.gym_reachability.envs:ZermeloShowEnv"
 )

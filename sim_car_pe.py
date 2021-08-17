@@ -66,7 +66,7 @@ parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",
 parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",
     default=50000,      type=int)
 parser.add_argument("-cp",  "--checkPeriod",    help="check period",
-    default=20000,      type=int)
+    default=200000,     type=int)
 
 # hyper-parameters
 parser.add_argument("-a",   "--annealing",      help="gamma annealing",

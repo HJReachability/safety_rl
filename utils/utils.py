@@ -19,47 +19,6 @@ import matplotlib
 # matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
 
-# == backup and outcome functions ==
-
-
-def sbe_backup(rewards, dones, next_state_val, gamma, tensorflow=False):
-    """
-    computes backup for Safety Bellman Equation from equation 7
-    :param rewards: either a scalar reward or a tensor of rewards for multiple trajectories
-    :param dones: either a single boolean representing whether the state is terminal or a tensor of
-    dones for multiple trajectories
-    :param next_state_val: the value function at the next state (e.g. in q-learning this the max
-    over actions of the q values in the next state) or a tensor of such values
-    :param gamma: discount factor
-    :param tensorflow: whether the tensor is a tensorflow tensor
-    :return: the value for the backup
-    """
-    v_terminal = rewards
-    if tensorflow:
-        import tensorflow as tf
-        v_non_terminal = (1.0 - gamma) * rewards + gamma * tf.minimum(rewards, next_state_val)
-    else:
-        v_non_terminal = (1.0 - gamma) * rewards + gamma * np.minimum(rewards, next_state_val)
-    return dones * v_terminal + (1.0 - dones) * v_non_terminal
-
-
-def sbe_outcome(rewards, gamma):
-    """
-    computes the outcome of the trajectory with the given discount factor for the Safety Bellman
-    Equation from equation 8. If you want to use this with a value function predicting the value at
-    the last state append that value to the end of rewards. See the rewards_plus_v variable in ray's
-    rllib/evaluation/postprocessing.py file for an example.
-    :param rewards: 1d list or array of rewards for the trajectory
-    :param gamma: discount factor
-    :return: a list such that the value at index i is the outcome starting from the ith state in
-    the trajectory. at i=0 is the outcome for the entire trajectory
-    """
-    outcomes = np.zeros(len(rewards))
-    outcomes[-1] = rewards[-1]
-    for i in range(len(outcomes) - 2, -1, -1):
-        outcomes[i] = (1 - gamma) * rewards[i] + gamma * min(rewards[i], outcomes[i+1])
-    return outcomes
-
 # == discretization functions ==
 
 

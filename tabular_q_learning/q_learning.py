@@ -26,7 +26,6 @@ import os
 
 from utils.utils import index_to_state
 from utils.utils import state_to_index
-from utils.utils import sbe_outcome
 from utils.utils import save
 from utils.utils import v_from_q
 
@@ -214,7 +213,7 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
             gamma = get_gamma(episode + start_episode, num_visits)
 
             # Perform Bellman backup.
-            if use_ra:  # Safety Bellman Equation backup.
+            if use_ra:  # Reach-Avoid Bellman Equation backup.
                 l_x = reward
                 min_term = min(l_x, np.amin(q_values[next_state_ix]))
                 new_q = (
@@ -245,8 +244,6 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
         cumulative_time += time_for_episode
         # save episode statistics
         episode_rewards = np.array(episode_rewards)
-        outcome = sbe_outcome(episode_rewards, gamma)[0]
-        stats["episode_outcomes"][episode] = outcome
         stats["true_min"][episode] = np.min(episode_rewards)
         stats["episode_lengths"][episode] = len(episode_rewards)
         stats["average_episode_rewards"][episode] = np.average(episode_rewards)

@@ -10,14 +10,21 @@ We implemented reach-avoid Q-learning and evaluated our proposed framework on a
 range of nonlinear systems.
 
 ## Dependencies
+If you are using anaconda to control packages, you can use one of the following
+command to create an identical environment with the specification file:
+```
+conda create --name <myenv> --file doc/spec-mac.txt
+conda create --name <myenv> --file doc/spec-linux.txt
+```
+Otherwise, you can install the following packages manually
 1. python=3.8.10
 2. numpy=1.21.1
 3. pytorch=1.9.0
 4. gym=0.18.0
 5. scipy=1.7.0
 6. matplotlib=3.4.2
-7. box2d-py=2.3.8 (LL)
-8. shapely=1.7.1 (LL)
+7. box2d-py=2.3.8
+8. shapely=1.7.1
 
 ## Running
 1. for lunar lander in Figure 1

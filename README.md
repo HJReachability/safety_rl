@@ -36,7 +36,7 @@ Otherwise, you can install the following packages manually
 ```
 3. for point mass in Figure 4
 ```python
-    python3 sim_show.py -sf -n 9999
+    python3 sim_show.py -sf -g 0.9999 -n 9999
 ```
 4. for Dubins car in Figure 5
 ```python

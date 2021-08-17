@@ -25,19 +25,19 @@ range of nonlinear systems.
 ```
 2. for point mass in Figure 2
 ```python
-    python3 sim_naive.py -w -sf -of scratch -a -g 0.9 -mu 12000000 -cp 600000 -ut 20 -n anneal
+    python3 sim_naive.py -w -sf -a -g 0.9 -mu 12000000 -cp 600000 -ut 20 -n anneal
 ```
 3. for point mass in Figure 4
 ```python
-    python3 sim_show.py -sf -of scratch -n 9999
+    python3 sim_show.py -sf -n 9999
 ```
 4. for Dubins car in Figure 5
 ```python
-    python3 sim_car_one.py -sf -of scratch -w -wi 5000 -g 0.9999 -n 9999
+    python3 sim_car_one.py -sf -w -wi 5000 -g 0.9999 -n 9999
 ```
 5. for Dubins car: Attack-Defense game in Figure 7
 ```python
-    python3 sim_car_pe.py -sf -of scratch -w -wi 30000 -g 0.9999 -n 9999
+    python3 sim_car_pe.py -sf -w -wi 30000 -g 0.9999 -n 9999
 ```
 
 ## Paper Citation

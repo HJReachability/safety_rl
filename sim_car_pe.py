@@ -92,7 +92,7 @@ parser.add_argument("-st",  "--showTime",       help="show timestr",
 parser.add_argument("-n",   "--name",           help="extra name",
     default='',                         type=str)
 parser.add_argument("-of",  "--outFolder",      help="output file",
-    default='/scratch/gpfs/kaichieh/',  type=str)
+    default='experiments',  type=str)
 parser.add_argument("-pf",  "--plotFigure",     help="plot figures",
     action="store_true")
 parser.add_argument("-sf",  "--storeFigure",    help="store figures",

@@ -478,7 +478,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         s = self.generate_terrain_and_landers(
             terrain_polyline=terrain_polyline, sample_inside_obs=self.sio)
         # When 'toThreshold' is enabled we need to remove obstacles.
-        if self.doneType is 'toThreshold' or self.doneType is 'toFailureOrSuccess':
+        if self.doneType == 'toThreshold' or self.doneType == 'toFailureOrSuccess':
             self.world.contactListener = None
             self._clean_particles(True)
             self.world.DestroyBody(self.moon)
@@ -638,7 +638,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         g_x_nxt = self.safety_margin(self.sim_state)
 
         done = False
-        if self.doneType is 'toFailureOrSuccess' or self.doneType is 'toDone':
+        if self.doneType == 'toFailureOrSuccess' or self.doneType == 'toDone':
             if fail:
                 done = True
                 info = {"g_x": self.penalty, "l_x": l_x_cur,
@@ -647,16 +647,16 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
                 done = True
                 info = {"g_x": g_x_cur, "l_x": self.reward,
                         "g_x_nxt": g_x_nxt, "l_x_nxt": self.reward}
-            if self.doneType is 'toDone' and np.any(done_list):
+            if self.doneType == 'toDone' and np.any(done_list):
                 done = True
                 info = {"g_x": g_x_cur,  "l_x": l_x_cur,
                         "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
-        elif self.doneType is 'toThreshold':
+        elif self.doneType == 'toThreshold':
             if g_x_cur > self.penalty:  # or success:
                 done = True
                 info = {"g_x": g_x_cur,  "l_x": l_x_cur,
                         "g_x_nxt": g_x_nxt, "l_x_nxt": l_x_nxt}
-        elif self.doneType is 'toEnd':
+        elif self.doneType == 'toEnd':
             # Not implemented.
             pass
 

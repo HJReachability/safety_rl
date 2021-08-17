@@ -58,27 +58,27 @@ parser.add_argument("-s",       "--speed",              help="speed",
 parser.add_argument("-w",   "--warmup",         help="warmup Q-network",
     action="store_true")
 parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",
-    default=30000,  type=int)
+    default=30000,      type=int)
 parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",
-    default=400000, type=int)
+    default=4000000,    type=int)
 parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",
-    default=20,     type=int)
+    default=20,         type=int)
 parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",
-    default=50000,  type=int)
+    default=50000,      type=int)
 parser.add_argument("-cp",  "--checkPeriod",    help="check period",
-    default=20000,  type=int)
+    default=20000,      type=int)
 
 # hyper-parameters
 parser.add_argument("-a",   "--annealing",      help="gamma annealing",
     action="store_true")
 parser.add_argument("-arc", "--architecture",   help="NN architecture",
-    default=[100, 100],  nargs="*", type=int)
+    default=[512, 512, 512],    nargs="*", type=int)
 parser.add_argument("-lr",  "--learningRate",   help="learning rate",
-    default=1e-3,   type=float)
+    default=1e-3,               type=float)
 parser.add_argument("-g",   "--gamma",          help="contraction coeff.",
-    default=0.8,    type=float)
+    default=0.8,                type=float)
 parser.add_argument("-act", "--actType",        help="activation type",
-    default='Tanh', type=str)
+    default='Tanh',             type=str)
 
 # RL type
 parser.add_argument("-m",   "--mode",           help="mode",

@@ -1,5 +1,6 @@
 # Safety and Liveness Guarantees throughReach-Avoid Reinforcement Learning
 [![License](https://img.shields.io/badge/license-BSD-blue.svg)](LICENSE)
+[![Python 3.8](https://img.shields.io/badge/python-3.8-blue)](https://www.python.org/downloads/)
 
 This is the companion code to RSS 2021 paper:
 Kai-Chieh Hsu\*, Vicenç Rubies-Royo\*, Claire J. Tomlin and Jaime F. Fisac,
@@ -17,14 +18,13 @@ conda create --name <myenv> --file doc/spec-mac.txt
 conda create --name <myenv> --file doc/spec-linux.txt
 ```
 Otherwise, you can install the following packages manually
-1. python=3.8.10
-2. numpy=1.21.1
-3. pytorch=1.9.0
-4. gym=0.18.0
-5. scipy=1.7.0
-6. matplotlib=3.4.2
-7. box2d-py=2.3.8
-8. shapely=1.7.1
+1. numpy=1.21.1
+2. pytorch=1.9.0
+3. gym=0.18.0
+4. scipy=1.7.0
+5. matplotlib=3.4.2
+6. box2d-py=2.3.8
+7. shapely=1.7.1
 
 ## Running
 1. for lunar lander in Figure 1

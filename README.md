@@ -29,6 +29,7 @@ Otherwise, you can install the following packages manually
 ## Running
 1. for lunar lander in Figure 1
 ```python
+    python3 sim_lunar_lander.py -sf
 ```
 2. for point mass in Figure 2
 ```python

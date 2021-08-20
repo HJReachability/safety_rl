@@ -16,13 +16,9 @@ from gym import spaces
 import Box2D
 from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape,
                       revoluteJointDef, contactListener)
-# from gym.envs.box2d.lunar_lander import LunarLander
 from gym.utils import seeding
 from gym.utils import EzPickle
 
-# NOTE the overrides cause crashes with ray in this file but I would like to include them for
-# clarity in the future
-#from ray.rllib.utils.annotations import override
 import matplotlib.pyplot as plt
 import torch
 import random

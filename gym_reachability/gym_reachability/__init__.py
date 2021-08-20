@@ -11,18 +11,8 @@
 from gym.envs.registration import register
 
 register(
-    id="lunar_lander_reachability-v0",
-    entry_point="gym_reachability.gym_reachability.envs:LunarLanderReachability"
-)
-
-register(
     id="multi_player_lunar_lander_reachability-v0",
     entry_point="gym_reachability.gym_reachability.envs:MultiPlayerLunarLanderReachability"
-)
-
-register(
-    id="two_player_pursuit_evasion_lunar_lander-v0",
-    entry_point="gym_reachability.gym_reachability.envs:TwoPlayerPursuitEvasionLunarLander"
 )
 
 register(

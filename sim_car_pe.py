@@ -11,7 +11,6 @@ Examples:
     test: python3 sim_car_pe.py -sf -of scratch -n tmp -mu 100 -cp 40
 """
 
-
 import os
 import argparse
 import time
@@ -28,84 +27,103 @@ from RARL.config import dqnConfig
 from RARL.utils import save_obj
 from gym_reachability import gym_reachability  # Custom Gym env.
 
+
 matplotlib.use('Agg')
 simplefilter(action='ignore', category=FutureWarning)
 timestr = time.strftime("%Y-%m-%d-%H_%M")
-
 
 # == ARGS ==
 parser = argparse.ArgumentParser()
 
 # environment parameters
 parser.add_argument(
-    "-dt", "--doneType", help="when to raise done flag",
-    default='toEnd', type=str
+    "-dt", "--doneType", help="when to raise done flag", default='toEnd',
+    type=str
 )
 parser.add_argument(
-    "-ct", "--costType", help="cost type", default='sparse', type=str)
+    "-ct", "--costType", help="cost type", default='sparse', type=str
+)
 parser.add_argument(
-    "-rnd", "--randomSeed", help="random seed", default=0, type=int)
+    "-rnd", "--randomSeed", help="random seed", default=0, type=int
+)
 parser.add_argument(
-    "-cpf", "--cpf", help="consider pursuer failure set", action="store_true")
+    "-cpf", "--cpf", help="consider pursuer failure set", action="store_true"
+)
 
 # car dynamics
 parser.add_argument(
-    "-cr", "--consRadius", help="constraint radius", default=1., type=float)
+    "-cr", "--consRadius", help="constraint radius", default=1., type=float
+)
 parser.add_argument(
-    "-tr", "--targetRadius", help="target radius", default=.5, type=float)
+    "-tr", "--targetRadius", help="target radius", default=.5, type=float
+)
 parser.add_argument(
-    "-turn", "--turnRadius", help="turning radius", default=.25, type=float)
+    "-turn", "--turnRadius", help="turning radius", default=.25, type=float
+)
 parser.add_argument("-s", "--speed", help="speed", default=.75, type=float)
 
 # training scheme
 parser.add_argument(
-    "-w", "--warmup", help="warmup Q-network", action="store_true")
-parser.add_argument(
-    "-wi", "--warmupIter", help="warmup iteration", default=30000, type=int)
-parser.add_argument(
-    "-mu", "--maxUpdates", help="maximal #gradient updates",
-    default=4000000, type=int
+    "-w", "--warmup", help="warmup Q-network", action="store_true"
 )
 parser.add_argument(
-    "-ut", "--updateTimes", help="#hyper-param. steps", default=20, type=int)
+    "-wi", "--warmupIter", help="warmup iteration", default=30000, type=int
+)
 parser.add_argument(
-    "-mc", "--memoryCapacity", help="memoryCapacity", default=50000, type=int)
+    "-mu", "--maxUpdates", help="maximal #gradient updates", default=4000000,
+    type=int
+)
 parser.add_argument(
-    "-cp", "--checkPeriod", help="check period", default=200000, type=int)
+    "-ut", "--updateTimes", help="#hyper-param. steps", default=20, type=int
+)
+parser.add_argument(
+    "-mc", "--memoryCapacity", help="memoryCapacity", default=50000, type=int
+)
+parser.add_argument(
+    "-cp", "--checkPeriod", help="check period", default=200000, type=int
+)
 
 # hyper-parameters
 parser.add_argument(
-    "-a", "--annealing", help="gamma annealing", action="store_true")
-parser.add_argument(
-    "-arc", "--architecture", help="NN architecture",
-    default=[512, 512, 512], nargs="*", type=int
+    "-a", "--annealing", help="gamma annealing", action="store_true"
 )
 parser.add_argument(
-    "-lr", "--learningRate", help="learning rate", default=1e-3, type=float)
+    "-arc", "--architecture", help="NN architecture", default=[512, 512, 512],
+    nargs="*", type=int
+)
 parser.add_argument(
-    "-g", "--gamma", help="contraction coeff.", default=0.8, type=float)
+    "-lr", "--learningRate", help="learning rate", default=1e-3, type=float
+)
 parser.add_argument(
-    "-act", "--actType", help="activation type", default='Tanh', type=str)
+    "-g", "--gamma", help="contraction coeff.", default=0.8, type=float
+)
+parser.add_argument(
+    "-act", "--actType", help="activation type", default='Tanh', type=str
+)
 
 # RL type
 parser.add_argument("-m", "--mode", help="mode", default='RA', type=str)
 parser.add_argument(
-    "-tt", "--terminalType", help="terminal value", default='g', type=str)
+    "-tt", "--terminalType", help="terminal value", default='g', type=str
+)
 
 # file
 parser.add_argument(
-    "-st", "--showTime", help="show timestr", action="store_true")
+    "-st", "--showTime", help="show timestr", action="store_true"
+)
 parser.add_argument("-n", "--name", help="extra name", default='', type=str)
 parser.add_argument(
-    "-of", "--outFolder", help="output file", default='experiments', type=str)
+    "-of", "--outFolder", help="output file", default='experiments', type=str
+)
 parser.add_argument(
-    "-pf", "--plotFigure", help="plot figures", action="store_true")
+    "-pf", "--plotFigure", help="plot figures", action="store_true"
+)
 parser.add_argument(
-    "-sf", "--storeFigure", help="store figures", action="store_true")
+    "-sf", "--storeFigure", help="store figures", action="store_true"
+)
 
 args = parser.parse_args()
 print(args)
-
 
 # == CONFIGURATION ==
 env_name = "dubins_car_pe-v0"
@@ -125,7 +143,6 @@ print(outFolder)
 figureFolder = os.path.join(outFolder, 'figure')
 os.makedirs(figureFolder, exist_ok=True)
 
-
 # == Environment ==
 print("\n== Environment Information ==")
 env = gym.make(
@@ -137,7 +154,6 @@ actionNum = env.action_space.n
 action_list = np.arange(actionNum)
 env.set_seed(args.randomSeed)
 env.report()
-
 
 # == Get and Plot max{l_x, g_x} ==
 if args.plotFigure or args.storeFigure:
@@ -172,8 +188,8 @@ if args.plotFigure or args.storeFigure:
         xPursuer = xPursuerList[i]
         yPursuer = yPursuerList[i]
         f = ax.imshow(
-            v[i].T, interpolation='none', extent=axStyle[0],
-            origin="lower", cmap="seismic", vmin=-1, vmax=1
+            v[i].T, interpolation='none', extent=axStyle[0], origin="lower",
+            cmap="seismic", vmin=-1, vmax=1
         )
         env.plot_target_failure_set(ax, xPursuer=xPursuer, yPursuer=yPursuer)
         if i == 3:
@@ -191,7 +207,6 @@ if args.plotFigure or args.storeFigure:
         plt.pause(0.001)
     plt.close()
 
-
 # == Agent CONFIG ==
 print("\n== Agent Information ==")
 if args.annealing:
@@ -205,23 +220,22 @@ else:
 
 CONFIG = dqnConfig(
     DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
-    MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps,
-    BATCH_SIZE=64, MEMORY_CAPACITY=args.memoryCapacity,
-    ARCHITECTURE=args.architecture, ACTIVATION=args.actType,
-    GAMMA=args.gamma, GAMMA_PERIOD=updatePeriod, GAMMA_END=GAMMA_END,
-    EPS_PERIOD=EPS_PERIOD, EPS_DECAY=0.7, EPS_RESET_PERIOD=EPS_RESET_PERIOD,
-    LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
-    MAX_MODEL=50
+    MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps, BATCH_SIZE=64,
+    MEMORY_CAPACITY=args.memoryCapacity, ARCHITECTURE=args.architecture,
+    ACTIVATION=args.actType, GAMMA=args.gamma, GAMMA_PERIOD=updatePeriod,
+    GAMMA_END=GAMMA_END, EPS_PERIOD=EPS_PERIOD, EPS_DECAY=0.7,
+    EPS_RESET_PERIOD=EPS_RESET_PERIOD, LR_C=args.learningRate,
+    LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8, MAX_MODEL=50
 )
 # print(vars(CONFIG))
-
 
 # == AGENT ==
 numActionList = env.numActionList
 numJoinAction = int(numActionList[0] * numActionList[1])
 dimList = [stateDim] + CONFIG.ARCHITECTURE + [actionNum]
 agent = DDQNPursuitEvasion(
-    CONFIG, numActionList, dimList, mode='RA', terminalType='g')
+    CONFIG, numActionList, dimList, mode='RA', terminalType='g'
+)
 print("We want to use: {}, and Agent uses: {}".format(device, agent.device))
 print("Critic is using cuda: ", next(agent.Q_network.parameters()).is_cuda)
 
@@ -230,9 +244,8 @@ vmax = 1
 if args.warmup:
     print("\n== Warmup Q ==")
     lossList = agent.initQ(
-        env, args.warmupIter, outFolder,
-        num_warmup_samples=200, vmin=vmin, vmax=vmax,
-        plotFigure=args.plotFigure, storeFigure=args.storeFigure
+        env, args.warmupIter, outFolder, num_warmup_samples=200, vmin=vmin,
+        vmax=vmax, plotFigure=args.plotFigure, storeFigure=args.storeFigure
     )
 
     if args.plotFigure or args.storeFigure:
@@ -261,11 +274,11 @@ print("\n== Training Information ==")
 vmin = -1
 vmax = 1
 trainRecords, trainProgress = agent.learn(
-    env, MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps,
-    warmupQ=False, doneTerminate=True,
-    vmin=vmin, vmax=vmax, showBool=False,
+    env, MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps, warmupQ=False,
+    doneTerminate=True, vmin=vmin, vmax=vmax, showBool=False,
     checkPeriod=args.checkPeriod, outFolder=outFolder,
-    plotFigure=args.plotFigure, storeFigure=args.storeFigure)
+    plotFigure=args.plotFigure, storeFigure=args.storeFigure
+)
 
 trainDict = {}
 trainDict['trainRecords'] = trainRecords
@@ -330,7 +343,8 @@ if args.plotFigure or args.storeFigure:
         stateTensor = torch.FloatTensor(state).to(agent.device).unsqueeze(0)
         state_action_values = agent.Q_network(stateTensor)
         Q_mtx = state_action_values.reshape(
-            env.numActionList[0], env.numActionList[1])
+            env.numActionList[0], env.numActionList[1]
+        )
         # Q_mtx = Q_mtx.detach().cpu()
         pursuerValues, colIndices = Q_mtx.max(dim=1)
         _, rowIdx = pursuerValues.min(dim=0)
@@ -341,7 +355,8 @@ if args.plotFigure or args.storeFigure:
         actDistMtx[idx] = rowIdx
 
         _, _, result, _, _ = env.simulate_one_trajectory(
-            agent.Q_network, T=250, state=state, toEnd=False)
+            agent.Q_network, T=250, state=state, toEnd=False
+        )
         resultMtx[idx] = result
         it.iternext()
 
@@ -351,8 +366,8 @@ if args.plotFigure or args.storeFigure:
     # = Action
     ax = axes[2]
     im = ax.imshow(
-        actDistMtx.T, interpolation='none', extent=axStyle[0],
-        origin="lower", cmap='seismic', vmin=0, vmax=actionNum - 1, zorder=-1
+        actDistMtx.T, interpolation='none', extent=axStyle[0], origin="lower",
+        cmap='seismic', vmin=0, vmax=actionNum - 1, zorder=-1
     )
     ax.set_xlabel('Action', fontsize=24)
 
@@ -363,20 +378,19 @@ if args.plotFigure or args.storeFigure:
         origin="lower", cmap='seismic', vmin=0, vmax=1, zorder=-1
     )
     env.plot_trajectories(
-        agent.Q_network, states=[env.visual_initial_states[1]],
-        toEnd=False, ax=ax, lw=1.5, T=200
+        agent.Q_network, states=[env.visual_initial_states[1]], toEnd=False,
+        ax=ax, lw=1.5, T=200
     )
     ax.set_xlabel('Rollout RA', fontsize=24)
 
     # = Value
     ax = axes[0]
     im = ax.imshow(
-        v.T, interpolation='none', extent=axStyle[0],
-        origin="lower", cmap='seismic', vmin=vmin, vmax=vmax, zorder=-1
+        v.T, interpolation='none', extent=axStyle[0], origin="lower",
+        cmap='seismic', vmin=vmin, vmax=vmax, zorder=-1
     )
     CS = ax.contour(
-        xs, ys, v.T, levels=[0], colors='k', linewidths=2,
-        linestyles='dashed'
+        xs, ys, v.T, levels=[0], colors='k', linewidths=2, linestyles='dashed'
     )
     ax.set_xlabel('Value', fontsize=24)
 

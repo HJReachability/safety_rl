@@ -24,8 +24,11 @@ def run(args):
     start = len('estError')
     indices = np.array([int(li.split('/')[-1][start:-4]) for li in results])
     if len(indices) < args.number:
-        print("we should get {} results but only get {}, missing:".format(
-            args.number, len(indices)))
+        print(
+            "we should get {} results but only get {}, missing:".format(
+                args.number, len(indices)
+            )
+        )
         not_obtain = np.full(shape=(args.number), fill_value=True, dtype=bool)
         for i in indices:
             not_obtain[i] = False
@@ -73,10 +76,11 @@ if __name__ == '__main__':
 
     # File Parameters
     parser.add_argument(
-        "-of", "--outFile", help="output file", default='estError', type=str)
+        "-of", "--outFile", help="output file", default='estError', type=str
+    )
     parser.add_argument(
-        "-n", "--number", help="#files assumed to obtain",
-        default='225', type=int
+        "-n", "--number", help="#files assumed to obtain", default='225',
+        type=int
     )
     parser.add_argument(
         "-mf", "--modelFolder", help="model folder",

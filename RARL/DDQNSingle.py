@@ -24,9 +24,16 @@ from .DDQN import DDQN, Transition
 
 
 class DDQNSingle(DDQN):
+
     def __init__(
-        self, CONFIG, numAction, actionList, dimList,
-        mode="RA", terminalType="g", verbose=True,
+        self,
+        CONFIG,
+        numAction,
+        actionList,
+        dimList,
+        mode="RA",
+        terminalType="g",
+        verbose=True,
     ):
         """
         __init__
@@ -97,8 +104,15 @@ class DDQNSingle(DDQN):
         # for detailed explanation). This converts batch-array of Transitions
         # to Transition of batch-arrays.
         batch = Transition(*zip(*transitions))
-        (non_final_mask, non_final_state_nxt, state, action,
-         reward, g_x, l_x, ) = self.unpack_batch(batch)
+        (
+            non_final_mask,
+            non_final_state_nxt,
+            state,
+            action,
+            reward,
+            g_x,
+            l_x,
+        ) = self.unpack_batch(batch)
 
         # == get Q(s,a) ==
         # `gather` reguires idx to be Long, input and index should have the
@@ -115,9 +129,8 @@ class DDQNSingle(DDQN):
         # == get a' by Q_policy: a' = argmin_a' Q_policy(s', a') ==
         with torch.no_grad():
             self.Q_network.eval()
-            action_nxt = self.Q_network(non_final_state_nxt).min(
-                1, keepdim=True
-            )[1]
+            state_action_values = self.Q_network(non_final_state_nxt)
+            action_nxt = state_action_values.min(1, keepdim=True)[1]
 
         # == get expected value ==
         state_value_nxt = torch.zeros(self.BATCH_SIZE).to(self.device)
@@ -161,8 +174,7 @@ class DDQNSingle(DDQN):
 
                 # normal state
                 y[non_final_mask] = non_terminal * self.GAMMA + terminal[
-                    non_final_mask
-                ] * (1 - self.GAMMA)
+                    non_final_mask] * (1 - self.GAMMA)
 
                 # terminal state
                 if self.terminalType == "g":
@@ -216,8 +228,15 @@ class DDQNSingle(DDQN):
         print(" --- Warmup Buffer Ends")
 
     def initQ(
-        self, env, warmupIter, outFolder, num_warmup_samples=200,
-        vmin=-1, vmax=1, plotFigure=True, storeFigure=True,
+        self,
+        env,
+        warmupIter,
+        outFolder,
+        num_warmup_samples=200,
+        vmin=-1,
+        vmax=1,
+        plotFigure=True,
+        storeFigure=True,
     ):
         """
         initQ: initalize Q-network.
@@ -287,12 +306,28 @@ class DDQNSingle(DDQN):
         return lossList
 
     def learn(
-        self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100, warmupBuffer=True,
-        warmupQ=False, warmupIter=10000, addBias=False, doneTerminate=True,
-        runningCostThr=None, curUpdates=None, checkPeriod=50000,
-        plotFigure=True, storeFigure=False, showBool=False, vmin=-1, vmax=1,
-        numRndTraj=200, storeModel=True, storeBest=False,
-        outFolder="RA", verbose=True,
+        self,
+        env,
+        MAX_UPDATES=2000000,
+        MAX_EP_STEPS=100,
+        warmupBuffer=True,
+        warmupQ=False,
+        warmupIter=10000,
+        addBias=False,
+        doneTerminate=True,
+        runningCostThr=None,
+        curUpdates=None,
+        checkPeriod=50000,
+        plotFigure=True,
+        storeFigure=False,
+        showBool=False,
+        vmin=-1,
+        vmax=1,
+        numRndTraj=200,
+        storeModel=True,
+        storeBest=False,
+        outFolder="RA",
+        verbose=True,
     ):
         """
         learn: Learns the vlaue function.
@@ -356,9 +391,13 @@ class DDQNSingle(DDQN):
         startInitQ = time.time()
         if warmupQ:
             self.initQ(
-                env, warmupIter=warmupIter, outFolder=outFolder,
-                plotFigure=plotFigure, storeFigure=storeFigure,
-                vmin=vmin, vmax=vmax,
+                env,
+                warmupIter=warmupIter,
+                outFolder=outFolder,
+                plotFigure=plotFigure,
+                storeFigure=storeFigure,
+                vmin=vmin,
+                vmax=vmax,
             )
         endInitQ = time.time()
 
@@ -412,9 +451,8 @@ class DDQNSingle(DDQN):
                     unfinish = np.sum(results == 0) / results.shape[0]
                     trainProgress.append([success, failure, unfinish])
                     if verbose:
-                        lr = self.optimizer.state_dict()["param_groups"][0][
-                            "lr"
-                        ]
+                        lr = self.optimizer.state_dict(
+                        )["param_groups"][0]["lr"]
                         print("\nAfter [{:d}] updates:".format(self.cntUpdate))
                         print(
                             "  - eps={:.2f}, gamma={:.6f}, lr={:.1e}.".format(
@@ -439,17 +477,23 @@ class DDQNSingle(DDQN):
                         # self.Q_network.eval()
                         if showBool:
                             env.visualize(
-                                self.Q_network, vmin=0, boolPlot=True,
+                                self.Q_network,
+                                vmin=0,
+                                boolPlot=True,
                                 addBias=addBias,
                             )
                         else:
                             env.visualize(
-                                self.Q_network, vmin=vmin, vmax=vmax,
-                                cmap="seismic", addBias=addBias,
+                                self.Q_network,
+                                vmin=vmin,
+                                vmax=vmax,
+                                cmap="seismic",
+                                addBias=addBias,
                             )
                         if storeFigure:
                             figurePath = os.path.join(
-                                figureFolder, "{:d}.png".format(self.cntUpdate)
+                                figureFolder,
+                                "{:d}.png".format(self.cntUpdate)
                             )
                             plt.savefig(figurePath)
                         if plotFigure:
@@ -466,14 +510,13 @@ class DDQNSingle(DDQN):
                     break
 
             # Rollout report
-            runningCost = runningCost * 0.9 + epCost * 0.1
+            runningCost = runningCost*0.9 + epCost*0.1
             if verbose:
                 print(
                     "\r[{:d}-{:d}]: ".format(ep, self.cntUpdate)
                     + "This episode gets running/episode cost = "
-                    + "({:3.2f}/{:.2f}) after {:d} steps.".format(
-                        runningCost, epCost, step_num + 1
-                    ),
+                    + "({:3.2f}/{:.2f}) after {:d} steps."
+                    .format(runningCost, epCost, step_num + 1),
                     end="",
                 )
 
@@ -481,7 +524,8 @@ class DDQNSingle(DDQN):
             if runningCostThr is not None:
                 if runningCost <= runningCostThr:
                     print(
-                        "\n At Updates[{:3.0f}] Solved!".format(self.cntUpdate)
+                        "\n At Updates[{:3.0f}] Solved!"
+                        .format(self.cntUpdate)
                         + " Running cost is now {:3.2f}!".format(runningCost)
                     )
                     env.close()

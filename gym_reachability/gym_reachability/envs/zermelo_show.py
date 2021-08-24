@@ -9,7 +9,6 @@ envType:
     'show': corresponds to Fig. 3 in the paper.
 """
 
-
 import gym.spaces
 import numpy as np
 import gym
@@ -59,11 +58,9 @@ class ZermeloShowEnv(gym.Env):
         else:
             self.upward_speed = .5
         self.horizontal_rate = 1.
-        self.discrete_controls = np.array([
-            [-self.horizontal_rate, self.upward_speed],
-            [0, self.upward_speed],
-            [self.horizontal_rate, self.upward_speed]
-        ])
+        self.discrete_controls = np.array([[
+            -self.horizontal_rate, self.upward_speed
+        ], [0, self.upward_speed], [self.horizontal_rate, self.upward_speed]])
 
         # Constraint Set Parameters.
         # [X-position, Y-position, width, height]
@@ -100,7 +97,8 @@ class ZermeloShowEnv(gym.Env):
         self.interval = self.high - self.low
         self.observation_space = gym.spaces.Box(
             np.float32(self.midpoint - self.interval / 2),
-            np.float32(self.midpoint + self.interval / 2))
+            np.float32(self.midpoint + self.interval / 2)
+        )
         self.viewer = None
 
         # Set random seed.
@@ -146,8 +144,11 @@ class ZermeloShowEnv(gym.Env):
             self.visual_initial_states = \
                 self.extend_state(self.visual_initial_states)
 
-        print("Env: mode-{:s}; doneType-{:s}; sample_inside_obs-{}".format(
-            self.mode, self.doneType, self.sample_inside_obs))
+        print(
+            "Env: mode-{:s}; doneType-{:s}; sample_inside_obs-{}".format(
+                self.mode, self.doneType, self.sample_inside_obs
+            )
+        )
 
         # for torch
         self.device = device
@@ -183,7 +184,8 @@ class ZermeloShowEnv(gym.Env):
         """
         if start is None:
             self.state = self.sample_random_state(
-                sample_inside_obs=self.sample_inside_obs)
+                sample_inside_obs=self.sample_inside_obs
+            )
         else:
             self.state = start
         return np.copy(self.state)
@@ -365,8 +367,9 @@ class ZermeloShowEnv(gym.Env):
         midpoint = (self.low + self.high) / 2.0
         interval = self.high - self.low
         self.observation_space = gym.spaces.Box(
-            np.float32(midpoint - interval / 2),
-            np.float32(midpoint + interval / 2))
+            np.float32(midpoint - interval/2),
+            np.float32(midpoint + interval/2)
+        )
 
     def set_doneType(self, doneType):
         """
@@ -407,7 +410,8 @@ class ZermeloShowEnv(gym.Env):
         # constraint_set_safety_margin
         for _, constraint_set in enumerate(self.constraint_x_y_w_h):
             g_x = calculate_margin_rect(
-                s, constraint_set, negativeInside=False)
+                s, constraint_set, negativeInside=False
+            )
             g_x_list.append(g_x)
 
         # enclosure_safety_margin
@@ -472,10 +476,10 @@ class ZermeloShowEnv(gym.Env):
 
         for idx, constraint_set in enumerate(self.constraint_x_y_w_h):
             x, y, w, h = constraint_set
-            x_l = x - w / 2.0
-            x_h = x + w / 2.0
-            y_l = y - h / 2.0
-            y_h = y + h / 2.0
+            x_l = x - w/2.0
+            x_h = x + w/2.0
+            y_l = y - h/2.0
+            y_h = y + h/2.0
             constraint_set_boundary[idx, :, 0] = [x_l, x_l, x_h, x_h, x_l]
             constraint_set_boundary[idx, :, 1] = [y_l, y_h, y_h, y_l, y_l]
 
@@ -495,10 +499,10 @@ class ZermeloShowEnv(gym.Env):
 
         for idx, target_set in enumerate(self.target_x_y_w_h):
             x, y, w, h = target_set
-            x_l = x - w / 2.0
-            x_h = x + w / 2.0
-            y_l = y - h / 2.0
-            y_h = y + h / 2.0
+            x_l = x - w/2.0
+            x_h = x + w/2.0
+            y_l = y - h/2.0
+            y_h = y + h/2.0
             target_set_boundary[idx, :, 0] = [x_l, x_l, x_h, x_h, x_l]
             target_set_boundary[idx, :, 1] = [y_l, y_h, y_h, y_l, y_l]
 
@@ -523,7 +527,8 @@ class ZermeloShowEnv(gym.Env):
         ys = np.random.uniform(y_min, y_max, num_warmup_samples)
         heuristic_v = np.zeros((num_warmup_samples, self.action_space.n))
         states = np.zeros(
-            (num_warmup_samples, self.observation_space.shape[0]))
+            (num_warmup_samples, self.observation_space.shape[0])
+        )
 
         for i in range(num_warmup_samples):
             x, y = xs[i], ys[i]
@@ -546,11 +551,9 @@ class ZermeloShowEnv(gym.Env):
         y_span = self.bounds[1, 1] - self.bounds[1, 0]
         aspect_ratio = x_span / y_span
         axes = np.array([
-            self.bounds[0, 0] - .05,
-            self.bounds[0, 1] + .05,
-            self.bounds[1, 0] - .05,
-            self.bounds[1, 1] + .05]
-        )
+            self.bounds[0, 0] - .05, self.bounds[0, 1] + .05,
+            self.bounds[1, 0] - .05, self.bounds[1, 1] + .05
+        ])
         return [axes, aspect_ratio]
 
     def get_value(self, q_func, nx=41, ny=121, addBias=False):
@@ -585,8 +588,8 @@ class ZermeloShowEnv(gym.Env):
                 state = torch.FloatTensor([x, y]).to(self.device).unsqueeze(0)
             else:
                 z = max([l_x, g_x])
-                state = torch.FloatTensor(
-                    [x, y, z]).to(self.device).unsqueeze(0)
+                state = torch.FloatTensor([x, y,
+                                           z]).to(self.device).unsqueeze(0)
 
             if addBias:
                 v[idx] = q_func(state).min(dim=1)[0].item() + max(l_x, g_x)
@@ -643,8 +646,8 @@ class ZermeloShowEnv(gym.Env):
                     result = 1  # succeeded
                     break
 
-            state_tensor = torch.FloatTensor(
-                state).to(self.device).unsqueeze(0)
+            state_tensor = torch.FloatTensor(state)
+            state_tensor = state_tensor.to(self.device).unsqueeze(0)
             action_index = q_func(state_tensor).min(dim=1)[1].item()
             u = self.discrete_controls[action_index]
 
@@ -702,7 +705,8 @@ class ZermeloShowEnv(gym.Env):
                 y = ys[idx[1]]
                 state = np.array([x, y])
                 traj_x, traj_y, result = self.simulate_one_trajectory(
-                    q_func, T=T, state=state, toEnd=toEnd)
+                    q_func, T=T, state=state, toEnd=toEnd
+                )
                 trajectories.append((traj_x, traj_y))
                 results[idx] = result
                 it.iternext()
@@ -711,7 +715,8 @@ class ZermeloShowEnv(gym.Env):
             results = np.empty(shape=(len(states),), dtype=int)
             for idx, state in enumerate(states):
                 traj_x, traj_y, result = self.simulate_one_trajectory(
-                    q_func, T=T, state=state, toEnd=toEnd)
+                    q_func, T=T, state=state, toEnd=toEnd
+                )
                 trajectories.append((traj_x, traj_y))
                 results[idx] = result
 
@@ -722,8 +727,8 @@ class ZermeloShowEnv(gym.Env):
         pass
 
     def visualize(
-        self, q_func, vmin=-1, vmax=1, nx=201, ny=201,
-        labels=None, boolPlot=False, addBias=False, cmap='seismic'
+        self, q_func, vmin=-1, vmax=1, nx=201, ny=201, labels=None,
+        boolPlot=False, addBias=False, cmap='seismic'
     ):
         """
         visualize
@@ -752,23 +757,22 @@ class ZermeloShowEnv(gym.Env):
 
         # == Plot V ==
         self.plot_v_values(
-            q_func, ax=ax, fig=fig,
-            vmin=vmin, vmax=vmax, nx=nx, ny=ny, cmap=cmap,
-            boolPlot=boolPlot, cbarPlot=cbarPlot, addBias=addBias
+            q_func, ax=ax, fig=fig, vmin=vmin, vmax=vmax, nx=nx, ny=ny,
+            cmap=cmap, boolPlot=boolPlot, cbarPlot=cbarPlot, addBias=addBias
         )
 
         # == Plot Trajectories ==
         self.plot_trajectories(
-            q_func, states=self.visual_initial_states, toEnd=False, ax=ax)
+            q_func, states=self.visual_initial_states, toEnd=False, ax=ax
+        )
 
         # == Formatting ==
         self.plot_formatting(ax=ax, labels=labels)
         fig.tight_layout()
 
     def plot_v_values(
-        self, q_func, ax=None, fig=None,
-        vmin=-1, vmax=1, nx=201, ny=201, cmap='seismic', alpha=0.8,
-        boolPlot=False, cbarPlot=True, addBias=False
+        self, q_func, ax=None, fig=None, vmin=-1, vmax=1, nx=201, ny=201,
+        cmap='seismic', alpha=0.8, boolPlot=False, cbarPlot=True, addBias=False
     ):
         """
         plot_v_values: plot state values.
@@ -804,19 +808,19 @@ class ZermeloShowEnv(gym.Env):
             )
         else:
             im = ax.imshow(
-                v.T, interpolation='none', extent=axStyle[0],
-                origin="lower", cmap=cmap, vmin=vmin, vmax=vmax, alpha=alpha
+                v.T, interpolation='none', extent=axStyle[0], origin="lower",
+                cmap=cmap, vmin=vmin, vmax=vmax, alpha=alpha
             )
             if cbarPlot:
                 cbar = fig.colorbar(
-                    im, ax=ax, pad=0.01, fraction=0.05,
-                    shrink=.95, ticks=[vmin, 0, vmax]
+                    im, ax=ax, pad=0.01, fraction=0.05, shrink=.95,
+                    ticks=[vmin, 0, vmax]
                 )
                 cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=16)
 
     def plot_trajectories(
-        self, q_func, T=250, num_rnd_traj=None, states=None,
-        toEnd=False, ax=None, c='k', lw=2, zorder=2
+        self, q_func, T=250, num_rnd_traj=None, states=None, toEnd=False,
+        ax=None, c='k', lw=2, zorder=2
     ):
         """
         plot_trajectories: plot trajectories given the agent's Q-network.
@@ -843,7 +847,8 @@ class ZermeloShowEnv(gym.Env):
                 or (len(states) == num_rnd_traj))
 
         trajectories, results = self.simulate_trajectories(
-            q_func, T=T, num_rnd_traj=num_rnd_traj, states=states, toEnd=toEnd)
+            q_func, T=T, num_rnd_traj=num_rnd_traj, states=states, toEnd=toEnd
+        )
 
         for traj in trajectories:
             traj_x, traj_y = traj
@@ -896,18 +901,18 @@ class ZermeloShowEnv(gym.Env):
 
         def get_line(slope, end_point, x_limit, ns=100):
             x_end, y_end = end_point
-            b = y_end - slope * x_end
+            b = y_end - slope*x_end
 
             xs = np.linspace(x_limit, x_end, ns)
-            ys = xs * slope + b
+            ys = xs*slope + b
             return xs, ys
 
         # unsafe set
         for cons, cType in zip(self.constraint_x_y_w_h, self.constraint_type):
             x, y, w, h = cons
-            x1 = x - w / 2.0
-            x2 = x + w / 2.0
-            y_min = y - h / 2.0
+            x1 = x - w/2.0
+            x2 = x + w/2.0
+            y_min = y - h/2.0
             if cType == 'C':
                 xs, ys = get_line(-slope, end_point=[x1, y_min], x_limit=x)
                 ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
@@ -916,19 +921,21 @@ class ZermeloShowEnv(gym.Env):
             elif cType == 'L':
                 x_limit = self.bounds[0, 0]
                 xs, ys = get_line(
-                    slope, end_point=[x2, y_min], x_limit=x_limit)
+                    slope, end_point=[x2, y_min], x_limit=x_limit
+                )
                 ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
             elif cType == 'R':
                 x_limit = self.bounds[0, 1]
                 xs, ys = get_line(
-                    -slope, end_point=[x1, y_min], x_limit=x_limit)
+                    -slope, end_point=[x1, y_min], x_limit=x_limit
+                )
                 ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
         # border unsafe set
         x, y, w, h = self.target_x_y_w_h[0]
-        x1 = x - w / 2.0
-        x2 = x + w / 2.0
-        y_max = y + h / 2.0
+        x1 = x - w/2.0
+        x2 = x + w/2.0
+        y_max = y + h/2.0
         xs, ys = get_line(slope, end_point=[x1, y_max], x_limit=self.low[0])
         ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
         xs, ys = get_line(-slope, end_point=[x2, y_max], x_limit=self.high[0])
@@ -952,8 +959,8 @@ class ZermeloShowEnv(gym.Env):
             ax.set_ylabel(labels[1], fontsize=52)
 
         ax.tick_params(
-            axis='both', which='both', bottom=False, top=False,
-            left=False, right=False
+            axis='both', which='both', bottom=False, top=False, left=False,
+            right=False
         )
         ax.set_xticklabels([])
         ax.set_yticklabels([])

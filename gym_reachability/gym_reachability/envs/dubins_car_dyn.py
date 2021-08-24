@@ -18,9 +18,7 @@ class DubinsCarDyn(object):
                 training. Defaults to 'toEnd'.
         """
         # State bounds.
-        self.bounds = np.array([[-1.1, 1.1],
-                                [-1.1, 1.1],
-                                [0, 2 * np.pi]])
+        self.bounds = np.array([[-1.1, 1.1], [-1.1, 1.1], [0, 2 * np.pi]])
         self.low = self.bounds[:, 0]
         self.high = self.bounds[:, 1]
 
@@ -33,7 +31,8 @@ class DubinsCarDyn(object):
         self.R_turn = .6
         self.max_turning_rate = self.speed / self.R_turn  # w
         self.discrete_controls = np.array([
-            -self.max_turning_rate, 0., self.max_turning_rate])
+            -self.max_turning_rate, 0., self.max_turning_rate
+        ])
 
         # Constraint set parameters.
         self.constraint_center = None
@@ -56,7 +55,10 @@ class DubinsCarDyn(object):
         self.safetyScaling = 1.
 
     def reset(
-        self, start=None, theta=None, sample_inside_obs=False,
+        self,
+        start=None,
+        theta=None,
+        sample_inside_obs=False,
         sample_inside_tar=True,
     ):
         """ Reset the state of the environment.
@@ -71,15 +73,18 @@ class DubinsCarDyn(object):
         if start is None:
             x_rnd, y_rnd, theta_rnd = self.sample_random_state(
                 sample_inside_obs=sample_inside_obs,
-                sample_inside_tar=sample_inside_tar,
-                theta=theta)
+                sample_inside_tar=sample_inside_tar, theta=theta
+            )
             self.state = np.array([x_rnd, y_rnd, theta_rnd])
         else:
             self.state = start
         return np.copy(self.state)
 
     def sample_random_state(
-        self, sample_inside_obs=False, sample_inside_tar=True, theta=None,
+        self,
+        sample_inside_obs=False,
+        sample_inside_tar=True,
+        theta=None,
     ):
         """
         sample_random_state: pick the state uniformly at random.
@@ -197,7 +202,8 @@ class DubinsCarDyn(object):
         self.speed = speed
         self.max_turning_rate = self.speed / self.R_turn  # w
         self.discrete_controls = np.array([
-            -self.max_turning_rate, 0., self.max_turning_rate])
+            -self.max_turning_rate, 0., self.max_turning_rate
+        ])
 
     def set_time_step(self, time_step=.05):
         """
@@ -234,7 +240,8 @@ class DubinsCarDyn(object):
         self.R_turn = R_turn
         self.max_turning_rate = self.speed / self.R_turn  # w
         self.discrete_controls = np.array([
-            -self.max_turning_rate, 0., self.max_turning_rate])
+            -self.max_turning_rate, 0., self.max_turning_rate
+        ])
         if verbose:
             print(self.discrete_controls)
 
@@ -293,16 +300,17 @@ class DubinsCarDyn(object):
         x, y = (self.low + self.high)[:2] / 2.0
         w, h = (self.high - self.low)[:2]
         boundary_margin = calculate_margin_rect(
-            s, [x, y, w, h], negativeInside=True)
+            s, [x, y, w, h], negativeInside=True
+        )
         g_xList = [boundary_margin]
 
-        if (
-            (self.constraint_center is not None)
-            and (self.constraint_radius is not None)
-        ):
+        c_c_exists = (self.constraint_center is not None)
+        c_r_exists = (self.constraint_radius is not None)
+        if (c_c_exists and c_r_exists):
             g_x = calculate_margin_circle(
                 s, [self.constraint_center, self.constraint_radius],
-                negativeInside=True)
+                negativeInside=True
+            )
             g_xList.append(g_x)
 
         safety_margin = np.max(np.array(g_xList))
@@ -324,7 +332,8 @@ class DubinsCarDyn(object):
         if self.target_center is not None and self.target_radius is not None:
             target_margin = calculate_margin_circle(
                 s, [self.target_center, self.target_radius],
-                negativeInside=True)
+                negativeInside=True
+            )
             return self.targetScaling * target_margin
         else:
             return None

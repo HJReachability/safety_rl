@@ -14,9 +14,8 @@ silver = "#C0C0C0"
 
 
 def thetaMtx(theta):
-    return np.array(
-        [[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]
-    )
+    return np.array([[np.cos(theta), -np.sin(theta)],
+                     [np.sin(theta), np.cos(theta)]])
 
 
 # == Basic Plots ==
@@ -72,17 +71,15 @@ def plot_outer_safety(R, R_turn, orientation, ax, extent, lw=3):
         xtilde = x * np.cos(orientation) + y * np.sin(orientation)
         ytilde = y * np.cos(orientation) - x * np.sin(orientation)
 
-        boolIn = (x ** 2 + y ** 2) <= R ** 2
-        if np.abs(ytilde) > 2 * R_turn - R:
-            bool0 = xtilde <= np.sqrt(
-                (R - R_turn) ** 2 - (R_turn - np.abs(ytilde)) ** 2
-            )
+        boolIn = (x**2 + y**2) <= R**2
+        if np.abs(ytilde) > 2*R_turn - R:
+            bool0 = xtilde <= np.sqrt((R - R_turn)**2
+                                      - (R_turn - np.abs(ytilde))**2)
         else:
             bool0 = False
-        if np.abs(ytilde) <= 2 * R_turn - R:
-            bool1 = xtilde <= -1 * np.sqrt(
-                (3 * R_turn - R) ** 2 - (R_turn + np.abs(ytilde)) ** 2
-            )
+        if np.abs(ytilde) <= 2*R_turn - R:
+            bool1 = xtilde <= -1 * np.sqrt((3*R_turn - R)**2 -
+                                           (R_turn + np.abs(ytilde))**2)
         else:
             bool1 = False
 
@@ -98,7 +95,7 @@ def plot_outer_safety(R, R_turn, orientation, ax, extent, lw=3):
         vmin=0,
     )
 
-    tmpTheta = np.arccos(R_turn / (3 * R_turn - R))
+    tmpTheta = np.arccos(R_turn / (3*R_turn - R))
     plot_arc(
         (0.0, R_turn),
         R - R_turn,
@@ -119,7 +116,7 @@ def plot_outer_safety(R, R_turn, orientation, ax, extent, lw=3):
     )
     plot_arc(
         (0.0, -R_turn),
-        3 * R_turn - R,
+        3*R_turn - R,
         (np.pi / 2, np.pi / 2 + tmpTheta),
         ax,
         c=tiffany,
@@ -128,7 +125,7 @@ def plot_outer_safety(R, R_turn, orientation, ax, extent, lw=3):
     )
     plot_arc(
         (0.0, R_turn),
-        3 * R_turn - R,
+        3*R_turn - R,
         (-np.pi / 2, -np.pi / 2 - tmpTheta),
         ax,
         c=tiffany,
@@ -176,15 +173,14 @@ def plot_reach_avoid_type_1(
         xtilde = x * np.cos(orientation) + y * np.sin(orientation)
         ytilde = y * np.cos(orientation) - x * np.sin(orientation)
 
-        boolIn = (x ** 2 + y ** 2) <= R ** 2
-        if np.abs(ytilde) > 2 * R_turn - R:
-            bool0 = xtilde <= np.sqrt(
-                (R - R_turn) ** 2 - (R_turn - np.abs(ytilde)) ** 2
-            )
+        boolIn = (x**2 + y**2) <= R**2
+        if np.abs(ytilde) > 2*R_turn - R:
+            bool0 = xtilde <= np.sqrt((R - R_turn)**2
+                                      - (R_turn - np.abs(ytilde))**2)
         else:
             bool0 = False
         if np.abs(ytilde) <= r:
-            bool1 = xtilde <= np.sqrt(r ** 2 - ytilde ** 2)
+            bool1 = xtilde <= np.sqrt(r**2 - ytilde**2)
         else:
             bool1 = False
 
@@ -205,9 +201,9 @@ def plot_reach_avoid_type_1(
         )
         cbar.ax.set_yticklabels(labels=[0, 1], fontsize=16)
     # plot arc
-    tmpY = (r ** 2 - R ** 2 + 2 * R_turn * R) / (2 * R_turn)
-    tmpX = np.sqrt(r ** 2 - tmpY ** 2)
-    tmpTheta = np.arcsin(tmpX / (R - R_turn))
+    tmpY = (r**2 - R**2 + 2*R_turn*R) / (2*R_turn)
+    tmpX = np.sqrt(r**2 - tmpY**2)
+    tmpTheta = np.arcsin(tmpX / (R-R_turn))
     plot_arc(
         (0.0, R_turn),
         R - R_turn,
@@ -250,11 +246,11 @@ def plot_reach_avoid_type_1(
         zorder=zorder,
     )
 
-    areaY = 0.5 * (R - R_turn) ** 2 * (np.pi - tmpTheta)
-    areaG = 0.5 * r ** 2 * (np.pi / 2 - tmpPhi)
+    areaY = 0.5 * (R - R_turn)**2 * (np.pi - tmpTheta)
+    areaG = 0.5 * r**2 * (np.pi / 2 - tmpPhi)
     areaB = 0.5 * R_turn * tmpX
 
-    return 2 * (areaY + areaG + areaB) + 0.5 * R ** 2 * np.pi
+    return 2 * (areaY+areaG+areaB) + 0.5 * R**2 * np.pi
 
 
 def plot_reach_avoid_type_2(
@@ -286,15 +282,14 @@ def plot_reach_avoid_type_2(
         xtilde = x * np.cos(orientation) + y * np.sin(orientation)
         ytilde = y * np.cos(orientation) - x * np.sin(orientation)
 
-        boolIn = (x ** 2 + y ** 2) <= R ** 2
+        boolIn = (x**2 + y**2) <= R**2
         if np.abs(ytilde) > r:
-            bool0 = xtilde <= -np.sqrt(
-                (R_turn - r) ** 2 - (R_turn - np.abs(ytilde)) ** 2
-            )
+            bool0 = xtilde <= -np.sqrt((R_turn - r)**2 -
+                                       (R_turn - np.abs(ytilde))**2)
         else:
             bool0 = False
         if np.abs(ytilde) <= r:
-            bool1 = xtilde <= np.sqrt((r ** 2 - ytilde ** 2))
+            bool1 = xtilde <= np.sqrt((r**2 - ytilde**2))
         else:
             bool1 = False
 
@@ -315,9 +310,9 @@ def plot_reach_avoid_type_2(
         )
         cbar.ax.set_yticklabels(labels=[0, 1], fontsize=16)
     # two sides
-    tmpY = (R ** 2 + 2 * R_turn * r - r ** 2) / (2 * R_turn)
-    tmpX = np.sqrt(R ** 2 - tmpY ** 2)
-    tmpTheta = np.arcsin(tmpX / (R_turn - r))
+    tmpY = (R**2 + 2*R_turn*r - r**2) / (2*R_turn)
+    tmpX = np.sqrt(R**2 - tmpY**2)
+    tmpTheta = np.arcsin(tmpX / (R_turn-r))
     tmpTheta2 = np.arcsin(tmpX / R)
     plot_arc(
         (0.0, R_turn),

@@ -71,9 +71,8 @@ class model(nn.Module):
                     self.moduleList.append(nn.ReLU())
                 else:
                     raise ValueError(
-                        "Activation type ({:s}) is not included!".format(
-                            actType
-                        )
+                        "Activation type ({:s}) is not included!"
+                        .format(actType)
                     )
         if verbose:
             print(self.moduleList)
@@ -86,6 +85,7 @@ class model(nn.Module):
 
 # == Scheduler ==
 class _scheduler(object):
+
     def __init__(self, last_epoch=-1, verbose=False):
         self.cnt = last_epoch
         self.verbose = verbose
@@ -105,6 +105,7 @@ class _scheduler(object):
 
 
 class StepLR(_scheduler):
+
     def __init__(
         self,
         initValue,
@@ -125,13 +126,14 @@ class StepLR(_scheduler):
             return self.initValue
 
         numDecay = int(self.cnt / self.period)
-        tmpValue = self.initValue * (self.decay ** numDecay)
+        tmpValue = self.initValue * (self.decay**numDecay)
         if self.endValue is not None and tmpValue <= self.endValue:
             return self.endValue
         return tmpValue
 
 
 class StepLRMargin(_scheduler):
+
     def __init__(
         self,
         initValue,
@@ -154,15 +156,15 @@ class StepLRMargin(_scheduler):
             return self.initValue
 
         numDecay = int(self.cnt / self.period)
-        tmpValue = self.goalValue - (self.goalValue - self.initValue) * (
-            self.decay ** numDecay
-        )
+        tmpValue = self.goalValue - (self.goalValue -
+                                     self.initValue) * (self.decay**numDecay)
         if self.endValue is not None and tmpValue >= self.endValue:
             return self.endValue
         return tmpValue
 
 
 class StepResetLR(_scheduler):
+
     def __init__(
         self,
         initValue,
@@ -185,7 +187,7 @@ class StepResetLR(_scheduler):
             return self.initValue
 
         numDecay = int(self.cnt / self.period)
-        tmpValue = self.initValue * (self.decay ** numDecay)
+        tmpValue = self.initValue * (self.decay**numDecay)
         if self.endValue is not None and tmpValue <= self.endValue:
             return self.endValue
         return tmpValue

@@ -25,8 +25,12 @@ class DubinsCarOneEnv(gym.Env):
     """
 
     def __init__(
-        self, device, mode="normal", doneType="toEnd",
-        sample_inside_obs=False, sample_inside_tar=True,
+        self,
+        device,
+        mode="normal",
+        doneType="toEnd",
+        sample_inside_obs=False,
+        sample_inside_tar=True,
     ):
         """
         __init__ [summary]
@@ -57,8 +61,8 @@ class DubinsCarOneEnv(gym.Env):
         midpoint = (self.low + self.high) / 2.0
         interval = self.high - self.low
         self.observation_space = gym.spaces.Box(
-            np.float32(midpoint - interval / 2),
-            np.float32(midpoint + interval / 2),
+            np.float32(midpoint - interval/2),
+            np.float32(midpoint + interval/2),
         )
 
         # Constraint set parameters.
@@ -86,13 +90,11 @@ class DubinsCarOneEnv(gym.Env):
             np.array([0.6 * self.constraint_radius, -0.5, np.pi / 2]),
             np.array([-0.4 * self.constraint_radius, -0.5, np.pi / 2]),
             np.array([-0.95 * self.constraint_radius, 0.0, np.pi / 2]),
-            np.array(
-                [
-                    self.R_turn,
-                    0.95 * (self.constraint_radius - self.R_turn),
-                    np.pi / 2,
-                ]
-            ),
+            np.array([
+                self.R_turn,
+                0.95 * (self.constraint_radius - self.R_turn),
+                np.pi / 2,
+            ]),
         ]
         # Cost Params
         self.targetScaling = 1.0
@@ -302,8 +304,8 @@ class DubinsCarOneEnv(gym.Env):
         midpoint = (self.low + self.high) / 2.0
         interval = self.high - self.low
         self.observation_space = gym.spaces.Box(
-            np.float32(midpoint - interval / 2),
-            np.float32(midpoint + interval / 2),
+            np.float32(midpoint - interval/2),
+            np.float32(midpoint + interval/2),
         )
         self.car.set_bounds(bounds)
 
@@ -441,17 +443,14 @@ class DubinsCarOneEnv(gym.Env):
             np.ndarray: axes bounds.
             float: aspect ratio.
         """
-        aspect_ratio = (self.bounds[0, 1] - self.bounds[0, 0]) / (
-            self.bounds[1, 1] - self.bounds[1, 0]
-        )
-        axes = np.array(
-            [
-                self.bounds[0, 0],
-                self.bounds[0, 1],
-                self.bounds[1, 0],
-                self.bounds[1, 1],
-            ]
-        )
+        aspect_ratio = ((self.bounds[0, 1] - self.bounds[0, 0]) /
+                        (self.bounds[1, 1] - self.bounds[1, 0]))
+        axes = np.array([
+            self.bounds[0, 0],
+            self.bounds[0, 1],
+            self.bounds[1, 0],
+            self.bounds[1, 1],
+        ])
         return [axes, aspect_ratio]
 
     def get_value(self, q_func, theta, nx=101, ny=101, addBias=False):
@@ -483,16 +482,14 @@ class DubinsCarOneEnv(gym.Env):
 
             if self.mode == "normal" or self.mode == "RA":
                 state = (
-                    torch.FloatTensor([x, y, theta])
-                    .to(self.device)
-                    .unsqueeze(0)
+                    torch.FloatTensor([x, y,
+                                       theta]).to(self.device).unsqueeze(0)
                 )
             else:
                 z = max([l_x, g_x])
                 state = (
-                    torch.FloatTensor([x, y, theta, z])
-                    .to(self.device)
-                    .unsqueeze(0)
+                    torch.FloatTensor([x, y, theta,
+                                       z]).to(self.device).unsqueeze(0)
                 )
             if addBias:
                 v[idx] = q_func(state).min(dim=1)[0].item() + max(l_x, g_x)
@@ -618,11 +615,9 @@ class DubinsCarOneEnv(gym.Env):
             np.ndarray: the binary reach-avoid outcomes.
             np.ndarray: the minimum reach-avoid values of the trajectories.
         """
-        assert (
-            (num_rnd_traj is None and states is not None)
-            or (num_rnd_traj is not None and states is None)
-            or (len(states) == num_rnd_traj)
-        )
+        assert ((num_rnd_traj is None and states is not None)
+                or (num_rnd_traj is not None and states is None)
+                or (len(states) == num_rnd_traj))
         trajectories = []
 
         if states is None:
@@ -892,11 +887,9 @@ class DubinsCarOneEnv(gym.Env):
             np.ndarray: the binary reach-avoid outcomes.
             np.ndarray: the minimum reach-avoid values of the trajectories.
         """
-        assert (
-            (num_rnd_traj is None and states is not None)
-            or (num_rnd_traj is not None and states is None)
-            or (len(states) == num_rnd_traj)
-        )
+        assert ((num_rnd_traj is None and states is not None)
+                or (num_rnd_traj is not None and states is None)
+                or (len(states) == num_rnd_traj))
 
         if states is not None:
             tmpStates = []
@@ -971,11 +964,11 @@ class DubinsCarOneEnv(gym.Env):
         r = self.target_radius
         R = self.constraint_radius
         R_turn = self.R_turn
-        if r >= 2 * R_turn - R:
+        if r >= 2*R_turn - R:
             # plot arc
-            tmpY = (r ** 2 - R ** 2 + 2 * R_turn * R) / (2 * R_turn)
-            tmpX = np.sqrt(r ** 2 - tmpY ** 2)
-            tmpTheta = np.arcsin(tmpX / (R - R_turn))
+            tmpY = (r**2 - R**2 + 2*R_turn*R) / (2*R_turn)
+            tmpX = np.sqrt(r**2 - tmpY**2)
+            tmpTheta = np.arcsin(tmpX / (R-R_turn))
             # two sides
             plot_arc(
                 (0.0, R_turn),
@@ -1022,9 +1015,9 @@ class DubinsCarOneEnv(gym.Env):
             )
         else:
             # two sides
-            tmpY = (R ** 2 + 2 * R_turn * r - r ** 2) / (2 * R_turn)
-            tmpX = np.sqrt(R ** 2 - tmpY ** 2)
-            tmpTheta = np.arcsin(tmpX / (R_turn - r))
+            tmpY = (R**2 + 2*R_turn*r - r**2) / (2*R_turn)
+            tmpX = np.sqrt(R**2 - tmpY**2)
+            tmpTheta = np.arcsin(tmpX / (R_turn-r))
             tmpTheta2 = np.arcsin(tmpX / R)
             plot_arc(
                 (0.0, R_turn),
@@ -1087,8 +1080,12 @@ class DubinsCarOneEnv(gym.Env):
             ax.set_ylabel(labels[1], fontsize=52)
 
         ax.tick_params(
-            axis="both", which="both", bottom=False, top=False,
-            left=False, right=False,
+            axis="both",
+            which="both",
+            bottom=False,
+            top=False,
+            left=False,
+            right=False,
         )
         ax.xaxis.set_major_locator(LinearLocator(5))
         ax.xaxis.set_major_formatter("{x:.1f}")

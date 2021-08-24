@@ -16,6 +16,7 @@ import os
 from warnings import simplefilter
 import numpy as np
 
+
 simplefilter(action='ignore', category=FutureWarning)
 
 
@@ -95,24 +96,27 @@ if __name__ == '__main__':
 
     # Simulation Parameters
     parser.add_argument(
-        "-rnd", "--randomSeed", help="random seed", default=0, type=int)
-    parser.add_argument(
-        "-t", "--sampleType", help="type of sampled states",
-        default=0, type=int
+        "-rnd", "--randomSeed", help="random seed", default=0, type=int
     )
     parser.add_argument(
-        "-nt", "--numTest", help="#tests", default=100, type=int)
+        "-t", "--sampleType", help="type of sampled states", default=0,
+        type=int
+    )
+    parser.add_argument(
+        "-nt", "--numTest", help="#tests", default=100, type=int
+    )
 
     # File Parameters
     parser.add_argument(
-        "-of", "--outFile", help="output file", default='samples', type=str)
+        "-of", "--outFile", help="output file", default='samples', type=str
+    )
     parser.add_argument(
         "-mf", "--modelFolder", help="model folder",
         default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str
     )
     parser.add_argument(
-        "-df", "--dataFile", help="estimation error file",
-        default='estError', type=str
+        "-df", "--dataFile", help="estimation error file", default='estError',
+        type=str
     )
 
     args = parser.parse_args()

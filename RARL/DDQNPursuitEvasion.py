@@ -7,7 +7,6 @@ We make the following two modifications:
     - loss = E[ ( y - Q_policy(s,a) )^2 ]
 """
 
-
 import torch
 from torch import nn
 from torch.nn.functional import smooth_l1_loss
@@ -36,10 +35,9 @@ def actionIndexInt2Tuple(actionIdx, numActionList):
         tuple of int: indices for the Q-matrix.
     """
     numJoinAction = int(numActionList[0] * numActionList[1])
-    assert (
-        actionIdx < numJoinAction
-    ), "The size of joint action set is {:d} but get index {:d}".format(
-        numJoinAction, actionIdx
+    assert (actionIdx < numJoinAction), (
+        "The size of joint action set is "
+        "{:d} but get index {:d}".format(numJoinAction, actionIdx)
     )
     rowIdx = actionIdx // numActionList[1]
     colIdx = actionIdx % numActionList[1]
@@ -75,9 +73,15 @@ def actionIndexTuple2Int(actionIdxTuple, numActionList):
 
 
 class DDQNPursuitEvasion(DDQN):
+
     def __init__(
-        self, CONFIG, numActionList, dimList,
-        mode="RA", terminalType="g", verbose=True,
+        self,
+        CONFIG,
+        numActionList,
+        dimList,
+        mode="RA",
+        terminalType="g",
+        verbose=True,
     ):
         """
         __init__
@@ -220,10 +224,8 @@ class DDQNPursuitEvasion(DDQN):
 
             # normal state
             expected_state_action_values[
-                non_final_mask
-            ] = non_terminal * self.GAMMA + terminal[non_final_mask] * (
-                1 - self.GAMMA
-            )
+                non_final_mask] = non_terminal * self.GAMMA + terminal[
+                    non_final_mask] * (1 - self.GAMMA)
             # terminal state
             final_mask = torch.logical_not(non_final_mask)
             if self.terminalType == "g":
@@ -275,8 +277,15 @@ class DDQNPursuitEvasion(DDQN):
         print("\n  => Warmup Buffer Ends")
 
     def initQ(
-        self, env, warmupIter, outFolder, num_warmup_samples=200,
-        vmin=-1, vmax=1, plotFigure=True, storeFigure=True,
+        self,
+        env,
+        warmupIter,
+        outFolder,
+        num_warmup_samples=200,
+        vmin=-1,
+        vmax=1,
+        plotFigure=True,
+        storeFigure=True,
     ):
         """
         initQ: initalize Q-network.
@@ -342,12 +351,27 @@ class DDQNPursuitEvasion(DDQN):
         return lossList
 
     def learn(
-        self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100, warmupBuffer=True,
-        warmupQ=False, warmupIter=10000, doneTerminate=True,
-        runningCostThr=None, curUpdates=None, checkPeriod=50000,
-        plotFigure=True, storeFigure=False, showBool=False,
-        vmin=-1, vmax=1, numRndTraj=200, storeModel=True, storeBest=False,
-        outFolder="RA", verbose=True,
+        self,
+        env,
+        MAX_UPDATES=2000000,
+        MAX_EP_STEPS=100,
+        warmupBuffer=True,
+        warmupQ=False,
+        warmupIter=10000,
+        doneTerminate=True,
+        runningCostThr=None,
+        curUpdates=None,
+        checkPeriod=50000,
+        plotFigure=True,
+        storeFigure=False,
+        showBool=False,
+        vmin=-1,
+        vmax=1,
+        numRndTraj=200,
+        storeModel=True,
+        storeBest=False,
+        outFolder="RA",
+        verbose=True,
     ):
         """
         learn: Learns the state vlaue function.
@@ -468,9 +492,8 @@ class DDQNPursuitEvasion(DDQN):
                     unfinish = np.sum(results == 0) / numRndTraj
                     trainProgress.append([success, failure, unfinish])
                     if verbose:
-                        lr = self.optimizer.state_dict()["param_groups"][0][
-                            "lr"
-                        ]
+                        lr = self.optimizer.state_dict(
+                        )["param_groups"][0]["lr"]
                         print(
                             "\n\nAfter [{:d}] updates:".format(self.cntUpdate)
                         )
@@ -481,9 +504,8 @@ class DDQNPursuitEvasion(DDQN):
                         )
                         print(
                             "  - success/failure/unfinished ratio: "
-                            + "{:.3f}, {:.3f}, {:.3f}".format(
-                                success, failure, unfinish
-                            )
+                            + "{:.3f}, {:.3f}, {:.3f}"
+                            .format(success, failure, unfinish)
                         )
 
                     if storeModel:
@@ -509,7 +531,8 @@ class DDQNPursuitEvasion(DDQN):
                             )
                         if storeFigure:
                             figurePath = os.path.join(
-                                figureFolder, "{:d}.png".format(self.cntUpdate)
+                                figureFolder,
+                                "{:d}.png".format(self.cntUpdate)
                             )
                             plt.savefig(figurePath)
                         if plotFigure:
@@ -528,14 +551,13 @@ class DDQNPursuitEvasion(DDQN):
                     break
 
             # Rollout report
-            runningCost = runningCost * 0.9 + epCost * 0.1
+            runningCost = runningCost*0.9 + epCost*0.1
             if verbose:
                 print(
                     "\r[{:d}-{:d}]: ".format(ep, self.cntUpdate)
                     + "This episode gets running/episode cost = "
-                    + "({:3.2f}/{:.2f}) after {:d} steps.".format(
-                        runningCost, epCost, step_num + 1
-                    ),
+                    + "({:3.2f}/{:.2f}) after {:d} steps."
+                    .format(runningCost, epCost, step_num + 1),
                     end="",
                 )
 
@@ -543,7 +565,8 @@ class DDQNPursuitEvasion(DDQN):
             if runningCostThr is not None:
                 if runningCost <= runningCostThr:
                     print(
-                        "\n At Updates[{:3.0f}] Solved!".format(self.cntUpdate)
+                        "\n At Updates[{:3.0f}] Solved!"
+                        .format(self.cntUpdate)
                         + " Running cost is now {:3.2f}!".format(runningCost)
                     )
                     env.close()
@@ -585,9 +608,9 @@ class DDQNPursuitEvasion(DDQN):
             state = torch.from_numpy(state).float().to(self.device)
             state_action_values = self.Q_network(state)
             Q_mtx = (
-                state_action_values.detach()
-                .cpu()
-                .reshape(self.numActionList[0], self.numActionList[1])
+                state_action_values.detach().cpu().reshape(
+                    self.numActionList[0], self.numActionList[1]
+                )
             )
             pursuerValues, colIndices = Q_mtx.max(dim=1)
             _, rowIdx = pursuerValues.min(dim=0)

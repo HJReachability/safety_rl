@@ -32,6 +32,8 @@ from multiprocessing import Pool
 
 from utils.carPEAnalysis import loadEnv, loadAgent
 from utils.carPEAnalysis import checkCapture, exhaustiveDefenderSearch
+
+
 simplefilter(action='ignore', category=FutureWarning)
 np.set_printoptions(precision=3, suppress=True, floatmode='fixed')
 
@@ -64,12 +66,14 @@ def multiExp(firstIdx, args, state, maxLength, numPursuerStep, verbose=False):
 
     # == AGENT ==
     agent = loadAgent(
-        args, device, stateNum, actionNum, numActionList, verbose)
+        args, device, stateNum, actionNum, numActionList, verbose
+    )
 
     # == EXPERIMENT ==
     # print("I'm process", os.getpid())
     actionSet = np.empty(
-        shape=(env.numActionList[1], numPursuerStep), dtype=int)
+        shape=(env.numActionList[1], numPursuerStep), dtype=int
+    )
     for i in range(numPursuerStep):
         actionSet[:, i] = np.arange(env.numActionList[1])
 
@@ -86,12 +90,15 @@ def multiExp(firstIdx, args, state, maxLength, numPursuerStep, verbose=False):
         actionIdx = firstIdx + idx
         actionSeq = actionSet[actionIdx, np.arange(numPursuerStep)]
         trajEvader, trajPursuer, minV, _ = exhaustiveDefenderSearch(
-            env, agent, state, actionSeq, maxLength)
+            env, agent, state, actionSeq, maxLength
+        )
         print(actionSeq, end='\r')
         rolloutValue[idx] = minV
         info = {
-            'trajEvader': trajEvader, 'trajPursuer': trajPursuer,
-            'maxminV': minV, 'maxminIdx': actionIdx
+            'trajEvader': trajEvader,
+            'trajPursuer': trajPursuer,
+            'maxminV': minV,
+            'maxminIdx': actionIdx
         }
         captureFlagTmp, _ = checkCapture(env, trajEvader, trajPursuer)
 
@@ -144,14 +151,14 @@ def run(args):
     idxTupleList = [(i, j) for i in range(3) for j in range(3)]
     numTask = len(idxTupleList)
     numProcess = args.numWorker
-    numTurn = int(numTask / (numProcess + 1e-6)) + 1
+    numTurn = int(numTask / (numProcess+1e-6)) + 1
     maxLength = args.maxLength
     numPursuerStep = args.numPursuerStep
     for ith in range(numTurn):
         print('{} / {}: '.format(ith + 1, numTurn), end='')
         with Pool(processes=numProcess) as pool:
             startIdx = ith * numProcess
-            endIdx = min(numTask, (ith + 1) * numProcess)
+            endIdx = min(numTask, (ith+1) * numProcess)
             print('{:.0f}-{:.0f}'.format(startIdx, endIdx - 1))
             firstIdxList = idxTupleList[startIdx:endIdx]
             numExp = len(firstIdxList)
@@ -163,8 +170,8 @@ def run(args):
             subDictList = pool.starmap(
                 multiExp,
                 zip(
-                    firstIdxList, argsList,
-                    stateList, maxLengthList, numPursuerStepList, verboseList
+                    firstIdxList, argsList, stateList, maxLengthList,
+                    numPursuerStepList, verboseList
                 )
             )
             print('\n')
@@ -214,7 +221,8 @@ def run(args):
     print(maxminInfo['maxminIdx'], maxminInfo['maxminV'])
 
     outFile = os.path.join(
-        dataFolder, args.outFile + sampleType + str(args.index) + '.npy')
+        dataFolder, args.outFile + sampleType + str(args.index) + '.npy'
+    )
     print('--> Save to {:s} ...'.format(outFile))
     print(finalDict.keys())
     np.save('{:s}'.format(outFile), finalDict)
@@ -225,37 +233,42 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # Environment Parameters
     parser.add_argument(
-        "-cpf", "--cpf", help="consider pursuer failure", action="store_true")
+        "-cpf", "--cpf", help="consider pursuer failure", action="store_true"
+    )
 
     # Simulation Parameters
     parser.add_argument(
-        "-f", "--forceCPU", help="force CPU", action="store_true")
-    parser.add_argument(
-        "-nw", "--numWorker", help="#workers", default=5, type=int)
-    parser.add_argument(
-        "-ml", "--maxLength", help="max length", default=50, type=int)
-    parser.add_argument(
-        "-nps", "--numPursuerStep", help="#pursuer steps",
-        default=10, type=int
+        "-f", "--forceCPU", help="force CPU", action="store_true"
     )
     parser.add_argument(
-        "-idx", "--index", help="the index of state in samples",
-        default=0, type=int
+        "-nw", "--numWorker", help="#workers", default=5, type=int
     )
     parser.add_argument(
-        "-t", "--sampleType", help="type of sampled states",
-        default=0, type=int
+        "-ml", "--maxLength", help="max length", default=50, type=int
+    )
+    parser.add_argument(
+        "-nps", "--numPursuerStep", help="#pursuer steps", default=10, type=int
+    )
+    parser.add_argument(
+        "-idx", "--index", help="the index of state in samples", default=0,
+        type=int
+    )
+    parser.add_argument(
+        "-t", "--sampleType", help="type of sampled states", default=0,
+        type=int
     )
 
     # File Parameters
     parser.add_argument(
-        "-of", "--outFile", help="output file", default='valDict', type=str)
+        "-of", "--outFile", help="output file", default='valDict', type=str
+    )
     parser.add_argument(
         "-mf", "--modelFolder", help="model folder",
         default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str
     )
     parser.add_argument(
-        "-df", "--dataFile", help="samples file", default='samples', type=str)
+        "-df", "--dataFile", help="samples file", default='samples', type=str
+    )
 
     args = parser.parse_args()
     print("\n== Arguments ==")

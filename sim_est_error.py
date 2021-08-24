@@ -38,12 +38,13 @@ from multiprocessing import Pool
 from utils.carPEAnalysis import loadAgent, loadEnv
 from gym_reachability import gym_reachability  # Custom Gym env.
 
+
 simplefilter(action='ignore', category=FutureWarning)
 
 
 def multiExp(
-    args, posAtt, thetaAttIdx, samplesDef, thetas,
-    maxLength, toEnd, verbose=False
+    args, posAtt, thetaAttIdx, samplesDef, thetas, maxLength, toEnd,
+    verbose=False
 ):
 
     np.set_printoptions(precision=3, suppress=True, floatmode='fixed')
@@ -56,7 +57,8 @@ def multiExp(
 
     # == AGENT ==
     agent = loadAgent(
-        args, device, stateNum, actionNum, numActionList, verbose)
+        args, device, stateNum, actionNum, numActionList, verbose
+    )
 
     # print("I'm process", os.getpid())
     numTheta = thetas.shape[0]
@@ -76,7 +78,8 @@ def multiExp(
         state[3:5] = samplesDef[idx[0], :]
         state[5] = thetas[idx[1]]
         traj, _, _, minV, _ = env.simulate_one_trajectory(
-            agent.Q_network, T=maxLength, state=state, toEnd=toEnd)
+            agent.Q_network, T=maxLength, state=state, toEnd=toEnd
+        )
         trajLength[idx] = traj.shape[0]
         rolloutValue[idx] = minV
 
@@ -84,7 +87,8 @@ def multiExp(
         state = torch.from_numpy(state).float().to(agent.device)
         state_action_values = agent.Q_network(state)
         Q_mtx = state_action_values.detach().cpu().reshape(
-            agent.numActionList[0], agent.numActionList[1])
+            agent.numActionList[0], agent.numActionList[1]
+        )
         pursuerValues, _ = Q_mtx.max(dim=1)
         minmaxValue, _ = pursuerValues.min(dim=0)
         ddqnValue[idx] = minmaxValue
@@ -119,12 +123,12 @@ def run(args):
     carPESubDictList = []
     numThread = args.numWorker
     numTest = thetas.shape[0]
-    numTurn = int(numTest / (numThread + 1e-6)) + 1
+    numTurn = int(numTest / (numThread+1e-6)) + 1
     for ith in range(numTurn):
         print('{} / {}'.format(ith + 1, numTurn), end=': ')
         with Pool(processes=numThread) as pool:
             startIdx = ith * numThread
-            endIdx = min(numTest, (ith + 1) * numThread)
+            endIdx = min(numTest, (ith+1) * numThread)
             print('{:.0f}-{:.0f}'.format(startIdx, endIdx - 1))
             thetaIdxAttList = [j for j in range(startIdx, endIdx)]
             numExp = len(thetaIdxAttList)
@@ -182,26 +186,29 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # Environment Parameters
     parser.add_argument(
-        "-cpf", "--cpf", help="consider pursuer failure", action="store_true")
+        "-cpf", "--cpf", help="consider pursuer failure", action="store_true"
+    )
 
     # Simulation Parameters
     parser.add_argument(
-        "-f", "--forceCPU", help="force CPU", action="store_true")
+        "-f", "--forceCPU", help="force CPU", action="store_true"
+    )
     parser.add_argument("-te", "--toEnd", help="to end", action="store_true")
     parser.add_argument(
-        "-ml", "--maxLength", help="max length",
-        default=150, type=int
+        "-ml", "--maxLength", help="max length", default=150, type=int
     )
     parser.add_argument(
-        "-nw", "--numWorker", help="#workers", default=6, type=int)
+        "-nw", "--numWorker", help="#workers", default=6, type=int
+    )
     parser.add_argument(
-        "-idx", "--index", help="the index of state in samples",
-        default=0, type=int
+        "-idx", "--index", help="the index of state in samples", default=0,
+        type=int
     )
 
     # File Parameters
     parser.add_argument(
-        "-of", "--outFile", help="output file", default='estError', type=str)
+        "-of", "--outFile", help="output file", default='estError', type=str
+    )
     parser.add_argument(
         "-mf", "--modelFolder", help="model folder",
         default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str

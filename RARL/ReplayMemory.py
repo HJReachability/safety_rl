@@ -7,6 +7,7 @@ import numpy as np
 
 
 class ReplayMemory(object):
+
     def __init__(self, capacity, seed=0):
         self.capacity = capacity
         self.memory = []

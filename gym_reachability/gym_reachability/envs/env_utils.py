@@ -22,12 +22,12 @@ def calculate_margin_rect(s, x_y_w_h, negativeInside=True):
     x, y, w, h = x_y_w_h
     delta_x = np.abs(s[0] - x)
     delta_y = np.abs(s[1] - y)
-    margin = max(delta_y - h / 2, delta_x - w / 2)
+    margin = max(delta_y - h/2, delta_x - w/2)
 
     if negativeInside:
         return margin
     else:
-        return - margin
+        return -margin
 
 
 def calculate_margin_circle(s, c_r, negativeInside=True):
@@ -50,7 +50,7 @@ def calculate_margin_circle(s, c_r, negativeInside=True):
     if negativeInside:
         return margin
     else:
-        return - margin
+        return -margin
 
 
 # == Plotting ==
@@ -84,8 +84,8 @@ def plot_arc(
 
 
 def plot_circle(
-    center, r, ax, c='b', lw=1.5, ls='-', orientation=0,
-    scatter=False, zorder=0
+    center, r, ax, c='b', lw=1.5, ls='-', orientation=0, scatter=False,
+    zorder=0
 ):
     """
     plot_circle

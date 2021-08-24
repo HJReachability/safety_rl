@@ -32,81 +32,97 @@ from RARL.config import dqnConfig
 from RARL.utils import save_obj
 from gym_reachability import gym_reachability  # Custom Gym env.
 
+
 matplotlib.use('Agg')
 simplefilter(action='ignore', category=FutureWarning)
 timestr = time.strftime("%Y-%m-%d-%H_%M")
-
 
 # == ARGS ==
 parser = argparse.ArgumentParser()
 
 # environment parameters
 parser.add_argument(
-    "-dt", "--doneType", help="when to raise done flag",
-    default='toEnd', type=str
+    "-dt", "--doneType", help="when to raise done flag", default='toEnd',
+    type=str
 )
 parser.add_argument(
-    "-ct", "--costType", help="cost type", default='sparse', type=str)
-parser.add_argument(
-    "-rnd", "--randomSeed", help="random seed", default=0, type=int)
-parser.add_argument(
-    "-r", "--reward", help="when entering target set", default=-1, type=float)
-parser.add_argument(
-    "-p", "--penalty", help="when entering failure set",
-    default=1, type=float
+    "-ct", "--costType", help="cost type", default='sparse', type=str
 )
 parser.add_argument(
-    "-s", "--scaling", help="scaling of ell/g", default=4, type=float)
+    "-rnd", "--randomSeed", help="random seed", default=0, type=int
+)
+parser.add_argument(
+    "-r", "--reward", help="when entering target set", default=-1, type=float
+)
+parser.add_argument(
+    "-p", "--penalty", help="when entering failure set", default=1, type=float
+)
+parser.add_argument(
+    "-s", "--scaling", help="scaling of ell/g", default=4, type=float
+)
 
 # training scheme
 parser.add_argument(
-    "-w", "--warmup", help="warmup Q-network", action="store_true")
-parser.add_argument(
-    "-wi", "--warmupIter", help="warmup iteration", default=2000, type=int)
-parser.add_argument(
-    "-mu", "--maxUpdates", help="maximal #gradient updates",
-    default=400000, type=int
+    "-w", "--warmup", help="warmup Q-network", action="store_true"
 )
 parser.add_argument(
-    "-ut", "--updateTimes", help="#hyper-param. steps", default=10, type=int)
+    "-wi", "--warmupIter", help="warmup iteration", default=2000, type=int
+)
 parser.add_argument(
-    "-mc", "--memoryCapacity", help="memoryCapacity", default=10000, type=int)
+    "-mu", "--maxUpdates", help="maximal #gradient updates", default=400000,
+    type=int
+)
 parser.add_argument(
-    "-cp", "--checkPeriod", help="check period", default=20000, type=int)
+    "-ut", "--updateTimes", help="#hyper-param. steps", default=10, type=int
+)
+parser.add_argument(
+    "-mc", "--memoryCapacity", help="memoryCapacity", default=10000, type=int
+)
+parser.add_argument(
+    "-cp", "--checkPeriod", help="check period", default=20000, type=int
+)
 
 # NN hyper-parameters
 parser.add_argument(
-    "-a", "--annealing", help="gamma annealing", action="store_true")
-parser.add_argument(
-    "-arc", "--architecture", help="NN architecture",
-    default=[100, 20], nargs="*", type=int
+    "-a", "--annealing", help="gamma annealing", action="store_true"
 )
 parser.add_argument(
-    "-lr", "--learningRate", help="learning rate", default=1e-3, type=float)
+    "-arc", "--architecture", help="NN architecture", default=[100, 20],
+    nargs="*", type=int
+)
 parser.add_argument(
-    "-g", "--gamma", help="contraction coeff.", default=0.9999, type=float)
+    "-lr", "--learningRate", help="learning rate", default=1e-3, type=float
+)
 parser.add_argument(
-    "-act", "--actType", help="activation type", default='Tanh', type=str)
+    "-g", "--gamma", help="contraction coeff.", default=0.9999, type=float
+)
+parser.add_argument(
+    "-act", "--actType", help="activation type", default='Tanh', type=str
+)
 
 # RL type
 parser.add_argument("-m", "--mode", help="mode", default='RA', type=str)
 parser.add_argument(
-    "-tt", "--terminalType", help="terminal value", default='g', type=str)
+    "-tt", "--terminalType", help="terminal value", default='g', type=str
+)
 
 # file
 parser.add_argument(
-    "-st", "--showTime", help="show timestr", action="store_true")
+    "-st", "--showTime", help="show timestr", action="store_true"
+)
 parser.add_argument("-n", "--name", help="extra name", default='', type=str)
 parser.add_argument(
-    "-of", "--outFolder", help="output file", default='experiments', type=str)
+    "-of", "--outFolder", help="output file", default='experiments', type=str
+)
 parser.add_argument(
-    "-pf", "--plotFigure", help="plot figures", action="store_true")
+    "-pf", "--plotFigure", help="plot figures", action="store_true"
+)
 parser.add_argument(
-    "-sf", "--storeFigure", help="store figures", action="store_true")
+    "-sf", "--storeFigure", help="store figures", action="store_true"
+)
 
 args = parser.parse_args()
 print(args)
-
 
 # == CONFIGURATION ==
 env_name = "zermelo_show-v0"
@@ -163,14 +179,18 @@ env = gym.make(
 stateDim = env.state.shape[0]
 actionNum = env.action_space.n
 action_list = np.arange(actionNum)
-print("State Dimension: {:d}, ActionSpace Dimension: {:d}".format(
-    stateDim, actionNum))
+print(
+    "State Dimension: {:d}, ActionSpace Dimension: {:d}".format(
+        stateDim, actionNum
+    )
+)
 print(env.discrete_controls)
 
 env.set_costParam(args.penalty, args.reward, args.costType, args.scaling)
 env.set_seed(args.randomSeed)
 print(
-    "Cost type: {}, Margin scaling: {:.1f}, ".format(env.costType, env.scaling)
+    "Cost type: {}, Margin scaling: {:.1f}, ".
+    format(env.costType, env.scaling)
     + "Reward: {:.1f}, Penalty: {:.1f}".format(env.reward, env.penalty)
 )
 
@@ -204,36 +224,35 @@ if plotFigure or storeFigure:
 
     ax = axes[0]
     im = ax.imshow(
-        l_x.T, interpolation='none', extent=axStyle[0],
-        origin="lower", cmap="seismic", vmin=vmin, vmax=vmax
+        l_x.T, interpolation='none', extent=axStyle[0], origin="lower",
+        cmap="seismic", vmin=vmin, vmax=vmax
     )
     cbar = fig.colorbar(
-        im, ax=ax, pad=0.01, fraction=0.05, shrink=.95,
-        ticks=[vmin, 0, vmax]
+        im, ax=ax, pad=0.01, fraction=0.05, shrink=.95, ticks=[vmin, 0, vmax]
     )
     cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
     ax.set_title(r'$\ell(x)$', fontsize=18)
 
     ax = axes[1]
     im = ax.imshow(
-        g_x.T, interpolation='none', extent=axStyle[0],
-        origin="lower", cmap="seismic", vmin=vmin, vmax=vmax
+        g_x.T, interpolation='none', extent=axStyle[0], origin="lower",
+        cmap="seismic", vmin=vmin, vmax=vmax
     )
     cbar = fig.colorbar(
-        im, ax=ax, pad=0.01, fraction=0.05, shrink=.95,
-        ticks=[vmin, 0, vmax]
+        im, ax=ax, pad=0.01, fraction=0.05, shrink=.95, ticks=[vmin, 0, vmax]
     )
     cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
     ax.set_title(r'$g(x)$', fontsize=18)
 
     ax = axes[2]
     im = ax.imshow(
-        v.T, interpolation='none', extent=axStyle[0],
-        origin="lower", cmap="seismic", vmin=vmin, vmax=vmax
+        v.T, interpolation='none', extent=axStyle[0], origin="lower",
+        cmap="seismic", vmin=vmin, vmax=vmax
     )
     env.plot_reach_avoid_set(ax)
     cbar = fig.colorbar(
-        im, ax=ax, pad=0.01, fraction=0.05, shrink=.95, ticks=[vmin, 0, vmax])
+        im, ax=ax, pad=0.01, fraction=0.05, shrink=.95, ticks=[vmin, 0, vmax]
+    )
     cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
     ax.set_title(r'$v(x)$', fontsize=18)
 
@@ -250,25 +269,23 @@ if plotFigure or storeFigure:
         plt.pause(0.001)
     plt.close()
 
-
 # == Agent CONFIG ==
 print("\n== Agent Information ==")
 CONFIG = dqnConfig(
     DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
-    MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps,
-    BATCH_SIZE=64, MEMORY_CAPACITY=args.memoryCapacity,
-    ARCHITECTURE=args.architecture, ACTIVATION=args.actType,
-    GAMMA=args.gamma, GAMMA_PERIOD=updatePeriod, GAMMA_END=GAMMA_END,
-    EPS_PERIOD=EPS_PERIOD, EPS_DECAY=0.7, EPS_RESET_PERIOD=EPS_RESET_PERIOD,
-    LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
-    MAX_MODEL=100
+    MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps, BATCH_SIZE=64,
+    MEMORY_CAPACITY=args.memoryCapacity, ARCHITECTURE=args.architecture,
+    ACTIVATION=args.actType, GAMMA=args.gamma, GAMMA_PERIOD=updatePeriod,
+    GAMMA_END=GAMMA_END, EPS_PERIOD=EPS_PERIOD, EPS_DECAY=0.7,
+    EPS_RESET_PERIOD=EPS_RESET_PERIOD, LR_C=args.learningRate,
+    LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8, MAX_MODEL=100
 )
 
 # == AGENT ==
 dimList = [stateDim] + CONFIG.ARCHITECTURE + [actionNum]
 agent = DDQNSingle(
-    CONFIG, actionNum, action_list, dimList=dimList,
-    mode=agentMode, terminalType=args.terminalType
+    CONFIG, actionNum, action_list, dimList=dimList, mode=agentMode,
+    terminalType=args.terminalType
 )
 print("We want to use: {}, and Agent uses: {}".format(device, agent.device))
 print("Critic is using cuda: ", next(agent.Q_network.parameters()).is_cuda)
@@ -276,9 +293,8 @@ print("Critic is using cuda: ", next(agent.Q_network.parameters()).is_cuda)
 if args.warmup:
     print("\n== Warmup Q ==")
     lossList = agent.initQ(
-        env, args.warmupIter, outFolder,
-        num_warmup_samples=200, vmin=vmin, vmax=vmax,
-        plotFigure=plotFigure, storeFigure=storeFigure
+        env, args.warmupIter, outFolder, num_warmup_samples=200, vmin=vmin,
+        vmax=vmax, plotFigure=plotFigure, storeFigure=storeFigure
     )
 
     if plotFigure or storeFigure:
@@ -298,17 +314,16 @@ if args.warmup:
             plt.pause(0.001)
         plt.close()
 
-
 print("\n== Training Information ==")
 vmin = -1 * args.scaling
 vmax = 1 * args.scaling
 checkPeriod = args.checkPeriod
 trainRecords, trainProgress = agent.learn(
-    env, MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps,
-    warmupQ=False, doneTerminate=True,
-    vmin=vmin, vmax=vmax, numRndTraj=10000,
-    checkPeriod=checkPeriod, outFolder=outFolder,
-    plotFigure=args.plotFigure, storeFigure=args.storeFigure)
+    env, MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps, warmupQ=False,
+    doneTerminate=True, vmin=vmin, vmax=vmax, numRndTraj=10000,
+    checkPeriod=checkPeriod, outFolder=outFolder, plotFigure=args.plotFigure,
+    storeFigure=args.storeFigure
+)
 
 trainDict = {}
 trainDict['trainRecords'] = trainRecords
@@ -375,7 +390,8 @@ if plotFigure or storeFigure:
         actDistMtx[idx] = action_index
 
         _, _, result = env.simulate_one_trajectory(
-            agent.Q_network, T=250, state=state, toEnd=False)
+            agent.Q_network, T=250, state=state, toEnd=False
+        )
         resultMtx[idx] = result
         it.iternext()
 
@@ -385,8 +401,8 @@ if plotFigure or storeFigure:
     # = Action
     ax = axes[2]
     im = ax.imshow(
-        actDistMtx.T, interpolation='none', extent=axStyle[0],
-        origin="lower", cmap='seismic', vmin=0, vmax=actionNum - 1, zorder=-1
+        actDistMtx.T, interpolation='none', extent=axStyle[0], origin="lower",
+        cmap='seismic', vmin=0, vmax=actionNum - 1, zorder=-1
     )
     ax.set_xlabel('Action', fontsize=24)
 
@@ -397,8 +413,8 @@ if plotFigure or storeFigure:
         origin="lower", cmap='seismic', vmin=0, vmax=1, zorder=-1
     )
     env.plot_trajectories(
-        agent.Q_network, states=env.visual_initial_states,
-        toEnd=True, ax=ax, c='w', lw=1.5
+        agent.Q_network, states=env.visual_initial_states, toEnd=True, ax=ax,
+        c='w', lw=1.5
     )
     ax.set_xlabel('Rollout RA', fontsize=24)
 
@@ -406,11 +422,12 @@ if plotFigure or storeFigure:
     ax = axes[0]
     _, _, v = env.get_value(agent.Q_network, nx, ny)
     im = ax.imshow(
-        v.T, interpolation='none', extent=axStyle[0],
-        origin="lower", cmap='seismic', vmin=vmin, vmax=vmax, zorder=-1
+        v.T, interpolation='none', extent=axStyle[0], origin="lower",
+        cmap='seismic', vmin=vmin, vmax=vmax, zorder=-1
     )
     CS = ax.contour(
-        xs, ys, v.T, levels=[0], colors='k', linewidths=2, linestyles='dashed')
+        xs, ys, v.T, levels=[0], colors='k', linewidths=2, linestyles='dashed'
+    )
     ax.set_xlabel('Value', fontsize=24)
 
     for ax in axes:

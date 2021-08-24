@@ -22,13 +22,17 @@ def run(args):
     sampleTypeList = ['TN', 'TP', 'FN', 'FP', 'POS', 'NEG']
     sampleType = sampleTypeList[args.sampleType]
     dataFolder = os.path.join(args.modelFolder, 'data', sampleType)
-    results = glob.glob(os.path.join(
-        dataFolder, args.dataFile + sampleType + '*'))
+    results = glob.glob(
+        os.path.join(dataFolder, args.dataFile + sampleType + '*')
+    )
     start = len(args.dataFile + sampleType)
     indices = np.array([int(li.split('/')[-1][start:-4]) for li in results])
     if len(indices) < args.number:
-        print("we should get {} results but only get {}, missing:".format(
-            args.number, len(indices)))
+        print(
+            "we should get {} results but only get {}, missing:".format(
+                args.number, len(indices)
+            )
+        )
         not_obtain = np.full(shape=(args.number), fill_value=True, dtype=bool)
         for i in indices:
             not_obtain[i] = False
@@ -74,23 +78,25 @@ if __name__ == '__main__':
 
     # Simulation Parameters
     parser.add_argument(
-        "-t", "--sampleType", help="type of sampled states",
-        default=0, type=int
+        "-t", "--sampleType", help="type of sampled states", default=0,
+        type=int
     )
 
     # File Parameters
     parser.add_argument(
-        "-n", "--number", help="#files assumed to obtain",
-        default='500', type=int
+        "-n", "--number", help="#files assumed to obtain", default='500',
+        type=int
     )
     parser.add_argument(
-        "-of", "--outFile", help="output file", default='valDict', type=str)
+        "-of", "--outFile", help="output file", default='valDict', type=str
+    )
     parser.add_argument(
         "-mf", "--modelFolder", help="model folder",
         default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str
     )
     parser.add_argument(
-        "-df", "--dataFile", help="samples file", default='valDict', type=str)
+        "-df", "--dataFile", help="samples file", default='valDict', type=str
+    )
 
     args = parser.parse_args()
     print("== Arguments ==")

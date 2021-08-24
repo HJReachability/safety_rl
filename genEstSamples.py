@@ -22,6 +22,7 @@ from numpy.random import normal, uniform
 import matplotlib
 import matplotlib.pyplot as plt
 
+
 simplefilter(action='ignore', category=FutureWarning)
 matplotlib.use('Agg')
 
@@ -31,7 +32,7 @@ def uniformSampleRing(inner, outer, numSample, dim=2):
     samples /= np.linalg.norm(samples, axis=1, ord=2).reshape(-1, 1)
 
     shaping = uniform(low=inner**dim, high=outer**dim, size=(numSample, 1))
-    samples *= shaping ** (1 / dim)
+    samples *= shaping**(1 / dim)
 
     return samples
 
@@ -42,16 +43,18 @@ def run(args):
 
     # == Getting states to be tested ==
     print('\n== Getting states to be tested ==')
-    numSamplePos = args.numSample ** 2
+    numSamplePos = args.numSample**2
     numSample = args.numSample
     delta = .01
     R = 1. - delta
     r = .5 + delta
     samplesAtt = uniformSampleRing(inner=r, outer=R, numSample=numSamplePos)
     samplesDef = uniformSampleRing(
-        inner=delta, outer=R, numSample=numSamplePos)
+        inner=delta, outer=R, numSample=numSamplePos
+    )
     thetas = np.linspace(
-        start=0, stop=2 * np.pi * (1 - 1 / numSample), num=numSample)
+        start=0, stop=2 * np.pi * (1 - 1/numSample), num=numSample
+    )
     samples = [samplesAtt, samplesDef, thetas]
     print(samplesAtt[:5, :])
 
@@ -90,13 +93,16 @@ if __name__ == '__main__':
 
     # Simulation Parameters
     parser.add_argument(
-        "-rnd", "--randomSeed", help="random seed", default=0, type=int)
+        "-rnd", "--randomSeed", help="random seed", default=0, type=int
+    )
     parser.add_argument(
-        "-ns", "--numSample", help="#samples", default=15, type=int)
+        "-ns", "--numSample", help="#samples", default=15, type=int
+    )
 
     # File Parameters
     parser.add_argument(
-        "-of", "--outFile", help="output file", default='samplesEst', type=str)
+        "-of", "--outFile", help="output file", default='samplesEst', type=str
+    )
     parser.add_argument(
         "-mf", "--modelFolder", help="model folder",
         default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str

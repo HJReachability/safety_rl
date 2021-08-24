@@ -14,7 +14,6 @@ import os
 from ..RARL.config import dqnConfig
 from ..RARL.DDQNPursuitEvasion import DDQNPursuitEvasion
 
-
 # == PLOTTING ==
 tiffany = "#0abab5"
 
@@ -286,11 +285,11 @@ def generateCM(labelValue, predictValue):
     TNIndices = np.argwhere(TNMtx)
     TNNum = np.sum(TNMtx)
 
-    accuracy = (TPNum + TNNum) / (TPNum + TNNum + FPNum + FNNum)
-    FPrate = FPNum / (FPNum + TNNum)
-    FNrate = FNNum / (TPNum + FNNum)
-    TNrate = TNNum / (FPNum + TNNum)
-    TPrate = TPNum / (TPNum + FNNum)
+    accuracy = (TPNum+TNNum) / (TPNum+TNNum+FPNum+FNNum)
+    FPrate = FPNum / (FPNum+TNNum)
+    FNrate = FNNum / (TPNum+FNNum)
+    TNrate = TNNum / (FPNum+TNNum)
+    TPrate = TPNum / (TPNum+FNNum)
 
     print(
         "TP: {:.0f}, FN: {:.0f}, FP: {:.0f}, TN: {:.0f}".format(
@@ -407,7 +406,7 @@ def exhaustiveDefenderSearch(env, agent, state, actionSeq, maxLength=40):
 
         trajPursuer.append(statePursuer)
         trajEvader.append(stateEvader)
-        if (t + 1) % chunkLength == 0:
+        if (t+1) % chunkLength == 0:
             pursuerActionSeqIdx += 1
 
     trajEvader = np.array(trajEvader)
@@ -475,7 +474,7 @@ def exhaustiveAttackerSearch(env, agent, state, actionSeq, maxLength=40):
 
         trajPursuer.append(statePursuer)
         trajEvader.append(stateEvader)
-        if (t + 1) % chunkLength == 0:
+        if (t+1) % chunkLength == 0:
             pursuerActionSeqIdx += 1
 
     trajEvader = np.array(trajEvader)

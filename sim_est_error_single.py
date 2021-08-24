@@ -38,6 +38,7 @@ from multiprocessing import Pool
 
 from utils.carOneAnalysis import loadAgent, loadEnv
 
+
 simplefilter(action='ignore', category=FutureWarning)
 matplotlib.use('Agg')
 
@@ -57,7 +58,8 @@ def multiExp(env, agent, samples, firstIdx, numSample, maxLength, toEnd):
         print(stateIdx, end='\r')
         state = samples[stateIdx, np.arange(3)]
         traj, result, minV, _ = env.simulate_one_trajectory(
-            agent.Q_network, T=maxLength, state=state, toEnd=toEnd)
+            agent.Q_network, T=maxLength, state=state, toEnd=toEnd
+        )
         trajLength[idx] = traj.shape[0]
         rolloutResult[idx] = result  # result \in { 1, -1}
         rolloutValue[idx] = minV
@@ -97,20 +99,20 @@ def run(args):
     print("\n== Estimation Error Information ==")
     np.set_printoptions(precision=2, suppress=True)
     numSample = args.numSample
-    bounds = np.array([
-        [-1.1, 1.1], [-1.1, 1.1], [0, 2 * np.pi * (1 - 1 / numSample)]])
+    bounds = np.array([[-1.1, 1.1], [-1.1, 1.1],
+                       [0, 2 * np.pi * (1 - 1/numSample)]])
     samples = np.linspace(start=bounds[:, 0], stop=bounds[:, 1], num=numSample)
 
     maxLength = args.maxLength
     toEnd = args.toEnd
     carPESubDictList = []
     numThread = args.numWorker
-    numTurn = int(numSample / (numThread + 1e-6)) + 1
+    numTurn = int(numSample / (numThread+1e-6)) + 1
     for ith in range(numTurn):
         print('{} / {}'.format(ith + 1, numTurn))
         with Pool(processes=numThread) as pool:
             startIdx = ith * numThread
-            endIdx = min(numSample, (ith + 1) * numThread)
+            endIdx = min(numSample, (ith+1) * numThread)
             firstIdxList = list(range(startIdx, endIdx))
             print(firstIdxList)
             numExp = len(firstIdxList)
@@ -121,9 +123,13 @@ def run(args):
             maxLengthList = [maxLength] * numExp
             toEndList = [toEnd] * numExp
 
-            carPESubDict_i = pool.starmap(multiExp, zip(
-                envList, agentList, samplesList, firstIdxList, numSampleList,
-                maxLengthList, toEndList))
+            carPESubDict_i = pool.starmap(
+                multiExp,
+                zip(
+                    envList, agentList, samplesList, firstIdxList,
+                    numSampleList, maxLengthList, toEndList
+                )
+            )
         carPESubDictList = carPESubDictList + carPESubDict_i
 
     # == COMBINE RESULTS ==
@@ -163,14 +169,14 @@ def run(args):
     # == Plot RA Set of the analytic solution and approximate value function ==
     if args.plotFigure or args.storeFigure:
         fig, axes = plt.subplots(
-            1, 2, figsize=(8, 4), sharex=True, sharey=True)
+            1, 2, figsize=(8, 4), sharex=True, sharey=True
+        )
         axStyle = np.array([-1.1, 1.1, -1.1, 1.1])
 
         ax = axes[0]
         ax.imshow(
-            carOneDict['ddqnValue'][:, :, 0].T,
-            interpolation='none', extent=axStyle, origin="lower",
-            cmap='seismic', vmin=-1, vmax=1
+            carOneDict['ddqnValue'][:, :, 0].T, interpolation='none',
+            extent=axStyle, origin="lower", cmap='seismic', vmin=-1, vmax=1
         )
         env.plot_reach_avoid_set(ax, c='g', lw=3, orientation=0)
         ax.set_xlabel(r'$\theta={:.0f}^\circ$'.format(0), fontsize=24)
@@ -178,9 +184,8 @@ def run(args):
         # == Rollout ==
         ax = axes[1]
         ax.imshow(
-            carOneDict['rolloutValue'][:, :, 0].T <= 0,
-            interpolation='none', extent=axStyle, origin="lower",
-            cmap='coolwarm', vmin=0, vmax=1
+            carOneDict['rolloutValue'][:, :, 0].T <= 0, interpolation='none',
+            extent=axStyle, origin="lower", cmap='coolwarm', vmin=0, vmax=1
         )
         ax.set_xlabel('Rollout', fontsize=24)
 
@@ -206,23 +211,31 @@ if __name__ == '__main__':
 
     # Simulation Parameters
     parser.add_argument(
-        "-te", "--toEnd", help="stop until boundary", action="store_true")
+        "-te", "--toEnd", help="stop until boundary", action="store_true"
+    )
     parser.add_argument(
-        "-f", "--forceCPU", help="force CPU", action="store_true")
+        "-f", "--forceCPU", help="force CPU", action="store_true"
+    )
     parser.add_argument(
-        "-ns", "--numSample", help="#samples", default=101, type=int)
+        "-ns", "--numSample", help="#samples", default=101, type=int
+    )
     parser.add_argument(
-        "-nw", "--numWorker", help="#workers", default=5, type=int)
+        "-nw", "--numWorker", help="#workers", default=5, type=int
+    )
     parser.add_argument(
-        "-ml", "--maxLength", help="max length", default=100, type=int)
+        "-ml", "--maxLength", help="max length", default=100, type=int
+    )
 
     # File Parameters
     parser.add_argument(
-        "-pf", "--plotFigure", help="plot figures", action="store_true")
+        "-pf", "--plotFigure", help="plot figures", action="store_true"
+    )
     parser.add_argument(
-        "-sf", "--storeFigure", help="store figures", action="store_true")
+        "-sf", "--storeFigure", help="store figures", action="store_true"
+    )
     parser.add_argument(
-        "-of", "--outFile", help="output file", default='estError', type=str)
+        "-of", "--outFile", help="output file", default='estError', type=str
+    )
     parser.add_argument(
         "-mf", "--modelFolder", help="model folder",
         default='models/store_best/car/RA/big/tanh', type=str

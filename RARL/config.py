@@ -5,6 +5,7 @@ Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
 
 class config(object):
+
     def __init__(
         self,
         ENV_NAME="Pendulum-v0",
@@ -126,6 +127,7 @@ class config(object):
 
 
 class dqnConfig(config):
+
     def __init__(
         self,
         ENV_NAME="Pendulum-v0",

@@ -1,23 +1,20 @@
-# Copyright (c) 2021–2022, The Regents of the University of California.
-# All rights reserved.
-#
-# This file is subject to the terms and conditions defined in the LICENSE file
-# included in this repository.
-#
-# Please contact the author(s) of this library if you have any questions.
-# Authors: Vicenc Rubies-Royo   ( vrubies@berkeley.edu )
+"""
+Copyright (c) 2021–2022, The Regents of the University of California.
+All rights reserved.
+
+This file is subject to the terms and conditions defined in the LICENSE file
+included in this repository.
+
+Please contact the author(s) of this library if you have any questions.
+Authors: Vicenc Rubies-Royo   ( vrubies@berkeley.edu )
+"""
 
 import gym.spaces
 import numpy as np
 import gym
-import matplotlib
 
 from utils.utils import nearest_real_grid_point
-from utils.utils import visualize_matrix
-from utils.utils import q_values_from_q_func
 from utils.utils import state_to_index
-from utils.utils import index_to_state
-from utils.utils import v_from_q
 
 
 class PointMassEnv(gym.Env):
@@ -25,8 +22,10 @@ class PointMassEnv(gym.Env):
     def __init__(self):
 
         # State bounds.
-        self.bounds = np.array([[-2, 2],  # axis_0 = state, axis_1=bounds.
-                                [-2, 10]])
+        self.bounds = np.array([
+            [-2, 2],  # axis_0 = state, axis_1=bounds.
+            [-2, 10]
+        ])
         self.low = self.bounds[:, 0]
         self.high = self.bounds[:, 1]
 
@@ -38,44 +37,45 @@ class PointMassEnv(gym.Env):
 
         # Control parameters.
         self.horizontal_rate = 1
-        self.discrete_controls = np.array([-self.horizontal_rate,
-                                           0,
-                                           self.horizontal_rate])
+        self.discrete_controls = np.array([
+            -self.horizontal_rate, 0, self.horizontal_rate
+        ])
 
         # Constraint set parameters.
         # X,Y position and Side Length.
         self.box1_x_y_length = np.array([1.25, 2, 1.5])  # Bottom right.
         self.corners1 = np.array([
-                    (self.box1_x_y_length[0] - self.box1_x_y_length[2]/2.0),
-                    (self.box1_x_y_length[1] - self.box1_x_y_length[2]/2.0),
-                    (self.box1_x_y_length[0] + self.box1_x_y_length[2]/2.0),
-                    (self.box1_x_y_length[1] + self.box1_x_y_length[2]/2.0)
-                    ])
+            (self.box1_x_y_length[0] - self.box1_x_y_length[2] / 2.0),
+            (self.box1_x_y_length[1] - self.box1_x_y_length[2] / 2.0),
+            (self.box1_x_y_length[0] + self.box1_x_y_length[2] / 2.0),
+            (self.box1_x_y_length[1] + self.box1_x_y_length[2] / 2.0)
+        ])
         self.box2_x_y_length = np.array([-1.25, 2, 1.5])  # Bottom left.
         self.corners2 = np.array([
-                    (self.box2_x_y_length[0] - self.box2_x_y_length[2]/2.0),
-                    (self.box2_x_y_length[1] - self.box2_x_y_length[2]/2.0),
-                    (self.box2_x_y_length[0] + self.box2_x_y_length[2]/2.0),
-                    (self.box2_x_y_length[1] + self.box2_x_y_length[2]/2.0)
-                    ])
+            (self.box2_x_y_length[0] - self.box2_x_y_length[2] / 2.0),
+            (self.box2_x_y_length[1] - self.box2_x_y_length[2] / 2.0),
+            (self.box2_x_y_length[0] + self.box2_x_y_length[2] / 2.0),
+            (self.box2_x_y_length[1] + self.box2_x_y_length[2] / 2.0)
+        ])
         self.box3_x_y_length = np.array([0, 6, 1.5])  # Top middle.
         self.corners3 = np.array([
-                    (self.box3_x_y_length[0] - self.box3_x_y_length[2]/2.0),
-                    (self.box3_x_y_length[1] - self.box3_x_y_length[2]/2.0),
-                    (self.box3_x_y_length[0] + self.box3_x_y_length[2]/2.0),
-                    (self.box3_x_y_length[1] + self.box3_x_y_length[2]/2.0)
-                    ])
+            (self.box3_x_y_length[0] - self.box3_x_y_length[2] / 2.0),
+            (self.box3_x_y_length[1] - self.box3_x_y_length[2] / 2.0),
+            (self.box3_x_y_length[0] + self.box3_x_y_length[2] / 2.0),
+            (self.box3_x_y_length[1] + self.box3_x_y_length[2] / 2.0)
+        ])
 
         # Target set parameters.
         self.box4_x_y_length = np.array([0, 9.25, 1.5])  # Top.
 
         # Gym variables.
         self.action_space = gym.spaces.Discrete(3)  # horizontal_rate={-1,0,1}
-        self.midpoint = (self.low + self.high)/2.0
+        self.midpoint = (self.low + self.high) / 2.0
         self.interval = self.high - self.low
         self.observation_space = gym.spaces.Box(
-            np.float32(self.midpoint - self.interval/2),
-            np.float32(self.midpoint + self.interval/2))
+            np.float32(self.midpoint - self.interval / 2),
+            np.float32(self.midpoint + self.interval / 2)
+        )
         self.viewer = None
 
         # Discretization.
@@ -88,15 +88,18 @@ class PointMassEnv(gym.Env):
 
         # Visualization params
         self.vis_init_flag = True
-        (self.x_box1_pos, self.x_box2_pos,
-         self.x_box3_pos, self.y_box1_pos,
-         self.y_box2_pos, self.y_box3_pos) = self.constraint_set_boundary()
+        (
+            self.x_box1_pos, self.x_box2_pos, self.x_box3_pos, self.y_box1_pos,
+            self.y_box2_pos, self.y_box3_pos
+        ) = self.constraint_set_boundary()
         (self.x_box4_pos, self.y_box4_pos) = self.target_set_boundary()
-        self.visual_initial_states = [np.array([0, 0]),
-                                      np.array([-1, -2]),
-                                      np.array([1, -2]),
-                                      np.array([-1, 4]),
-                                      np.array([1, 4])]
+        self.visual_initial_states = [
+            np.array([0, 0]),
+            np.array([-1, -2]),
+            np.array([1, -2]),
+            np.array([-1, 4]),
+            np.array([1, 4])
+        ]
         self.scaling = 1.
 
         # Set random seed.
@@ -119,8 +122,7 @@ class PointMassEnv(gym.Env):
         return np.copy(self.state)
 
     def sample_random_state(self):
-        rnd_state = np.random.uniform(low=self.low,
-                                      high=self.high)
+        rnd_state = np.random.uniform(low=self.low, high=self.high)
         return rnd_state
 
     def step(self, action):
@@ -140,7 +142,8 @@ class PointMassEnv(gym.Env):
             g_x = self.safety_margin(self.state)
         else:
             nearest_point = nearest_real_grid_point(
-                self.grid_cells, self.bounds, self.state)
+                self.grid_cells, self.bounds, self.state
+            )
             l_x = self.target_margin(nearest_point)
             g_x = self.safety_margin(nearest_point)
 
@@ -190,22 +193,30 @@ class PointMassEnv(gym.Env):
         Returns:
             Margin for the state s.
         """
-        box1_safety_margin = -(np.linalg.norm(s - self.box1_x_y_length[:2],
-                               ord=np.inf) - self.box1_x_y_length[-1]/2.0)
-        box2_safety_margin = -(np.linalg.norm(s - self.box2_x_y_length[:2],
-                               ord=np.inf) - self.box2_x_y_length[-1]/2.0)
-        box3_safety_margin = -(np.linalg.norm(s - self.box3_x_y_length[:2],
-                               ord=np.inf) - self.box3_x_y_length[-1]/2.0)
+        box1_safety_margin = -(
+            np.linalg.norm(s - self.box1_x_y_length[:2], ord=np.inf)
+            - self.box1_x_y_length[-1] / 2.0
+        )
+        box2_safety_margin = -(
+            np.linalg.norm(s - self.box2_x_y_length[:2], ord=np.inf)
+            - self.box2_x_y_length[-1] / 2.0
+        )
+        box3_safety_margin = -(
+            np.linalg.norm(s - self.box3_x_y_length[:2], ord=np.inf)
+            - self.box3_x_y_length[-1] / 2.0
+        )
 
-        vertical_margin = (np.abs(s[1] - (self.low[1] + self.high[1])/2.0)
-                           - self.interval[1]/2.0)
+        vertical_margin = (
+            np.abs(s[1] - (self.low[1] + self.high[1]) / 2.0)
+            - self.interval[1] / 2.0
+        )
         horizontal_margin = np.abs(s[0]) - 2.0
         enclosure_safety_margin = max(horizontal_margin, vertical_margin)
 
-        safety_margin = max(box1_safety_margin,
-                            box2_safety_margin,
-                            box3_safety_margin,
-                            enclosure_safety_margin)
+        safety_margin = max(
+            box1_safety_margin, box2_safety_margin, box3_safety_margin,
+            enclosure_safety_margin
+        )
 
         return self.scaling * safety_margin
 
@@ -218,8 +229,10 @@ class PointMassEnv(gym.Env):
         Returns:
             Margin for the state s.
         """
-        box4_target_margin = (np.linalg.norm(s - self.box4_x_y_length[:2],
-                              ord=np.inf) - self.box4_x_y_length[-1]/2.0)
+        box4_target_margin = (
+            np.linalg.norm(s - self.box4_x_y_length[:2], ord=np.inf)
+            - self.box4_x_y_length[-1] / 2.0
+        )
 
         target_margin = box4_target_margin
         return self.scaling * target_margin
@@ -248,11 +261,10 @@ class PointMassEnv(gym.Env):
         self.high = np.array(self.bounds)[:, 1]
 
         # Double the range in each state dimension for Gym interface.
-        midpoint = (self.low + self.high)/2.0
-        interval = self.high - self.low
         self.observation_space = gym.spaces.Box(
-            np.float32(self.midpoint - self.interval/2),
-            np.float32(self.midpoint + self.interval/2))
+            np.float32(self.midpoint - self.interval / 2),
+            np.float32(self.midpoint + self.interval / 2)
+        )
 
     def set_discretization(self, grid_cells, bounds):
         """ Set number of grid cells and state bounds.
@@ -279,45 +291,53 @@ class PointMassEnv(gym.Env):
             first and second parabola respectively.
         """
         x_box1_pos = np.array([
-            self.box1_x_y_length[0] - self.box1_x_y_length[-1]/2.0,
-            self.box1_x_y_length[0] - self.box1_x_y_length[-1]/2.0,
-            self.box1_x_y_length[0] + self.box1_x_y_length[-1]/2.0,
-            self.box1_x_y_length[0] + self.box1_x_y_length[-1]/2.0,
-            self.box1_x_y_length[0] - self.box1_x_y_length[-1]/2.0])
+            self.box1_x_y_length[0] - self.box1_x_y_length[-1] / 2.0,
+            self.box1_x_y_length[0] - self.box1_x_y_length[-1] / 2.0,
+            self.box1_x_y_length[0] + self.box1_x_y_length[-1] / 2.0,
+            self.box1_x_y_length[0] + self.box1_x_y_length[-1] / 2.0,
+            self.box1_x_y_length[0] - self.box1_x_y_length[-1] / 2.0
+        ])
         x_box2_pos = np.array([
-            self.box2_x_y_length[0] - self.box2_x_y_length[-1]/2.0,
-            self.box2_x_y_length[0] - self.box2_x_y_length[-1]/2.0,
-            self.box2_x_y_length[0] + self.box2_x_y_length[-1]/2.0,
-            self.box2_x_y_length[0] + self.box2_x_y_length[-1]/2.0,
-            self.box2_x_y_length[0] - self.box2_x_y_length[-1]/2.0])
+            self.box2_x_y_length[0] - self.box2_x_y_length[-1] / 2.0,
+            self.box2_x_y_length[0] - self.box2_x_y_length[-1] / 2.0,
+            self.box2_x_y_length[0] + self.box2_x_y_length[-1] / 2.0,
+            self.box2_x_y_length[0] + self.box2_x_y_length[-1] / 2.0,
+            self.box2_x_y_length[0] - self.box2_x_y_length[-1] / 2.0
+        ])
         x_box3_pos = np.array([
-            self.box3_x_y_length[0] - self.box3_x_y_length[-1]/2.0,
-            self.box3_x_y_length[0] - self.box3_x_y_length[-1]/2.0,
-            self.box3_x_y_length[0] + self.box3_x_y_length[-1]/2.0,
-            self.box3_x_y_length[0] + self.box3_x_y_length[-1]/2.0,
-            self.box3_x_y_length[0] - self.box3_x_y_length[-1]/2.0])
+            self.box3_x_y_length[0] - self.box3_x_y_length[-1] / 2.0,
+            self.box3_x_y_length[0] - self.box3_x_y_length[-1] / 2.0,
+            self.box3_x_y_length[0] + self.box3_x_y_length[-1] / 2.0,
+            self.box3_x_y_length[0] + self.box3_x_y_length[-1] / 2.0,
+            self.box3_x_y_length[0] - self.box3_x_y_length[-1] / 2.0
+        ])
 
         y_box1_pos = np.array([
-            self.box1_x_y_length[1] - self.box1_x_y_length[-1]/2.0,
-            self.box1_x_y_length[1] + self.box1_x_y_length[-1]/2.0,
-            self.box1_x_y_length[1] + self.box1_x_y_length[-1]/2.0,
-            self.box1_x_y_length[1] - self.box1_x_y_length[-1]/2.0,
-            self.box1_x_y_length[1] - self.box1_x_y_length[-1]/2.0])
+            self.box1_x_y_length[1] - self.box1_x_y_length[-1] / 2.0,
+            self.box1_x_y_length[1] + self.box1_x_y_length[-1] / 2.0,
+            self.box1_x_y_length[1] + self.box1_x_y_length[-1] / 2.0,
+            self.box1_x_y_length[1] - self.box1_x_y_length[-1] / 2.0,
+            self.box1_x_y_length[1] - self.box1_x_y_length[-1] / 2.0
+        ])
         y_box2_pos = np.array([
-            self.box2_x_y_length[1] - self.box2_x_y_length[-1]/2.0,
-            self.box2_x_y_length[1] + self.box2_x_y_length[-1]/2.0,
-            self.box2_x_y_length[1] + self.box2_x_y_length[-1]/2.0,
-            self.box2_x_y_length[1] - self.box2_x_y_length[-1]/2.0,
-            self.box2_x_y_length[1] - self.box2_x_y_length[-1]/2.0])
+            self.box2_x_y_length[1] - self.box2_x_y_length[-1] / 2.0,
+            self.box2_x_y_length[1] + self.box2_x_y_length[-1] / 2.0,
+            self.box2_x_y_length[1] + self.box2_x_y_length[-1] / 2.0,
+            self.box2_x_y_length[1] - self.box2_x_y_length[-1] / 2.0,
+            self.box2_x_y_length[1] - self.box2_x_y_length[-1] / 2.0
+        ])
         y_box3_pos = np.array([
-            self.box3_x_y_length[1] - self.box3_x_y_length[-1]/2.0,
-            self.box3_x_y_length[1] + self.box3_x_y_length[-1]/2.0,
-            self.box3_x_y_length[1] + self.box3_x_y_length[-1]/2.0,
-            self.box3_x_y_length[1] - self.box3_x_y_length[-1]/2.0,
-            self.box3_x_y_length[1] - self.box3_x_y_length[-1]/2.0])
+            self.box3_x_y_length[1] - self.box3_x_y_length[-1] / 2.0,
+            self.box3_x_y_length[1] + self.box3_x_y_length[-1] / 2.0,
+            self.box3_x_y_length[1] + self.box3_x_y_length[-1] / 2.0,
+            self.box3_x_y_length[1] - self.box3_x_y_length[-1] / 2.0,
+            self.box3_x_y_length[1] - self.box3_x_y_length[-1] / 2.0
+        ])
 
-        return (x_box1_pos, x_box2_pos, x_box3_pos,
-                y_box1_pos, y_box2_pos, y_box3_pos)
+        return (
+            x_box1_pos, x_box2_pos, x_box3_pos, y_box1_pos, y_box2_pos,
+            y_box3_pos
+        )
 
     def target_set_boundary(self):
         """ Computes the safe set boundary based on the analytic solution.
@@ -331,26 +351,27 @@ class PointMassEnv(gym.Env):
             first and second parabola respectively.
         """
         x_box4_pos = np.array([
-            self.box4_x_y_length[0] - self.box4_x_y_length[-1]/2.0,
-            self.box4_x_y_length[0] - self.box4_x_y_length[-1]/2.0,
-            self.box4_x_y_length[0] + self.box4_x_y_length[-1]/2.0,
-            self.box4_x_y_length[0] + self.box4_x_y_length[-1]/2.0,
-            self.box4_x_y_length[0] - self.box4_x_y_length[-1]/2.0])
+            self.box4_x_y_length[0] - self.box4_x_y_length[-1] / 2.0,
+            self.box4_x_y_length[0] - self.box4_x_y_length[-1] / 2.0,
+            self.box4_x_y_length[0] + self.box4_x_y_length[-1] / 2.0,
+            self.box4_x_y_length[0] + self.box4_x_y_length[-1] / 2.0,
+            self.box4_x_y_length[0] - self.box4_x_y_length[-1] / 2.0
+        ])
 
         y_box4_pos = np.array([
-            self.box4_x_y_length[1] - self.box4_x_y_length[-1]/2.0,
-            self.box4_x_y_length[1] + self.box4_x_y_length[-1]/2.0,
-            self.box4_x_y_length[1] + self.box4_x_y_length[-1]/2.0,
-            self.box4_x_y_length[1] - self.box4_x_y_length[-1]/2.0,
-            self.box4_x_y_length[1] - self.box4_x_y_length[-1]/2.0])
+            self.box4_x_y_length[1] - self.box4_x_y_length[-1] / 2.0,
+            self.box4_x_y_length[1] + self.box4_x_y_length[-1] / 2.0,
+            self.box4_x_y_length[1] + self.box4_x_y_length[-1] / 2.0,
+            self.box4_x_y_length[1] - self.box4_x_y_length[-1] / 2.0,
+            self.box4_x_y_length[1] - self.box4_x_y_length[-1] / 2.0
+        ])
 
         return (x_box4_pos, y_box4_pos)
 
-
-    def visualize_analytic_comparison( self, v, no_show=False,
-                                       labels=["x", "y"],
-                                       vmin=-1, vmax=1, boolPlot=False,
-                                       cmap='seismic', fig=None, ax=None):
+    def visualize_analytic_comparison(
+        self, v, no_show=False, labels=["x", "y"], vmin=-1, vmax=1,
+        boolPlot=False, cmap='seismic', fig=None, ax=None
+    ):
         """ Overlays analytic safe set on top of state value function.
 
         Args:
@@ -359,11 +380,15 @@ class PointMassEnv(gym.Env):
         axes = self.get_axes()
 
         if boolPlot:
-            im = ax.imshow(v.T > vmin, interpolation='none', extent=axes[0],
-                           origin="lower", cmap='coolwarm')
+            ax.imshow(
+                v.T > vmin, interpolation='none', extent=axes[0],
+                origin="lower", cmap='coolwarm'
+            )
         else:
-            im = ax.imshow(v.T, interpolation='none', extent=axes[0],
-                           origin="lower", cmap=cmap, vmin=vmin, vmax=vmax)
+            ax.imshow(
+                v.T, interpolation='none', extent=axes[0], origin="lower",
+                cmap=cmap, vmin=vmin, vmax=vmax
+            )
             # fig.colorbar(im, pad=0.01, shrink=0.95)
 
     def simulate_one_trajectory(self, q_func, T=10, state=None):
@@ -375,8 +400,8 @@ class PointMassEnv(gym.Env):
         traj_y = [y]
 
         for t in range(T):
-            outsideTop   = (state[1] >= self.bounds[1, 1])
-            outsideLeft  = (state[0] <= self.bounds[0, 0])
+            outsideTop = (state[1] >= self.bounds[1, 1])
+            outsideLeft = (state[0] <= self.bounds[0, 0])
             outsideRight = (state[0] >= self.bounds[0, 1])
             done = outsideTop or outsideLeft or outsideRight
             if done:
@@ -396,11 +421,13 @@ class PointMassEnv(gym.Env):
 
         return traj_x, traj_y
 
-    def simulate_trajectories(self, q_func, T=10, num_rnd_traj=None, states=None):
+    def simulate_trajectories(
+        self, q_func, T=10, num_rnd_traj=None, states=None
+    ):
 
-        assert ((num_rnd_traj is None and states is not None) or
-                (num_rnd_traj is not None and states is None) or
-                (len(states) == num_rnd_traj))
+        assert ((num_rnd_traj is None and states is not None)
+                or (num_rnd_traj is not None and states is None)
+                or (len(states) == num_rnd_traj))
         trajectories = []
 
         if states is None:
@@ -409,38 +436,47 @@ class PointMassEnv(gym.Env):
         else:
             for state in states:
                 trajectories.append(
-                    self.simulate_one_trajectory(q_func, T=T, state=state))
+                    self.simulate_one_trajectory(q_func, T=T, state=state)
+                )
 
         return trajectories
 
-    def plot_trajectories(self, q_func, T=250, num_rnd_traj=None, states=None,
-        keepOutOf=False, toEnd=False, ax=None, c='k', lw=2, zorder=3):
+    def plot_trajectories(
+        self, q_func, T=250, num_rnd_traj=None, states=None, keepOutOf=False,
+        toEnd=False, ax=None, c='k', lw=2, zorder=3
+    ):
 
-        assert ((num_rnd_traj is None and states is not None) or
-                (num_rnd_traj is not None and states is None) or
-                (len(states) == num_rnd_traj))
+        assert ((num_rnd_traj is None and states is not None)
+                or (num_rnd_traj is not None and states is None)
+                or (len(states) == num_rnd_traj))
 
-        trajectories = self.simulate_trajectories(q_func, T=T,
-            num_rnd_traj=num_rnd_traj, states=states)
+        trajectories = self.simulate_trajectories(
+            q_func, T=T, num_rnd_traj=num_rnd_traj, states=states
+        )
 
         for traj in trajectories:
             traj_x, traj_y = traj
             ax.scatter(traj_x[0], traj_y[0], s=48, c=c, zorder=zorder)
             ax.plot(traj_x, traj_y, color=c, linewidth=lw, zorder=zorder)
 
-    def plot_target_failure_set(self, ax=None, c_c='m', c_t='y', lw=1.5,
-                                zorder=1):
+    def plot_target_failure_set(
+        self, ax=None, c_c='m', c_t='y', lw=1.5, zorder=1
+    ):
         # Plot bounadries of constraint set.
-        ax.plot(self.x_box1_pos, self.y_box1_pos, color=c_c, lw=lw,
-                zorder=zorder)
-        ax.plot(self.x_box2_pos, self.y_box2_pos, color=c_c, lw=lw,
-                zorder=zorder)
-        ax.plot(self.x_box3_pos, self.y_box3_pos, color=c_c, lw=lw,
-                zorder=zorder)
+        ax.plot(
+            self.x_box1_pos, self.y_box1_pos, color=c_c, lw=lw, zorder=zorder
+        )
+        ax.plot(
+            self.x_box2_pos, self.y_box2_pos, color=c_c, lw=lw, zorder=zorder
+        )
+        ax.plot(
+            self.x_box3_pos, self.y_box3_pos, color=c_c, lw=lw, zorder=zorder
+        )
 
         # Plot boundaries of target set.
-        ax.plot(self.x_box4_pos, self.y_box4_pos, color=c_t, lw=lw,
-                zorder=zorder)
+        ax.plot(
+            self.x_box4_pos, self.y_box4_pos, color=c_t, lw=lw, zorder=zorder
+        )
 
     def plot_reach_avoid_set(self, ax=None, c='g', lw=3, zorder=2):
         slope = self.upward_speed / self.horizontal_rate
@@ -454,40 +490,39 @@ class PointMassEnv(gym.Env):
             return xs, ys
 
         # left unsafe set
-        x = self.box2_x_y_length[0] + self.box2_x_y_length[2]/2.0
-        y = self.box2_x_y_length[1] - self.box2_x_y_length[2]/2.0
+        x = self.box2_x_y_length[0] + self.box2_x_y_length[2] / 2.0
+        y = self.box2_x_y_length[1] - self.box2_x_y_length[2] / 2.0
         xs, ys = get_line(slope, end_point=[x, y], x_limit=-2.)
         ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
         # right unsafe set
-        x = self.box1_x_y_length[0] - self.box1_x_y_length[2]/2.0
-        y = self.box1_x_y_length[1] - self.box1_x_y_length[2]/2.0
+        x = self.box1_x_y_length[0] - self.box1_x_y_length[2] / 2.0
+        y = self.box1_x_y_length[1] - self.box1_x_y_length[2] / 2.0
         xs, ys = get_line(-slope, end_point=[x, y], x_limit=2.)
         ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
         # middle unsafe set
-        x1 = self.box3_x_y_length[0] - self.box3_x_y_length[2]/2.0
-        x2 = self.box3_x_y_length[0] + self.box3_x_y_length[2]/2.0
+        x1 = self.box3_x_y_length[0] - self.box3_x_y_length[2] / 2.0
+        x2 = self.box3_x_y_length[0] + self.box3_x_y_length[2] / 2.0
         x3 = self.box3_x_y_length[0]
-        y = self.box3_x_y_length[1] - self.box3_x_y_length[2]/2.0
+        y = self.box3_x_y_length[1] - self.box3_x_y_length[2] / 2.0
         xs, ys = get_line(-slope, end_point=[x1, y], x_limit=x3)
         ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
         xs, ys = get_line(slope, end_point=[x2, y], x_limit=x3)
         ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
         # border unsafe set
-        x1 = self.box4_x_y_length[0] - self.box4_x_y_length[2]/2.0
-        x2 = self.box4_x_y_length[0] + self.box4_x_y_length[2]/2.0
-        y = self.box4_x_y_length[1] + self.box4_x_y_length[2]/2.0
+        x1 = self.box4_x_y_length[0] - self.box4_x_y_length[2] / 2.0
+        x2 = self.box4_x_y_length[0] + self.box4_x_y_length[2] / 2.0
+        y = self.box4_x_y_length[1] + self.box4_x_y_length[2] / 2.0
         xs, ys = get_line(slope, end_point=[x1, y], x_limit=-2.)
         ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
         xs, ys = get_line(-slope, end_point=[x2, y], x_limit=2.)
         ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
-
     def plot_formatting(self, ax=None, labels=None):
         axStyle = self.get_axes()
-        #== Formatting ==
+        # == Formatting ==
         ax.axis(axStyle[0])
         ax.set_aspect(axStyle[1])  # makes equal aspect ratio
         ax.grid(False)
@@ -495,12 +530,12 @@ class PointMassEnv(gym.Env):
             ax.set_xlabel(labels[0], fontsize=52)
             ax.set_ylabel(labels[1], fontsize=52)
 
-        ax.tick_params( axis='both', which='both',
-                        bottom=False, top=False,
-                        left=False, right=False)
+        ax.tick_params(
+            axis='both', which='both', bottom=False, top=False, left=False,
+            right=False
+        )
         ax.set_xticklabels([])
         ax.set_yticklabels([])
-
 
     def get_axes(self):
         """ Gets the bounds for the environment.
@@ -512,8 +547,7 @@ class PointMassEnv(gym.Env):
         y_span = self.bounds[1, 1] - self.bounds[1, 0]
         aspect_ratio = x_span / y_span
         axes = np.array([
-            self.bounds[0, 0]-.05,
-            self.bounds[0, 1]+.05,
-            self.bounds[1, 0]-.05,
-            self.bounds[1, 1]+.05])
+            self.bounds[0, 0] - .05, self.bounds[0, 1] + .05,
+            self.bounds[1, 0] - .05, self.bounds[1, 1] + .05
+        ])
         return [axes, aspect_ratio]

@@ -1,20 +1,22 @@
-# Copyright (c) 2021–2022, The Regents of the University of California.
-# All rights reserved.
-#
-# This file is based on Denny Britz's implementation of (tabular) Q-Learning,
-# available at:
-#
-# https://github.com/dennybritz/reinforcement-learning/blob/master/TD/Q-Learning%20Solution.ipynb
-#
-# The code in this file allows using Q-Learning with the Reach-Avoid Bellman
-# Equation in [RSS21].
-#
-# This file is subject to the terms and conditions defined in the LICENSE file
-# included in this code repository.
-#
-# Please contact the author(s) of this library if you have any questions.
-# Authors: Vicenc Rubies-Royo ( vrubies@berkeley.edu )
-#          Neil Lugovoy   ( nflugovoy@berkeley.edu )
+"""
+Copyright (c) 2021–2022, The Regents of the University of California.
+All rights reserved.
+
+This file is based on Denny Britz's implementation of (tabular) Q-Learning,
+available at:
+
+https://github.com/dennybritz/reinforcement-learning/blob/master/TD/Q-Learning%20Solution.ipynb
+
+The code in this file allows using Q-Learning with the Reach-Avoid Bellman
+Equation in [RSS21].
+
+This file is subject to the terms and conditions defined in the LICENSE file
+included in this code repository.
+
+Please contact the author(s) of this library if you have any questions.
+Authors: Vicenc Rubies-Royo ( vrubies@berkeley.edu )
+         Neil Lugovoy   ( nflugovoy@berkeley.edu )
+"""
 
 import sys
 import time
@@ -30,12 +32,14 @@ from utils.utils import save
 from utils.utils import v_from_q
 
 
-def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
-          state_bounds, env, max_episode_length=None, q_values=None,
-          start_episode=None, suppress_print=False, seed=0,
-          fictitious_terminal_val=None, visualization_states=None,
-          num_rnd_traj=None, vis_T=10, use_ra=True, save_freq=None,
-          outFolder = os.path.join('experiments', 'naive', 'TQ')):
+def learn(
+    get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
+    state_bounds, env, max_episode_length=None, q_values=None,
+    start_episode=None, suppress_print=False, seed=0,
+    fictitious_terminal_val=None, visualization_states=None, num_rnd_traj=None,
+    vis_T=10, use_ra=True, save_freq=None,
+    outFolder=os.path.join('experiments', 'naive', 'TQ')
+):
     """ Computes state-action value function in tabular form.
 
     Args:
@@ -75,7 +79,6 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
     """
     # Time-related variables for performace analysis.
     start = time.process_time()
-    now = datetime.now()
 
     np.random.seed(seed)
 
@@ -83,13 +86,15 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
     if max_episode_length is None:
         import warnings
         warnings.warn(
-            "max_episode_length is None assuming infinite episode length.")
+            "max_episode_length is None assuming infinite episode length."
+        )
 
     # Set up state-action value function.
     if q_values is None:
         if start_episode is not None:
             raise ValueError(
-                "Start_episode is only to be used with a warmstart q_values.")
+                "Start_episode is only to be used with a warmstart q_values."
+            )
 
         q_values = np.zeros(grid_cells + (env.action_space.n,))
         viz_fail = np.zeros(grid_cells)
@@ -107,12 +112,14 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
     elif not np.array_equal(np.shape(q_values)[:-1], grid_cells):
         raise ValueError(
             "The shape of q_values excluding the last dimension must be the "
-            "same as the shape of the discretization of states.")
+            "same as the shape of the discretization of states."
+        )
     elif start_episode is None:
         import warnings
         warnings.warn(
-            "Used warm start q_values without a start_episode, hyper-parameter "
-            "schedulers may produce undesired results.")
+            "Used warm start q_values without a start_episode, "
+            "hyper-parameter schedulers may produce undesired results."
+        )
 
     # Initialize experiment log.
     stats = {
@@ -154,28 +161,38 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
     os.makedirs(figureFolder, exist_ok=True)
     for episode in range(max_episodes):
         if not suppress_print and (episode + 1) % 1000 == 0:
-            message = "\rEpisode {:.0f}/{:d} alpha:{:.4f} gamma:{:.6f} epsilon:{:.4f} redund:{:.4f}."
-            print(message.format(
-                episode + 1, max_episodes, alpha, gamma, epsilon,
-                redundant_comp/(total_steps + 1.0)), end="")
+            message = (
+                "\rEpisode {:.0f}/{:d} alpha:{:.4f} gamma:{:.6f}"
+                + "epsilon:{:.4f} redund:{:.4f}."
+            )
+            print(
+                message.format(
+                    episode + 1, max_episodes, alpha, gamma, epsilon,
+                    redundant_comp / (total_steps + 1.0)
+                ), end=""
+            )
             sys.stdout.flush()
 
         checkPeriod = 500000
-        if ((num_rnd_traj is not None or visualization_states is not None)
-                and (episode + 1) % checkPeriod == 0):
-            modelPath = os.path.join(modelFolder, str(episode + 1)+'.npy')
+        to_show = num_rnd_traj is not None or visualization_states is not None
+        if to_show and ((episode + 1) % checkPeriod == 0):
+            modelPath = os.path.join(modelFolder, str(episode + 1) + '.npy')
             np.save(modelPath, q_values)
             fig, ax = plt.subplots(1, 1, figsize=(4, 4))
-            env.visualize_analytic_comparison(v_from_q(q_values), True,
-                labels=["",""], boolPlot=False, fig=fig, ax=ax)
+            env.visualize_analytic_comparison(
+                v_from_q(q_values), True, labels=["", ""], boolPlot=False,
+                fig=fig, ax=ax
+            )
             env.plot_reach_avoid_set(ax=ax, lw=3)
-            env.plot_trajectories(q_values, T=vis_T, num_rnd_traj=num_rnd_traj,
-                states=visualization_states, ax=ax, lw=3)
+            env.plot_trajectories(
+                q_values, T=vis_T, num_rnd_traj=num_rnd_traj,
+                states=visualization_states, ax=ax, lw=3
+            )
             env.plot_target_failure_set(ax, lw=4)
-            env.plot_formatting(ax=ax, labels=["",""])
+            env.plot_formatting(ax=ax, labels=["", ""])
             ax.set_xlabel(r'$\gamma={:.6f}$'.format(gamma), fontsize=32)
             fig.tight_layout()
-            figPath = os.path.join(figureFolder, str(episode + 1)+'.eps')
+            figPath = os.path.join(figureFolder, str(episode + 1) + '.eps')
             fig.savefig(figPath, dpi=200)
             # plt.pause(0.05)
             plt.close()
@@ -196,8 +213,9 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
             # Take step and map state to corresponding grid index.
             next_state, reward, done, info = env.step(action_ix)
             g_x = info['g_x'] if 'g_x' in info else -np.inf
-            next_state_ix = state_to_index(grid_cells, state_bounds,
-                                           next_state)
+            next_state_ix = state_to_index(
+                grid_cells, state_bounds, next_state
+            )
 
             if next_state_ix == state_ix:
                 redundant_comp += 1.0
@@ -216,13 +234,11 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
             if use_ra:  # Reach-Avoid Bellman Equation backup.
                 l_x = reward
                 min_term = min(l_x, np.amin(q_values[next_state_ix]))
-                new_q = (
-                    (1.0 - gamma) * max(l_x, g_x) +
-                    gamma * max(min_term, g_x))
-            else:       # Sum of discounted rewards backup.
+                new_q = ((1.0 - gamma) * max(l_x, g_x)
+                         + gamma * max(min_term, g_x))
+            else:  # Sum of discounted rewards backup.
                 if not done:
-                    new_q = (reward + gamma *
-                             np.amax(q_values[next_state_ix]))
+                    new_q = (reward + gamma * np.amax(q_values[next_state_ix]))
                 else:
                     if fictitious_terminal_val:
                         new_q = reward + gamma * fictitious_terminal_val
@@ -230,8 +246,8 @@ def learn(get_learning_rate, get_epsilon, get_gamma, max_episodes, grid_cells,
                         new_q = reward
 
             # Update state-action values.
-            q_values[state_ix + (action_ix,)] = (
-                (1 - alpha) * q_values[state_ix + (action_ix,)] + alpha * new_q)
+            q_ix = state_ix + (action_ix,)
+            q_values[q_ix] = ((1 - alpha) * q_values[q_ix] + alpha * new_q)
             state_ix = next_state_ix
 
             # End episode if max episode length is reached.
@@ -280,8 +296,10 @@ def select_action(q_values, state_ix, env, epsilon=0):
     return action_ix
 
 
-def play(q_values, env, num_episodes, grid_cells, state_bounds,
-         suppress_print=False, episode_length=None):
+def play(
+    q_values, env, num_episodes, grid_cells, state_bounds,
+    suppress_print=False, episode_length=None
+):
     """ Renders gym environment under greedy policy.
 
     The gym environment will be rendered and executed according to the greedy
@@ -314,7 +332,7 @@ def play(q_values, env, num_episodes, grid_cells, state_bounds,
             env.render()
             t += 1
         if not suppress_print:
-            print("episode", i,  "lasted", t, "timesteps.")
+            print("episode", i, "lasted", t, "timesteps.")
     # This is required to prevent the script from crashing after closing the
     # window.
     env.close()

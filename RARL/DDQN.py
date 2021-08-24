@@ -1,5 +1,7 @@
-# Please contact the author(s) of this library if you have any questions.
-# Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
+"""
+Please contact the author(s) of this library if you have any questions.
+Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
+"""
 
 
 import torch
@@ -13,9 +15,10 @@ from .model import StepLRMargin, StepResetLR
 from .ReplayMemory import ReplayMemory
 from .utils import soft_update, save_model
 
+Transition = namedtuple("Transition", ["s", "a", "r", "s_", "info"])
 
-Transition = namedtuple('Transition', ['s', 'a', 'r', 's_', 'info'])
-class DDQN():
+
+class DDQN:
     def __init__(self, CONFIG):
         """
         __init__
@@ -27,11 +30,15 @@ class DDQN():
         self.saved = False
         self.memory = ReplayMemory(CONFIG.MEMORY_CAPACITY)
 
-        #== PARAM ==
+        # == PARAM ==
         # Exploration
         self.EpsilonScheduler = StepResetLR(
-            initValue=CONFIG.EPSILON, period=CONFIG.EPS_PERIOD, resetPeriod=CONFIG.EPS_RESET_PERIOD,
-            decay=CONFIG.EPS_DECAY, endValue=CONFIG.EPS_END)
+            initValue=CONFIG.EPSILON,
+            period=CONFIG.EPS_PERIOD,
+            resetPeriod=CONFIG.EPS_RESET_PERIOD,
+            decay=CONFIG.EPS_DECAY,
+            endValue=CONFIG.EPS_END,
+        )
         self.EPSILON = self.EpsilonScheduler.get_variable()
         # Learning Rate
         self.LR_C = CONFIG.LR_C
@@ -43,45 +50,44 @@ class DDQN():
         self.MAX_MODEL = CONFIG.MAX_MODEL
         self.device = CONFIG.DEVICE
         # Discount Factor
-        self.GammaScheduler = StepLRMargin( initValue=CONFIG.GAMMA, period=CONFIG.GAMMA_PERIOD,
-                                            decay=CONFIG.GAMMA_DECAY, endValue=CONFIG.GAMMA_END,
-                                            goalValue=1.)
+        self.GammaScheduler = StepLRMargin(
+            initValue=CONFIG.GAMMA,
+            period=CONFIG.GAMMA_PERIOD,
+            decay=CONFIG.GAMMA_DECAY,
+            endValue=CONFIG.GAMMA_END,
+            goalValue=1.0,
+        )
         self.GAMMA = self.GammaScheduler.get_variable()
         # Target Network Update
         self.double = CONFIG.DOUBLE
         self.TAU = CONFIG.TAU
-        self.HARD_UPDATE = CONFIG.HARD_UPDATE # int, update period
-        self.SOFT_UPDATE = CONFIG.SOFT_UPDATE # bool
-
+        self.HARD_UPDATE = CONFIG.HARD_UPDATE  # int, update period
+        self.SOFT_UPDATE = CONFIG.SOFT_UPDATE  # bool
 
     def build_network(self):
         raise NotImplementedError
 
-
     def build_optimizer(self):
-        # self.optimizer = optim.Adam(self.Q_network.parameters(), lr=self.LR_C)
-        self.optimizer = torch.optim.AdamW(self.Q_network.parameters(), lr=self.LR_C, weight_decay=1e-3)
-        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer,
-            step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY)
+        self.optimizer = torch.optim.AdamW(
+            self.Q_network.parameters(), lr=self.LR_C, weight_decay=1e-3
+        )
+        self.scheduler = optim.lr_scheduler.StepLR(
+            self.optimizer, step_size=self.LR_C_PERIOD, gamma=self.LR_C_DECAY
+        )
         self.max_grad_norm = 1
         self.cntUpdate = 0
-
 
     def update(self):
         raise NotImplementedError
 
-
     def initBuffer(self, env):
         raise NotImplementedError
-
 
     def initQ(self):
         raise NotImplementedError
 
-
     def learn(self):
         raise NotImplementedError
-
 
     def update_target_network(self):
         if self.SOFT_UPDATE:
@@ -91,11 +97,13 @@ class DDQN():
             # Hard Replace
             self.target_network.load_state_dict(self.Q_network.state_dict())
 
-
     def updateHyperParam(self):
-        if self.optimizer.state_dict()['param_groups'][0]['lr'] <= self.LR_C_END:
+        if (
+            self.optimizer.state_dict()["param_groups"][0]["lr"]
+            <= self.LR_C_END
+        ):
             for param_group in self.optimizer.param_groups:
-                param_group['lr'] = self.LR_C_END
+                param_group["lr"] = self.LR_C_END
         else:
             self.scheduler.step()
 
@@ -104,32 +112,29 @@ class DDQN():
         self.GammaScheduler.step()
         self.GAMMA = self.GammaScheduler.get_variable()
 
-
     def select_action(self):
         raise NotImplementedError
-
 
     def store_transition(self, *args):
         self.memory.update(Transition(*args))
 
-
     def save(self, step, logs_path):
-        save_model(self.Q_network, step, logs_path, 'Q', self.MAX_MODEL)
+        save_model(self.Q_network, step, logs_path, "Q", self.MAX_MODEL)
         if not self.saved:
             config_path = os.path.join(logs_path, "CONFIG.pkl")
             pickle.dump(self.CONFIG, open(config_path, "wb"))
             self.saved = True
 
-
     def restore(self, step, logs_path, verbose=True):
-        logs_path = os.path.join(logs_path, 'model', 'Q-{}.pth'.format(step))
+        logs_path = os.path.join(logs_path, "model", "Q-{}.pth".format(step))
         self.Q_network.load_state_dict(
-            torch.load(logs_path, map_location=self.device))
+            torch.load(logs_path, map_location=self.device)
+        )
         self.target_network.load_state_dict(
-            torch.load(logs_path, map_location=self.device))
+            torch.load(logs_path, map_location=self.device)
+        )
         if verbose:
-            print('  => Restore {}' .format(logs_path))
-
+            print("  => Restore {}".format(logs_path))
 
     def unpack_batch(self, batch):
         """
@@ -140,16 +145,36 @@ class DDQN():
 
         Returns:
             tuple of torch.Tensor.
-        """        
-        # `non_final_mask` is used for environments that have next state to be None
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.s_)),
-            dtype=torch.bool).to(self.device)
-        non_final_state_nxt = torch.FloatTensor([s for s in batch.s_ if s is not None]).to(self.device)
-        state  = torch.FloatTensor(batch.s).to(self.device)
-        action = torch.LongTensor(batch.a).to(self.device).view(-1,1)
+        """
+        # `non_final_mask` is used for environments that have next state to be
+        # None
+        non_final_mask = torch.tensor(
+            tuple(map(lambda s: s is not None, batch.s_)), dtype=torch.bool
+        ).to(self.device)
+        non_final_state_nxt = torch.FloatTensor(
+            [s for s in batch.s_ if s is not None]
+        ).to(self.device)
+        state = torch.FloatTensor(batch.s).to(self.device)
+        action = torch.LongTensor(batch.a).to(self.device).view(-1, 1)
         reward = torch.FloatTensor(batch.r).to(self.device)
 
-        g_x = torch.FloatTensor([info['g_x'] for info in batch.info]).to(self.device).view(-1)
-        l_x = torch.FloatTensor([info['l_x'] for info in batch.info]).to(self.device).view(-1)
+        g_x = (
+            torch.FloatTensor([info["g_x"] for info in batch.info])
+            .to(self.device)
+            .view(-1)
+        )
+        l_x = (
+            torch.FloatTensor([info["l_x"] for info in batch.info])
+            .to(self.device)
+            .view(-1)
+        )
 
-        return non_final_mask, non_final_state_nxt, state, action, reward, g_x, l_x
+        return (
+            non_final_mask,
+            non_final_state_nxt,
+            state,
+            action,
+            reward,
+            g_x,
+            l_x,
+        )

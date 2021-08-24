@@ -1,16 +1,20 @@
-# == ESTIMATION ERROR ==
-# 1. We collect ddqn-predicted values and rollout values from different
-    # attacker positions.
-# 2. Each file records ddqn-predicted values and rollout values from different
-    # attacker heading angles, defender positions and defender heading angles
+"""
+Please contact the author(s) of this library if you have any questions.
+Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
-# EXAMPLES
-    # python3 colEstError.py -mf <model path>
+1. We collect ddqn-predicted values and rollout values from different
+    attacker positions.
+2. Each file records ddqn-predicted values and rollout values from different
+    attacker heading angles, defender positions and defender heading angles
 
-import numpy as np
+EXAMPLES
+    python3 colEstError.py -mf <model path>
+"""
+
 import argparse
 import os
 import glob
+import numpy as np
 
 
 def run(args):
@@ -31,8 +35,8 @@ def run(args):
     for i, resultFile in enumerate(results):
         print('Load from {:s} ...'.format(resultFile), end='\r')
         read_dictionary = np.load(resultFile, allow_pickle='TRUE').item()
-        trajLengthTmp   = read_dictionary['trajLength']
-        ddqnValueTmp    = read_dictionary['ddqnValue']
+        trajLengthTmp = read_dictionary['trajLength']
+        ddqnValueTmp = read_dictionary['ddqnValue']
         rolloutValueTmp = read_dictionary['rolloutValue']
         idx = read_dictionary['idx']
         if i == 0:
@@ -40,9 +44,9 @@ def run(args):
             toEnd = read_dictionary['toEnd']
             samples = read_dictionary['samples']
             shapeTmp = (numTest,) + trajLengthTmp.shape
-            trajLength     = np.empty(shape=shapeTmp, dtype=int)
-            ddqnValue      = np.empty(shape=shapeTmp, dtype=float)
-            rolloutValue   = np.empty(shape=shapeTmp, dtype=float)
+            trajLength = np.empty(shape=shapeTmp, dtype=int)
+            ddqnValue = np.empty(shape=shapeTmp, dtype=float)
+            rolloutValue = np.empty(shape=shapeTmp, dtype=float)
         trajLength[idx] = trajLengthTmp
         ddqnValue[idx] = ddqnValueTmp
         rolloutValue[idx] = rolloutValueTmp
@@ -64,21 +68,25 @@ def run(args):
 
 
 if __name__ == '__main__':
-    #== Arguments ==
+    # == Arguments ==
     parser = argparse.ArgumentParser()
 
     # File Parameters
-    parser.add_argument("-of", "--outFile", help="output file",
-        default='estError', type=str)
-    parser.add_argument("-n",  "--number", help="#files assumed to obtain",
-        default='225', type=int)
-    parser.add_argument("-mf", "--modelFolder", help="model folder", 
-        default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str)
+    parser.add_argument(
+        "-of", "--outFile", help="output file", default='estError', type=str)
+    parser.add_argument(
+        "-n", "--number", help="#files assumed to obtain",
+        default='225', type=int
+    )
+    parser.add_argument(
+        "-mf", "--modelFolder", help="model folder",
+        default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str
+    )
 
     args = parser.parse_args()
     print("== Arguments ==")
     print(args)
 
-    #== Execution ==
+    # == Execution ==
     np.set_printoptions(precision=3, suppress=True, floatmode='fixed')
     run(args)

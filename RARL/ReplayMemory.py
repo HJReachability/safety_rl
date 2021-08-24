@@ -1,11 +1,12 @@
-# Please contact the author(s) of this library if you have any questions.
-# Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
+"""
+Please contact the author(s) of this library if you have any questions.
+Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
+"""
 
-# import random
 import numpy as np
 
-class ReplayMemory(object):
 
+class ReplayMemory(object):
     def __init__(self, capacity, seed=0):
         self.capacity = capacity
         self.memory = []

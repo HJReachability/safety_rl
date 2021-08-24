@@ -1,31 +1,35 @@
-# == APPROXIMATION ERROR ==
-# Generate samples to compute approximation error.
-# 1. It supports SIX sample types:
-    # 0-6 corresponds to ['TN', 'TP', 'FN', 'FP', 'POS', 'NEG', 'ALL'].
+"""
+Please contact the author(s) of this library if you have any questions.
+Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
-# EXAMPLES
-    # TN: python3 genValSamples.py -t 0 -mf <model path>
-    # FP: python3 genValSamples.py -t 3 -mf <model path>
+Generate samples to compute approximation error.
+1. It supports SIX sample types:
+    0-6 corresponds to ['TN', 'TP', 'FN', 'FP', 'POS', 'NEG', 'ALL'].
 
-from warnings import simplefilter 
-simplefilter(action='ignore', category=FutureWarning)
-import numpy as np
+EXAMPLES
+    TN: python3 genValSamples.py -t 0 -mf <model path>
+    FP: python3 genValSamples.py -t 3 -mf <model path>
+"""
+
 import argparse
-import time
 import os
+from warnings import simplefilter
+import numpy as np
+
+simplefilter(action='ignore', category=FutureWarning)
 
 
 def run(args):
-    #== Getting states to be tested ==
+    # == Getting states to be tested ==
     print('\n== Getting states to be tested ==')
-    dataFolder = os.path.join(args.modelFolder, 'data/')
-    dataFile = os.path.join(dataFolder, args.dataFile+'.npy')
+    dataFolder = os.path.join(args.modelFolder, 'data')
+    dataFile = os.path.join(dataFolder, args.dataFile + '.npy')
     print('Load from {:s} ...'.format(dataFile))
     read_dictionary = np.load(dataFile, allow_pickle='TRUE').item()
     print(read_dictionary.keys())
-    ddqnValue    = read_dictionary['ddqnValue']
+    ddqnValue = read_dictionary['ddqnValue']
     rolloutValue = read_dictionary['rolloutValue']
-    samples      = read_dictionary['samples']
+    samples = read_dictionary['samples']
     [samplesAtt, samplesDef, thetas] = samples
     print(rolloutValue.shape)
 
@@ -58,9 +62,9 @@ def run(args):
         ddqnList[cnt] = ddqnValue[idx]
         rolloutPolicyValueList[cnt] = rolloutValue[idx]
         states[cnt, 0:2] = samplesAtt[idx[0], :]
-        states[cnt, 2]   = thetas[idx[1]]
+        states[cnt, 2] = thetas[idx[1]]
         states[cnt, 3:5] = samplesDef[idx[2], :]
-        states[cnt, 5]   = thetas[idx[3]]
+        states[cnt, 5] = thetas[idx[3]]
         idxList.append(idx)
 
     print("The first five indices picked: ")
@@ -80,36 +84,42 @@ def run(args):
 
     outFolder = os.path.join(dataFolder, sampleType)
     os.makedirs(outFolder, exist_ok=True)
-    outFile = os.path.join(outFolder, args.outFile+sampleType+'.npy')
+    outFile = os.path.join(outFolder, args.outFile + sampleType + '.npy')
     np.save('{:s}'.format(outFile), finalDict)
     print('--> Save to {:s} ...'.format(outFile))
 
 
 if __name__ == '__main__':
-    #== Arguments ==
+    # == Arguments ==
     parser = argparse.ArgumentParser()
 
     # Simulation Parameters
-    parser.add_argument("-rnd", "--randomSeed", help="random seed",
-        default=0, type=int)
-    parser.add_argument("-t", "--sampleType", help="type of sampled states",
-        default=0, type=int)
-    parser.add_argument("-nt", "--numTest", help="#tests",
-        default=100, type=int)
+    parser.add_argument(
+        "-rnd", "--randomSeed", help="random seed", default=0, type=int)
+    parser.add_argument(
+        "-t", "--sampleType", help="type of sampled states",
+        default=0, type=int
+    )
+    parser.add_argument(
+        "-nt", "--numTest", help="#tests", default=100, type=int)
 
     # File Parameters
-    parser.add_argument("-of", "--outFile", help="output file",
-        default='samples', type=str)
-    parser.add_argument("-mf", "--modelFolder", help="model folder", 
-        default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str)
-    parser.add_argument("-df", "--dataFile", help="estimation error file", 
-        default='estError', type=str)
+    parser.add_argument(
+        "-of", "--outFile", help="output file", default='samples', type=str)
+    parser.add_argument(
+        "-mf", "--modelFolder", help="model folder",
+        default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str
+    )
+    parser.add_argument(
+        "-df", "--dataFile", help="estimation error file",
+        default='estError', type=str
+    )
 
     args = parser.parse_args()
     print("== Arguments ==")
     print(args)
 
-    #== Execution ==
+    # == Execution ==
     np.random.seed(args.randomSeed)
     np.set_printoptions(precision=3, suppress=True, floatmode='fixed')
     run(args)

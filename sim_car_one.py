@@ -1,111 +1,116 @@
-# Please contact the author(s) of this library if you have any questions.
-# Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
+"""
+Please contact the author(s) of this library if you have any questions.
+Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
-# This experiment runs double deep Q-network with the discounted reach-avoid
-# Bellman equation (DRABE) proposed in [RSS21] on a 3-dimensional Dubins car
-# problem. We use this script to generate Fig. 5 in the paper.
+This experiment runs double deep Q-network with the discounted reach-avoid
+Bellman equation (DRABE) proposed in [RSS21] on a 3-dimensional Dubins car
+problem. We use this script to generate Fig. 5 in the paper.
 
-# Examples:
-    # RA: python3 sim_car_one.py -sf -of scratch -w -wi 5000 -g 0.9999 -n 9999
-    # test: python3 sim_car_one.py -sf -of scratch -w -wi 50 -mu 1000 -cp 400 -n tmp
+Examples:
+    RA: python3 sim_car_one.py -sf -of scratch -w -wi 5000 -g 0.9999 -n 9999
+    test: python3 sim_car_one.py -sf -of scratch -w -wi 50 -mu 1000 -cp 400
+        -n tmp
+"""
 
+import os
+import argparse
+import time
 from warnings import simplefilter
-simplefilter(action='ignore', category=FutureWarning)
-
-from gym_reachability import gym_reachability  # Custom Gym env.
 import gym
 import numpy as np
 import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import torch
-import os
-import argparse
 
 from RARL.DDQNSingle import DDQNSingle
 from RARL.config import dqnConfig
 from RARL.utils import save_obj
+from gym_reachability import gym_reachability  # Custom Gym env.
 
-import time
+matplotlib.use('Agg')
+simplefilter(action='ignore', category=FutureWarning)
 timestr = time.strftime("%Y-%m-%d-%H_%M")
 
 
-#== ARGS ==
+# == ARGS ==
 parser = argparse.ArgumentParser()
 
 # environment parameters
-parser.add_argument("-dt",  "--doneType",       help="when to raise done flag",
-    default='toEnd',    type=str)
-parser.add_argument("-ct",  "--costType",       help="cost type",
-    default='sparse',   type=str)
-parser.add_argument("-rnd", "--randomSeed",     help="random seed",
-    default=0,          type=int)
+parser.add_argument(
+    "-dt", "--doneType", help="when to raise done flag",
+    default='toEnd', type=str
+)
+parser.add_argument(
+    "-ct", "--costType", help="cost type", default='sparse', type=str)
+parser.add_argument(
+    "-rnd", "--randomSeed", help="random seed", default=0, type=int)
 
 # car dynamics
-parser.add_argument("-cr",  "--consRadius",     help="constraint radius",
-    default=1., type=float)
-parser.add_argument("-tr",  "--targetRadius",   help="target radius",
-    default=.5, type=float)
-parser.add_argument("-turn","--turnRadius",     help="turning radius",
-    default=.6, type=float)
-parser.add_argument("-s",   "--speed",          help="speed",
-    default=.5, type=float)
+parser.add_argument(
+    "-cr", "--consRadius", help="constraint radius", default=1., type=float)
+parser.add_argument(
+    "-tr", "--targetRadius", help="target radius", default=.5, type=float)
+parser.add_argument(
+    "-turn", "--turnRadius", help="turning radius", default=.6, type=float)
+parser.add_argument("-s", "--speed", help="speed", default=.5, type=float)
 
 # training scheme
-parser.add_argument("-w",   "--warmup",         help="warmup Q-network",
-    action="store_true")
-parser.add_argument("-wi",  "--warmupIter",     help="warmup iteration",
-    default=10000,  type=int)
-parser.add_argument("-mu",  "--maxUpdates",     help="maximal #gradient updates",
-    default=400000, type=int)
-parser.add_argument("-ut",  "--updateTimes",    help="#hyper-param. steps",
-    default=20,     type=int)
-parser.add_argument("-mc",  "--memoryCapacity", help="memoryCapacity",
-    default=1e4,    type=int)
-parser.add_argument("-cp",  "--checkPeriod",    help="check period",
-    default=20000, type=int)
+parser.add_argument(
+    "-w", "--warmup", help="warmup Q-network", action="store_true")
+parser.add_argument(
+    "-wi", "--warmupIter", help="warmup iteration", default=10000, type=int)
+parser.add_argument(
+    "-mu", "--maxUpdates", help="maximal #gradient updates",
+    default=400000, type=int
+)
+parser.add_argument(
+    "-ut", "--updateTimes", help="#hyper-param. steps", default=20, type=int)
+parser.add_argument(
+    "-mc", "--memoryCapacity", help="memoryCapacity", default=10000, type=int)
+parser.add_argument(
+    "-cp", "--checkPeriod", help="check period", default=20000, type=int)
 
 # hyper-parameters
-parser.add_argument("-a",   "--annealing",      help="gamma annealing",
-    action="store_true")
-parser.add_argument("-arc", "--architecture",   help="NN architecture",
-    default=[100, 100],  nargs="*", type=int)
-parser.add_argument("-lr",  "--learningRate",   help="learning rate",
-    default=1e-3,   type=float)
-parser.add_argument("-g",   "--gamma",          help="contraction coeff.",
-    default=0.8,    type=float)
-parser.add_argument("-act", "--actType",        help="activation type",
-    default='Tanh', type=str)
+parser.add_argument(
+    "-a", "--annealing", help="gamma annealing", action="store_true")
+parser.add_argument(
+    "-arc", "--architecture", help="NN architecture",
+    default=[100, 100], nargs="*", type=int
+)
+parser.add_argument(
+    "-lr", "--learningRate", help="learning rate", default=1e-3, type=float)
+parser.add_argument(
+    "-g", "--gamma", help="contraction coeff.", default=0.9999, type=float)
+parser.add_argument(
+    "-act", "--actType", help="activation type", default='Tanh', type=str)
 
 # RL type
-parser.add_argument("-m",   "--mode",           help="mode",
-    default='RA',       type=str)
-parser.add_argument("-tt",  "--terminalType",   help="terminal value",
-    default='g',        type=str)
+parser.add_argument("-m", "--mode", help="mode", default='RA', type=str)
+parser.add_argument(
+    "-tt", "--terminalType", help="terminal value", default='g', type=str)
 
 # file
-parser.add_argument("-st",  "--showTime",       help="show timestr",
-    action="store_true")
-parser.add_argument("-n",   "--name",           help="extra name",
-    default='',                         type=str)
-parser.add_argument("-of",  "--outFolder",      help="output file",
-    default='experiments',  type=str)
-parser.add_argument("-pf",  "--plotFigure",     help="plot figures",
-    action="store_true")
-parser.add_argument("-sf",  "--storeFigure",    help="store figures",
-    action="store_true")
+parser.add_argument(
+    "-st", "--showTime", help="show timestr", action="store_true")
+parser.add_argument("-n", "--name", help="extra name", default='', type=str)
+parser.add_argument(
+    "-of", "--outFolder", help="output file", default='experiments', type=str)
+parser.add_argument(
+    "-pf", "--plotFigure", help="plot figures", action="store_true")
+parser.add_argument(
+    "-sf", "--storeFigure", help="store figures", action="store_true")
 
 args = parser.parse_args()
 print(args)
 
 
-#== CONFIGURATION ==
+# == CONFIGURATION ==
 env_name = "dubins_car-v1"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 maxUpdates = args.maxUpdates
 updateTimes = args.updateTimes
 updatePeriod = int(maxUpdates / updateTimes)
-updatePeriodHalf = int(updatePeriod/2)
+updatePeriodHalf = int(updatePeriod / 2)
 maxSteps = 100
 
 fn = args.name + '-' + args.doneType
@@ -118,15 +123,17 @@ figureFolder = os.path.join(outFolder, 'figure')
 os.makedirs(figureFolder, exist_ok=True)
 
 
-#== Environment ==
+# == Environment ==
 print("\n== Environment Information ==")
 if args.doneType == 'toEnd':
-    sample_inside_obs=True
+    sample_inside_obs = True
 elif args.doneType == 'TF' or args.doneType == 'fail':
-    sample_inside_obs=False
+    sample_inside_obs = False
 
-env = gym.make(env_name, device=device, mode=args.mode, doneType=args.doneType,
-    sample_inside_obs=sample_inside_obs)
+env = gym.make(
+    env_name, device=device, mode=args.mode, doneType=args.doneType,
+    sample_inside_obs=sample_inside_obs
+)
 
 stateDim = env.state.shape[0]
 actionNum = env.action_space.n
@@ -135,27 +142,36 @@ print("State Dimension: {:d}, ActionSpace Dimension: {:d}".format(
     stateDim, actionNum))
 
 
-#== Setting in this Environment ==
+# == Setting in this Environment ==
 env.set_speed(speed=args.speed)
 env.set_target(radius=args.targetRadius)
 env.set_constraint(radius=args.consRadius)
 env.set_radius_rotation(R_turn=args.turnRadius)
 print("Dynamic parameters:")
-print("  CAR")
-print("    Constraint radius: {:.1f}, Target radius: {:.1f}, Turn radius: {:.2f}, Maximum speed: {:.2f}, Maximum angular speed: {:.2f}".format(
-    env.car.constraint_radius, env.car.target_radius, env.car.R_turn, env.car.speed, env.car.max_turning_rate))
-print("  ENV")
-print("    Constraint radius: {:.1f}, Target radius: {:.1f}, Turn radius: {:.2f}, Maximum speed: {:.2f}".format(
-    env.constraint_radius, env.target_radius, env.R_turn, env.speed))
+print("  CAR", end='\n    ')
+print(
+    "Constraint: {:.1f} ".format(env.car.constraint_radius)
+    + "Target: {:.1f} ".format(env.car.target_radius)
+    + "Turn: {:.2f} ".format(env.car.R_turn)
+    + "Max speed: {:.2f} ".format(env.car.speed)
+    + "Max angular speed: {:.3f}".format(env.car.max_turning_rate)
+)
+print("  ENV", end='\n    ')
+print(
+    "Constraint: {:.1f} ".format(env.constraint_radius)
+    + "Target: {:.1f} ".format(env.target_radius)
+    + "Turn: {:.2f} ".format(env.R_turn)
+    + "Max speed: {:.2f} ".format(env.speed)
+)
 print(env.car.discrete_controls)
-if 2*env.R_turn-env.constraint_radius > env.target_radius:
+if 2 * env.R_turn - env.constraint_radius > env.target_radius:
     print("Type II Reach-Avoid Set")
 else:
     print("Type I Reach-Avoid Set")
 env.set_seed(args.randomSeed)
 
 
-#== Get and Plot max{l_x, g_x} ==
+# == Get and Plot max{l_x, g_x} ==
 if args.plotFigure or args.storeFigure:
     nx, ny = 101, 101
     vmin = -1
@@ -164,8 +180,8 @@ if args.plotFigure or args.storeFigure:
     v = np.zeros((nx, ny))
     l_x = np.zeros((nx, ny))
     g_x = np.zeros((nx, ny))
-    xs = np.linspace(env.bounds[0,0], env.bounds[0,1], nx)
-    ys =np.linspace(env.bounds[1,0], env.bounds[1,1], ny)
+    xs = np.linspace(env.bounds[0, 0], env.bounds[0, 1], nx)
+    ys = np.linspace(env.bounds[1, 0], env.bounds[1, 1], ny)
 
     it = np.nditer(v, flags=['multi_index'])
 
@@ -182,30 +198,42 @@ if args.plotFigure or args.storeFigure:
 
     axStyle = env.get_axes()
 
-    fig, axes = plt.subplots(1,3, figsize=(12,6))
+    fig, axes = plt.subplots(1, 3, figsize=(12, 6))
 
     ax = axes[0]
-    im = ax.imshow(l_x.T, interpolation='none', extent=axStyle[0],
-        origin="lower", cmap="seismic", vmin=vmin, vmax=vmax, zorder=-1)
-    cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95,
-        ticks=[vmin, 0, vmax])
+    im = ax.imshow(
+        l_x.T, interpolation='none', extent=axStyle[0],
+        origin="lower", cmap="seismic", vmin=vmin, vmax=vmax, zorder=-1
+    )
+    cbar = fig.colorbar(
+        im, ax=ax, pad=0.01, fraction=0.05, shrink=.95,
+        ticks=[vmin, 0, vmax]
+    )
     cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
     ax.set_title(r'$\ell(x)$', fontsize=18)
 
     ax = axes[1]
-    im = ax.imshow(g_x.T, interpolation='none', extent=axStyle[0],
-        origin="lower", cmap="seismic", vmin=vmin, vmax=vmax, zorder=-1)
-    cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95,
-        ticks=[vmin, 0, vmax])
+    im = ax.imshow(
+        g_x.T, interpolation='none', extent=axStyle[0],
+        origin="lower", cmap="seismic", vmin=vmin, vmax=vmax, zorder=-1
+    )
+    cbar = fig.colorbar(
+        im, ax=ax, pad=0.01, fraction=0.05, shrink=.95,
+        ticks=[vmin, 0, vmax]
+    )
     cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
     ax.set_title(r'$g(x)$', fontsize=18)
 
     ax = axes[2]
-    im = ax.imshow(v.T, interpolation='none', extent=axStyle[0],
-        origin="lower", cmap="seismic", vmin=vmin, vmax=vmax, zorder=-1)
+    im = ax.imshow(
+        v.T, interpolation='none', extent=axStyle[0],
+        origin="lower", cmap="seismic", vmin=vmin, vmax=vmax, zorder=-1
+    )
     env.plot_reach_avoid_set(ax)
-    cbar = fig.colorbar(im, ax=ax, pad=0.01, fraction=0.05, shrink=.95,
-        ticks=[vmin, 0, vmax])
+    cbar = fig.colorbar(
+        im, ax=ax, pad=0.01, fraction=0.05, shrink=.95,
+        ticks=[vmin, 0, vmax]
+    )
     cbar.ax.set_yticklabels(labels=[vmin, 0, vmax], fontsize=24)
     ax.set_title(r'$v(x)$', fontsize=18)
 
@@ -223,31 +251,35 @@ if args.plotFigure or args.storeFigure:
     plt.close()
 
 
-#== Agent CONFIG ==
+# == Agent CONFIG ==
 print("\n== Agent Information ==")
 if args.annealing:
     GAMMA_END = 0.9999
-    EPS_PERIOD = int(updatePeriod/10)
+    EPS_PERIOD = int(updatePeriod / 10)
     EPS_RESET_PERIOD = updatePeriod
 else:
     GAMMA_END = args.gamma
     EPS_PERIOD = updatePeriod
     EPS_RESET_PERIOD = maxUpdates
 
-CONFIG = dqnConfig(DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
+CONFIG = dqnConfig(
+    DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
     MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps,
     BATCH_SIZE=64, MEMORY_CAPACITY=args.memoryCapacity,
     ARCHITECTURE=args.architecture, ACTIVATION=args.actType,
     GAMMA=args.gamma, GAMMA_PERIOD=updatePeriod, GAMMA_END=GAMMA_END,
     EPS_PERIOD=EPS_PERIOD, EPS_DECAY=0.7, EPS_RESET_PERIOD=EPS_RESET_PERIOD,
     LR_C=args.learningRate, LR_C_PERIOD=updatePeriod, LR_C_DECAY=0.8,
-    MAX_MODEL=50)
+    MAX_MODEL=50
+)
 
 
-#== AGENT ==
+# == AGENT ==
 dimList = [stateDim] + CONFIG.ARCHITECTURE + [actionNum]
-agent = DDQNSingle(CONFIG, actionNum, actionList, dimList=dimList,
-    mode=args.mode, terminalType=args.terminalType)
+agent = DDQNSingle(
+    CONFIG, actionNum, actionList, dimList=dimList,
+    mode=args.mode, terminalType=args.terminalType
+)
 print("We want to use: {}, and Agent uses: {}".format(device, agent.device))
 print("Critic is using cuda: ", next(agent.Q_network.parameters()).is_cuda)
 
@@ -255,12 +287,14 @@ vmin = -1
 vmax = 1
 if args.warmup:
     print("\n== Warmup Q ==")
-    lossList = agent.initQ(env, args.warmupIter, outFolder,
+    lossList = agent.initQ(
+        env, args.warmupIter, outFolder,
         num_warmup_samples=200, vmin=vmin, vmax=vmax,
-        plotFigure=args.plotFigure, storeFigure=args.storeFigure)
+        plotFigure=args.plotFigure, storeFigure=args.storeFigure
+    )
 
     if args.plotFigure or args.storeFigure:
-        fig, ax = plt.subplots(1,1, figsize=(4, 4))
+        fig, ax = plt.subplots(1, 1, figsize=(4, 4))
         tmp = np.arange(500, args.warmupIter)
         # tmp = np.arange(args.warmupIter)
         ax.plot(tmp, lossList[tmp], 'b-')
@@ -280,8 +314,8 @@ if args.warmup:
 print("\n== Training Information ==")
 vmin = -1
 vmax = 1
-trainRecords, trainProgress = agent.learn(env,
-    MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps,
+trainRecords, trainProgress = agent.learn(
+    env, MAX_UPDATES=maxUpdates, MAX_EP_STEPS=maxSteps,
     warmupQ=False, doneTerminate=True,
     vmin=vmin, vmax=vmax, showBool=False,
     checkPeriod=args.checkPeriod, outFolder=outFolder,
@@ -329,14 +363,14 @@ if args.plotFigure or args.storeFigure:
     idx = np.argmax(trainProgress[:, 0]) + 1
     successRate = np.amax(trainProgress[:, 0])
     print('We pick model with success rate-{:.3f}'.format(successRate))
-    agent.restore(idx*args.checkPeriod, outFolder)
+    agent.restore(idx * args.checkPeriod, outFolder)
 
-    nx=101
-    ny=nx
-    xs = np.linspace(env.bounds[0,0], env.bounds[0,1], nx)
-    ys = np.linspace(env.bounds[1,0], env.bounds[1,1], ny)
+    nx = 101
+    ny = nx
+    xs = np.linspace(env.bounds[0, 0], env.bounds[0, 1], nx)
+    ys = np.linspace(env.bounds[1, 0], env.bounds[1, 1], ny)
 
-    resultMtx  = np.empty((nx, ny), dtype=int)
+    resultMtx = np.empty((nx, ny), dtype=int)
     actDistMtx = np.empty((nx, ny), dtype=int)
     it = np.nditer(resultMtx, flags=['multi_index'])
 
@@ -352,34 +386,45 @@ if args.plotFigure or args.storeFigure:
         # u = env.discrete_controls[action_index]
         actDistMtx[idx] = action_index
 
-        _, result, _, _ = env.simulate_one_trajectory(agent.Q_network, T=250, state=state, toEnd=False)
+        _, result, _, _ = env.simulate_one_trajectory(
+            agent.Q_network, T=250, state=state, toEnd=False)
         resultMtx[idx] = result
         it.iternext()
 
     fig, axes = plt.subplots(1, 3, figsize=(12, 4), sharex=True, sharey=True)
     axStyle = env.get_axes()
 
-    #= Action
+    # = Action
     ax = axes[2]
-    im = ax.imshow(actDistMtx.T, interpolation='none', extent=axStyle[0],
-        origin="lower", cmap='seismic', vmin=0, vmax=actionNum-1, zorder=-1)
+    im = ax.imshow(
+        actDistMtx.T, interpolation='none', extent=axStyle[0],
+        origin="lower", cmap='seismic', vmin=0, vmax=actionNum - 1, zorder=-1
+    )
     ax.set_xlabel('Action', fontsize=24)
 
-    #= Rollout
+    # = Rollout
     ax = axes[1]
-    im = ax.imshow(resultMtx.T != 1, interpolation='none', extent=axStyle[0],
-        origin="lower", cmap='seismic', vmin=0, vmax=1, zorder=-1)
-    env.plot_trajectories(agent.Q_network, states=env.visual_initial_states,
-        toEnd=False, ax=ax, c='w', lw=1.5, T=100, orientation=-np.pi/2)
+    im = ax.imshow(
+        resultMtx.T != 1, interpolation='none', extent=axStyle[0],
+        origin="lower", cmap='seismic', vmin=0, vmax=1, zorder=-1
+    )
+    env.plot_trajectories(
+        agent.Q_network, states=env.visual_initial_states,
+        toEnd=False, ax=ax, c='w', lw=1.5, T=100, orientation=-np.pi / 2
+    )
     ax.set_xlabel('Rollout RA', fontsize=24)
 
-    #= Value
+    # = Value
     ax = axes[0]
     v = env.get_value(agent.Q_network, theta=0, nx=nx, ny=ny)
-    im = ax.imshow(v.T, interpolation='none', extent=axStyle[0],
-        origin="lower", cmap='seismic', vmin=vmin, vmax=vmax, zorder=-1)
-    CS = ax.contour(xs, ys, v.T, levels=[0], colors='k', linewidths=2,
-        linestyles='dashed')
+    im = ax.imshow(
+        v.T, interpolation='none', extent=axStyle[0],
+        origin="lower", cmap='seismic', vmin=vmin, vmax=vmax, zorder=-1
+    )
+    CS = ax.contour(
+        xs, ys, v.T, levels=[0], colors='k', linewidths=2,
+        linestyles='dashed'
+    )
     ax.set_xlabel('Value', fontsize=24)
 
     for ax in axes:

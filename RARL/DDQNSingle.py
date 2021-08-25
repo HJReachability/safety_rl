@@ -24,7 +24,6 @@ from .DDQN import DDQN, Transition
 
 
 class DDQNSingle(DDQN):
-
     def __init__(
         self,
         CONFIG,
@@ -60,11 +59,8 @@ class DDQNSingle(DDQN):
         self.dimList = dimList
         self.actType = CONFIG.ACTIVATION
         self.build_network(dimList, self.actType, verbose)
-        print(
-            "DDQN: mode-{}; terminalType-{}".format(
-                self.mode, self.terminalType
-            )
-        )
+        print("DDQN: mode-{}; terminalType-{}".format(self.mode,
+                                                      self.terminalType))
 
     def build_network(self, dimList, actType="Tanh", verbose=True):
         """
@@ -122,15 +118,14 @@ class DDQNSingle(DDQN):
         # -> state_action_values = Q [ i ][ action[i] ]
         # view(-1): from mtx to vector
         self.Q_network.train()
-        state_action_values = (
-            self.Q_network(state).gather(dim=1, index=action).view(-1)
-        )
+        state_action_values = (self.Q_network(state).gather(
+            dim=1, index=action).view(-1))
 
         # == get a' by Q_policy: a' = argmin_a' Q_policy(s', a') ==
         with torch.no_grad():
             self.Q_network.eval()
-            state_action_values = self.Q_network(non_final_state_nxt)
-            action_nxt = state_action_values.min(1, keepdim=True)[1]
+            action_nxt = self.Q_network(non_final_state_nxt).min(
+                1, keepdim=True)[1]
 
         # == get expected value ==
         state_value_nxt = torch.zeros(self.BATCH_SIZE).to(self.device)
@@ -143,8 +138,7 @@ class DDQNSingle(DDQN):
                 self.Q_network.eval()
                 Q_expect = self.Q_network(non_final_state_nxt)
         state_value_nxt[non_final_mask] = Q_expect.gather(
-            dim=1, index=action_nxt
-        ).view(-1)
+            dim=1, index=action_nxt).view(-1)
 
         # == Discounted Reach-Avoid Bellman Equation (DRABE) ==
         if self.mode == "RA":
@@ -154,9 +148,8 @@ class DDQNSingle(DDQN):
                 # V(s) = gamma ( max{ g(s), min{ l(s), V_diff(s') } }
                 #        - max{ g(s), l(s) } ),
                 # where V_diff(s') = V(s') + max{ g(s'), l(s') }
-                min_term = torch.min(
-                    l_x, state_value_nxt + torch.max(l_x, g_x)
-                )
+                min_term = torch.min(l_x,
+                                     state_value_nxt + torch.max(l_x, g_x))
                 terminal = torch.max(l_x, g_x)
                 non_terminal = torch.max(min_term, g_x) - terminal
                 y[non_final_mask] = self.GAMMA * non_terminal[non_final_mask]
@@ -166,9 +159,8 @@ class DDQNSingle(DDQN):
                 # we want Q(s, u) = V( f(s,u) )
                 non_terminal = torch.max(
                     g_x[non_final_mask],
-                    torch.min(
-                        l_x[non_final_mask], state_value_nxt[non_final_mask]
-                    ),
+                    torch.min(l_x[non_final_mask],
+                              state_value_nxt[non_final_mask]),
                 )
                 terminal = torch.max(l_x, g_x)
 
@@ -195,9 +187,8 @@ class DDQNSingle(DDQN):
         # == backpropagation ==
         self.optimizer.zero_grad()
         loss.backward()
-        nn.utils.clip_grad_norm_(
-            self.Q_network.parameters(), self.max_grad_norm
-        )
+        nn.utils.clip_grad_norm_(self.Q_network.parameters(),
+                                 self.max_grad_norm)
         self.optimizer.step()
 
         self.update_target_network()
@@ -263,8 +254,7 @@ class DDQNSingle(DDQN):
         lossList = np.empty(warmupIter, dtype=float)
         for ep_tmp in range(warmupIter):
             states, heuristic_v = env.get_warmup_examples(
-                num_warmup_samples=num_warmup_samples
-            )
+                num_warmup_samples=num_warmup_samples)
 
             self.Q_network.train()
             heuristic_v = torch.from_numpy(heuristic_v).float().to(self.device)
@@ -275,9 +265,8 @@ class DDQNSingle(DDQN):
 
             self.optimizer.zero_grad()
             loss.backward()
-            nn.utils.clip_grad_norm_(
-                self.Q_network.parameters(), self.max_grad_norm
-            )
+            nn.utils.clip_grad_norm_(self.Q_network.parameters(),
+                                     self.max_grad_norm)
             self.optimizer.step()
             lossList[ep_tmp] = loss.detach().cpu().numpy()
             print(
@@ -299,8 +288,7 @@ class DDQNSingle(DDQN):
                 plt.pause(0.001)
                 # plt.close()
         self.target_network.load_state_dict(
-            self.Q_network.state_dict()
-        )  # hard replace
+            self.Q_network.state_dict())  # hard replace
         self.build_optimizer()
 
         return lossList
@@ -456,13 +444,10 @@ class DDQNSingle(DDQN):
                         print("\nAfter [{:d}] updates:".format(self.cntUpdate))
                         print(
                             "  - eps={:.2f}, gamma={:.6f}, lr={:.1e}.".format(
-                                self.EPSILON, self.GAMMA, lr
-                            )
-                        )
+                                self.EPSILON, self.GAMMA, lr))
                         print("  - success/failure/unfinished ratio:", end=" ")
                         with np.printoptions(
-                            formatter={"float": "{: .3f}".format}
-                        ):
+                                formatter={"float": "{: .3f}".format}):
                             print(np.array([success, failure, unfinish]))
 
                     if storeModel:
@@ -493,8 +478,7 @@ class DDQNSingle(DDQN):
                         if storeFigure:
                             figurePath = os.path.join(
                                 figureFolder,
-                                "{:d}.png".format(self.cntUpdate)
-                            )
+                                "{:d}.png".format(self.cntUpdate))
                             plt.savefig(figurePath)
                         if plotFigure:
                             plt.pause(0.001)
@@ -510,13 +494,13 @@ class DDQNSingle(DDQN):
                     break
 
             # Rollout report
-            runningCost = runningCost*0.9 + epCost*0.1
+            runningCost = runningCost * 0.9 + epCost * 0.1
             if verbose:
                 print(
-                    "\r[{:d}-{:d}]: ".format(ep, self.cntUpdate)
-                    + "This episode gets running/episode cost = "
-                    + "({:3.2f}/{:.2f}) after {:d} steps."
-                    .format(runningCost, epCost, step_num + 1),
+                    "\r[{:d}-{:d}]: ".format(ep, self.cntUpdate) +
+                    "This episode gets running/episode cost = " +
+                    "({:3.2f}/{:.2f}) after {:d} steps.".format(
+                        runningCost, epCost, step_num + 1),
                     end="",
                 )
 
@@ -524,8 +508,7 @@ class DDQNSingle(DDQN):
             if runningCostThr is not None:
                 if runningCost <= runningCostThr:
                     print(
-                        "\n At Updates[{:3.0f}] Solved!"
-                        .format(self.cntUpdate)
+                        "\n At Updates[{:3.0f}] Solved!".format(self.cntUpdate)
                         + " Running cost is now {:3.2f}!".format(runningCost)
                     )
                     env.close()
@@ -535,11 +518,8 @@ class DDQNSingle(DDQN):
         timeInitQ = endInitQ - startInitQ
         timeLearning = endLearning - startLearning
         self.save(self.cntUpdate, modelFolder)
-        print(
-            "\nInitBuffer: {:.1f}, InitQ: {:.1f}, Learning: {:.1f}".format(
-                timeInitBuffer, timeInitQ, timeLearning
-            )
-        )
+        print("\nInitBuffer: {:.1f}, InitQ: {:.1f}, Learning: {:.1f}".format(
+            timeInitBuffer, timeInitQ, timeLearning))
         trainingRecords = np.array(trainingRecords)
         trainProgress = np.array(trainProgress)
         return trainingRecords, trainProgress

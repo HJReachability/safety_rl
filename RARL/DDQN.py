@@ -5,6 +5,7 @@ Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
 import torch
 import torch.optim as optim
+import abc
 
 from collections import namedtuple
 import os
@@ -14,11 +15,10 @@ from .model import StepLRMargin, StepResetLR
 from .ReplayMemory import ReplayMemory
 from .utils import soft_update, save_model
 
-
 Transition = namedtuple("Transition", ["s", "a", "r", "s_", "info"])
 
 
-class DDQN:
+class DDQN(abc.ABC):
 
     def __init__(self, CONFIG):
         """
@@ -59,13 +59,21 @@ class DDQN:
             goalValue=1.0,
         )
         self.GAMMA = self.GammaScheduler.get_variable()
-        # Target Network Update
-        self.double = CONFIG.DOUBLE
-        self.TAU = CONFIG.TAU
-        self.HARD_UPDATE = CONFIG.HARD_UPDATE  # int, update period
-        self.SOFT_UPDATE = CONFIG.SOFT_UPDATE  # bool
 
+        # Target Network Update: also check `update_target_network()`
+        # if SOFT_UPDATE is True, update the target_network right after every
+        # gradient update of the Q-network by
+        # target = TAU * Q-network + (1-TAU) * target
+        # if SOFT_UPDATE is False, copy the Q-network into the target nework
+        # every HARD_UPDATE updates
+        self.double_network = CONFIG.DOUBLE  # bool: double DQN if True
+        self.TAU = CONFIG.TAU  # soft-update coefficient
+        self.HARD_UPDATE = CONFIG.HARD_UPDATE  # int, update period
+        self.SOFT_UPDATE = CONFIG.SOFT_UPDATE  # bool, use soft-update if True
+
+    @abc.abstractmethod
     def build_network(self):
+        # should be implemented in child class
         raise NotImplementedError
 
     def build_optimizer(self):

@@ -199,7 +199,7 @@ class DDQNPursuitEvasion(DDQN):
         state_value_nxt = torch.zeros(self.BATCH_SIZE).to(self.device)
 
         with torch.no_grad():  # V(s') = Q_tar(s', a'), a' is from Q_policy
-            if self.double:
+            if self.double_network:
                 Q_expect = self.target_network(non_final_state_nxt)
             else:
                 Q_expect = self.Q_network(non_final_state_nxt)
@@ -504,8 +504,8 @@ class DDQNPursuitEvasion(DDQN):
                         )
                         print(
                             "  - success/failure/unfinished ratio: "
-                            + "{:.3f}, {:.3f}, {:.3f}"
-                            .format(success, failure, unfinish)
+                            + "{:.3f}, {:.3f}, {:.3f}".
+                            format(success, failure, unfinish)
                         )
 
                     if storeModel:
@@ -556,8 +556,8 @@ class DDQNPursuitEvasion(DDQN):
                 print(
                     "\r[{:d}-{:d}]: ".format(ep, self.cntUpdate)
                     + "This episode gets running/episode cost = "
-                    + "({:3.2f}/{:.2f}) after {:d} steps."
-                    .format(runningCost, epCost, step_num + 1),
+                    + "({:3.2f}/{:.2f}) after {:d} steps.".
+                    format(runningCost, epCost, step_num + 1),
                     end="",
                 )
 
@@ -565,8 +565,8 @@ class DDQNPursuitEvasion(DDQN):
             if runningCostThr is not None:
                 if runningCost <= runningCostThr:
                     print(
-                        "\n At Updates[{:3.0f}] Solved!"
-                        .format(self.cntUpdate)
+                        "\n At Updates[{:3.0f}] Solved!".
+                        format(self.cntUpdate)
                         + " Running cost is now {:3.2f}!".format(runningCost)
                     )
                     env.close()

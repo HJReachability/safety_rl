@@ -16,6 +16,8 @@ You can refer to some examples provided here.
 This tool learns the reach-avoid set by trial-and-error interactions with the environment, so it is not _in itself_ a safe learning algorithm.
 However, it can be used in conjunction with an existing safe learning scheme, such as "shielding", to enable learning with safety guarantees (see Script 4 below as well as Section IV.B in the [RSS 2021 paper](https://roboticsconference.org/program/papers/077/) for an example).
 
+The implementation of tabular Q-learning is adapted from [Denny Britz's implementation](https://github.com/dennybritz/reinforcement-learning) and the implementation of double deep Q-network and replay memory is adapted from [PyTorch's tutorial (by Adam Paszke)](https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html).
+
 ## I. Dependencies
 If you are using anaconda to control packages, you can use one of the following
 command to create an identical environment with the specification file:

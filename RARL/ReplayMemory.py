@@ -1,6 +1,12 @@
 """
 Please contact the author(s) of this library if you have any questions.
 Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
+
+This file is based on Adam Paszke's implementation of Replay Memory,
+available at:
+
+https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
+
 """
 
 import numpy as np

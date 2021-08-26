@@ -27,7 +27,6 @@ from RARL.config import dqnConfig
 from RARL.utils import save_obj
 from gym_reachability import gym_reachability  # Custom Gym env.
 
-
 matplotlib.use('Agg')
 simplefilter(action='ignore', category=FutureWarning)
 timestr = time.strftime("%Y-%m-%d-%H_%M")
@@ -136,7 +135,7 @@ maxSteps = 200
 
 fn = args.name + '-' + args.doneType
 if args.showTime:
-    fn = fn + '-' + timestr
+  fn = fn + '-' + timestr
 
 outFolder = os.path.join(args.outFolder, 'car-pe-DDQN', fn)
 print(outFolder)
@@ -157,66 +156,65 @@ env.report()
 
 # == Get and Plot max{l_x, g_x} ==
 if args.plotFigure or args.storeFigure:
-    nx, ny = 101, 101
-    theta, thetaPursuer = 0., 0.
-    v = np.zeros((4, nx, ny))
-    l_x = np.zeros((4, nx, ny))
-    g_x = np.zeros((4, nx, ny))
-    xs = np.linspace(env.bounds[0, 0], env.bounds[0, 1], nx)
-    ys = np.linspace(env.bounds[1, 0], env.bounds[1, 1], ny)
+  nx, ny = 101, 101
+  theta, thetaPursuer = 0., 0.
+  v = np.zeros((4, nx, ny))
+  l_x = np.zeros((4, nx, ny))
+  g_x = np.zeros((4, nx, ny))
+  xs = np.linspace(env.bounds[0, 0], env.bounds[0, 1], nx)
+  ys = np.linspace(env.bounds[1, 0], env.bounds[1, 1], ny)
 
-    xPursuerList = [.1, .3, .5, .8]
-    yPursuerList = [.1, .3, .5, .8]
-    for i, (xPursuer, yPursuer) in enumerate(zip(xPursuerList, yPursuerList)):
-        it = np.nditer(l_x[0], flags=['multi_index'])
+  xPursuerList = [.1, .3, .5, .8]
+  yPursuerList = [.1, .3, .5, .8]
+  for i, (xPursuer, yPursuer) in enumerate(zip(xPursuerList, yPursuerList)):
+    it = np.nditer(l_x[0], flags=['multi_index'])
 
-        while not it.finished:
-            idx = it.multi_index
-            x = xs[idx[0]]
-            y = ys[idx[1]]
+    while not it.finished:
+      idx = it.multi_index
+      x = xs[idx[0]]
+      y = ys[idx[1]]
 
-            state = np.array([x, y, theta, xPursuer, yPursuer, thetaPursuer])
-            l_x[i][idx] = env.target_margin(state)
-            g_x[i][idx] = env.safety_margin(state)
+      state = np.array([x, y, theta, xPursuer, yPursuer, thetaPursuer])
+      l_x[i][idx] = env.target_margin(state)
+      g_x[i][idx] = env.safety_margin(state)
 
-            v[i][idx] = np.maximum(l_x[i][idx], g_x[i][idx])
-            it.iternext()
+      v[i][idx] = np.maximum(l_x[i][idx], g_x[i][idx])
+      it.iternext()
 
-    axStyle = env.get_axes()
-    fig, axes = plt.subplots(1, 4, figsize=(16, 4))
-    for i, ax in enumerate(axes):
-        xPursuer = xPursuerList[i]
-        yPursuer = yPursuerList[i]
-        f = ax.imshow(
-            v[i].T, interpolation='none', extent=axStyle[0], origin="lower",
-            cmap="seismic", vmin=-1, vmax=1
-        )
-        env.plot_target_failure_set(ax, xPursuer=xPursuer, yPursuer=yPursuer)
-        if i == 3:
-            fig.colorbar(
-                f, ax=ax, pad=0.01, fraction=0.05, shrink=0.95,
-                ticks=[-1, 0, 1]
-            )
-        env.plot_formatting(ax)
-    fig.tight_layout()
-    if args.storeFigure:
-        figurePath = os.path.join(figureFolder, 'env.png')
-        fig.savefig(figurePath)
-    if args.plotFigure:
-        plt.show()
-        plt.pause(0.001)
-    plt.close()
+  axStyle = env.get_axes()
+  fig, axes = plt.subplots(1, 4, figsize=(16, 4))
+  for i, ax in enumerate(axes):
+    xPursuer = xPursuerList[i]
+    yPursuer = yPursuerList[i]
+    f = ax.imshow(
+        v[i].T, interpolation='none', extent=axStyle[0], origin="lower",
+        cmap="seismic", vmin=-1, vmax=1
+    )
+    env.plot_target_failure_set(ax, xPursuer=xPursuer, yPursuer=yPursuer)
+    if i == 3:
+      fig.colorbar(
+          f, ax=ax, pad=0.01, fraction=0.05, shrink=0.95, ticks=[-1, 0, 1]
+      )
+    env.plot_formatting(ax)
+  fig.tight_layout()
+  if args.storeFigure:
+    figurePath = os.path.join(figureFolder, 'env.png')
+    fig.savefig(figurePath)
+  if args.plotFigure:
+    plt.show()
+    plt.pause(0.001)
+  plt.close()
 
 # == Agent CONFIG ==
 print("\n== Agent Information ==")
 if args.annealing:
-    GAMMA_END = 0.9999
-    EPS_PERIOD = int(updatePeriod / 10)
-    EPS_RESET_PERIOD = updatePeriod
+  GAMMA_END = 0.9999
+  EPS_PERIOD = int(updatePeriod / 10)
+  EPS_RESET_PERIOD = updatePeriod
 else:
-    GAMMA_END = args.gamma
-    EPS_PERIOD = updatePeriod
-    EPS_RESET_PERIOD = maxUpdates
+  GAMMA_END = args.gamma
+  EPS_PERIOD = updatePeriod
+  EPS_RESET_PERIOD = maxUpdates
 
 CONFIG = dqnConfig(
     DEVICE=device, ENV_NAME=env_name, SEED=args.randomSeed,
@@ -242,33 +240,33 @@ print("Critic is using cuda: ", next(agent.Q_network.parameters()).is_cuda)
 vmin = -1
 vmax = 1
 if args.warmup:
-    print("\n== Warmup Q ==")
-    lossList = agent.initQ(
-        env, args.warmupIter, outFolder, num_warmup_samples=200, vmin=vmin,
-        vmax=vmax, plotFigure=args.plotFigure, storeFigure=args.storeFigure
-    )
+  print("\n== Warmup Q ==")
+  lossList = agent.initQ(
+      env, args.warmupIter, outFolder, num_warmup_samples=200, vmin=vmin,
+      vmax=vmax, plotFigure=args.plotFigure, storeFigure=args.storeFigure
+  )
 
-    if args.plotFigure or args.storeFigure:
-        fig, ax = plt.subplots(1, 1, figsize=(4, 4))
-        tmp = np.arange(500, args.warmupIter)
-        ax.plot(tmp, lossList[tmp], 'b-')
+  if args.plotFigure or args.storeFigure:
+    fig, ax = plt.subplots(1, 1, figsize=(4, 4))
+    tmp = np.arange(500, args.warmupIter)
+    ax.plot(tmp, lossList[tmp], 'b-')
 
-        ax.set_xlim(500, args.warmupIter)
-        ax.set_xlabel('Iteration', fontsize=18)
-        ax.set_ylabel('Loss', fontsize=18)
-        ax.xaxis.set_major_locator(LinearLocator(5))
-        ax.xaxis.set_major_formatter('{x:.1f}')
-        ax.yaxis.set_major_locator(LinearLocator(5))
-        ax.yaxis.set_major_formatter('{x:.1f}')
-        fig.tight_layout()
+    ax.set_xlim(500, args.warmupIter)
+    ax.set_xlabel('Iteration', fontsize=18)
+    ax.set_ylabel('Loss', fontsize=18)
+    ax.xaxis.set_major_locator(LinearLocator(5))
+    ax.xaxis.set_major_formatter('{x:.1f}')
+    ax.yaxis.set_major_locator(LinearLocator(5))
+    ax.yaxis.set_major_formatter('{x:.1f}')
+    fig.tight_layout()
 
-        if args.storeFigure:
-            figurePath = os.path.join(figureFolder, 'initQ_Loss.png')
-            fig.savefig(figurePath)
-        if args.plotFigure:
-            plt.show()
-            plt.pause(0.001)
-        plt.close()
+    if args.storeFigure:
+      figurePath = os.path.join(figureFolder, 'initQ_Loss.png')
+      fig.savefig(figurePath)
+    if args.plotFigure:
+      plt.show()
+      plt.pause(0.001)
+    plt.close()
 
 print("\n== Training Information ==")
 vmin = -1
@@ -286,128 +284,125 @@ trainDict['trainProgress'] = trainProgress
 filePath = os.path.join(outFolder, 'train')
 
 if args.plotFigure or args.storeFigure:
-    # region: loss
-    fig, axes = plt.subplots(1, 2, figsize=(8, 4))
+  # region: loss
+  fig, axes = plt.subplots(1, 2, figsize=(8, 4))
 
-    data = trainRecords
-    ax = axes[0]
-    ax.plot(data, 'b:')
-    ax.set_xlabel('Iteration (x 1e5)', fontsize=18)
-    ax.set_xticks(np.linspace(0, maxUpdates, 5))
-    ax.set_xticklabels(np.linspace(0, maxUpdates, 5) / 1e5)
-    ax.set_title('loss_critic', fontsize=18)
-    ax.set_xlim(left=0, right=maxUpdates)
+  data = trainRecords
+  ax = axes[0]
+  ax.plot(data, 'b:')
+  ax.set_xlabel('Iteration (x 1e5)', fontsize=18)
+  ax.set_xticks(np.linspace(0, maxUpdates, 5))
+  ax.set_xticklabels(np.linspace(0, maxUpdates, 5) / 1e5)
+  ax.set_title('loss_critic', fontsize=18)
+  ax.set_xlim(left=0, right=maxUpdates)
 
-    data = trainProgress[:, 0]
-    ax = axes[1]
-    x = np.arange(data.shape[0]) + 1
-    ax.plot(x, data, 'b-o')
-    ax.set_xlabel('Index', fontsize=18)
-    ax.set_xticks(x)
-    ax.set_title('Success Rate', fontsize=18)
-    ax.set_xlim(left=1, right=data.shape[0])
-    ax.set_ylim(0, 0.8)
+  data = trainProgress[:, 0]
+  ax = axes[1]
+  x = np.arange(data.shape[0]) + 1
+  ax.plot(x, data, 'b-o')
+  ax.set_xlabel('Index', fontsize=18)
+  ax.set_xticks(x)
+  ax.set_title('Success Rate', fontsize=18)
+  ax.set_xlim(left=1, right=data.shape[0])
+  ax.set_ylim(0, 0.8)
 
-    fig.tight_layout()
-    if args.storeFigure:
-        figurePath = os.path.join(figureFolder, 'train_loss_success.png')
-        fig.savefig(figurePath)
-    if args.plotFigure:
-        plt.show()
-        plt.pause(0.001)
-    plt.close()
-    # endregion
+  fig.tight_layout()
+  if args.storeFigure:
+    figurePath = os.path.join(figureFolder, 'train_loss_success.png')
+    fig.savefig(figurePath)
+  if args.plotFigure:
+    plt.show()
+    plt.pause(0.001)
+  plt.close()
+  # endregion
 
-    # region: value_rollout_action
-    idx = np.argmax(trainProgress[:, 0]) + 1
-    successRate = np.amax(trainProgress[:, 0])
-    print('We pick model with success rate-{:.3f}'.format(successRate))
-    agent.restore(idx * args.checkPeriod, outFolder)
+  # region: value_rollout_action
+  idx = np.argmax(trainProgress[:, 0]) + 1
+  successRate = np.amax(trainProgress[:, 0])
+  print('We pick model with success rate-{:.3f}'.format(successRate))
+  agent.restore(idx * args.checkPeriod, outFolder)
 
-    nx = 101
-    ny = nx
-    xs = np.linspace(env.bounds[0, 0], env.bounds[0, 1], nx)
-    ys = np.linspace(env.bounds[1, 0], env.bounds[1, 1], ny)
+  nx = 101
+  ny = nx
+  xs = np.linspace(env.bounds[0, 0], env.bounds[0, 1], nx)
+  ys = np.linspace(env.bounds[1, 0], env.bounds[1, 1], ny)
 
-    resultMtx = np.empty((nx, ny), dtype=int)
-    actDistMtx = np.empty((nx, ny), dtype=int)
-    it = np.nditer(resultMtx, flags=['multi_index'])
+  resultMtx = np.empty((nx, ny), dtype=int)
+  actDistMtx = np.empty((nx, ny), dtype=int)
+  it = np.nditer(resultMtx, flags=['multi_index'])
 
-    while not it.finished:
-        idx = it.multi_index
-        print(idx, end='\r')
-        x = xs[idx[0]]
-        y = ys[idx[1]]
+  while not it.finished:
+    idx = it.multi_index
+    print(idx, end='\r')
+    x = xs[idx[0]]
+    y = ys[idx[1]]
 
-        state = np.array([x, y, 0., -0.2, -0.3, 0.75 * np.pi])
-        stateTensor = torch.FloatTensor(state).to(agent.device).unsqueeze(0)
-        state_action_values = agent.Q_network(stateTensor)
-        Q_mtx = state_action_values.reshape(
-            env.numActionList[0], env.numActionList[1]
-        )
-        # Q_mtx = Q_mtx.detach().cpu()
-        pursuerValues, colIndices = Q_mtx.max(dim=1)
-        _, rowIdx = pursuerValues.min(dim=0)
-        colIdx = colIndices[rowIdx]
-
-        uEvader = env.evader.discrete_controls[rowIdx]
-        uPursuer = env.pursuer.discrete_controls[colIdx]
-        actDistMtx[idx] = rowIdx
-
-        _, _, result, _, _ = env.simulate_one_trajectory(
-            agent.Q_network, T=250, state=state, toEnd=False
-        )
-        resultMtx[idx] = result
-        it.iternext()
-
-    fig, axes = plt.subplots(1, 3, figsize=(12, 4), sharex=True, sharey=True)
-    axStyle = env.get_axes()
-
-    # = Action
-    ax = axes[2]
-    im = ax.imshow(
-        actDistMtx.T, interpolation='none', extent=axStyle[0], origin="lower",
-        cmap='seismic', vmin=0, vmax=actionNum - 1, zorder=-1
+    state = np.array([x, y, 0., -0.2, -0.3, 0.75 * np.pi])
+    stateTensor = torch.FloatTensor(state).to(agent.device).unsqueeze(0)
+    state_action_values = agent.Q_network(stateTensor)
+    Q_mtx = state_action_values.reshape(
+        env.numActionList[0], env.numActionList[1]
     )
-    ax.set_xlabel('Action', fontsize=24)
+    # Q_mtx = Q_mtx.detach().cpu()
+    pursuerValues, colIndices = Q_mtx.max(dim=1)
+    _, rowIdx = pursuerValues.min(dim=0)
+    colIdx = colIndices[rowIdx]
 
-    # = Rollout
-    ax = axes[1]
-    im = ax.imshow(
-        resultMtx.T != 1, interpolation='none', extent=axStyle[0],
-        origin="lower", cmap='seismic', vmin=0, vmax=1, zorder=-1
+    uEvader = env.evader.discrete_controls[rowIdx]
+    uPursuer = env.pursuer.discrete_controls[colIdx]
+    actDistMtx[idx] = rowIdx
+
+    _, _, result, _, _ = env.simulate_one_trajectory(
+        agent.Q_network, T=250, state=state, toEnd=False
     )
-    env.plot_trajectories(
-        agent.Q_network, states=[env.visual_initial_states[1]], toEnd=False,
-        ax=ax, lw=1.5, T=200
-    )
-    ax.set_xlabel('Rollout RA', fontsize=24)
+    resultMtx[idx] = result
+    it.iternext()
 
-    # = Value
-    ax = axes[0]
-    im = ax.imshow(
-        v.T, interpolation='none', extent=axStyle[0], origin="lower",
-        cmap='seismic', vmin=vmin, vmax=vmax, zorder=-1
-    )
-    CS = ax.contour(
-        xs, ys, v.T, levels=[0], colors='k', linewidths=2, linestyles='dashed'
-    )
-    ax.set_xlabel('Value', fontsize=24)
+  fig, axes = plt.subplots(1, 3, figsize=(12, 4), sharex=True, sharey=True)
+  axStyle = env.get_axes()
 
-    for ax in axes:
-        env.plot_target_failure_set(ax=ax, xPursuer=-0.2, yPursuer=-0.3)
-        env.plot_formatting(ax=ax)
+  # = Action
+  ax = axes[2]
+  im = ax.imshow(
+      actDistMtx.T, interpolation='none', extent=axStyle[0], origin="lower",
+      cmap='seismic', vmin=0, vmax=actionNum - 1, zorder=-1
+  )
+  ax.set_xlabel('Action', fontsize=24)
 
-    fig.tight_layout()
-    if args.storeFigure:
-        figurePath = os.path.join(figureFolder, 'value_rollout_action.png')
-        fig.savefig(figurePath)
-    if args.plotFigure:
-        plt.show()
-        plt.pause(0.001)
-    # endregion
+  # = Rollout
+  ax = axes[1]
+  im = ax.imshow(
+      resultMtx.T != 1, interpolation='none', extent=axStyle[0],
+      origin="lower", cmap='seismic', vmin=0, vmax=1, zorder=-1
+  )
+  env.plot_trajectories(
+      agent.Q_network, states=[env.visual_initial_states[1]], toEnd=False,
+      ax=ax, lw=1.5, T=200
+  )
+  ax.set_xlabel('Rollout RA', fontsize=24)
 
-    trainDict['resultMtx'] = resultMtx
-    trainDict['actDistMtx'] = actDistMtx
+  # = Value
+  ax = axes[0]
+  im = ax.imshow(
+      v.T, interpolation='none', extent=axStyle[0], origin="lower",
+      cmap='seismic', vmin=vmin, vmax=vmax, zorder=-1
+  )
+  ax.set_xlabel('Value', fontsize=24)
+
+  for ax in axes:
+    env.plot_target_failure_set(ax=ax, xPursuer=-0.2, yPursuer=-0.3)
+    env.plot_formatting(ax=ax)
+
+  fig.tight_layout()
+  if args.storeFigure:
+    figurePath = os.path.join(figureFolder, 'value_rollout_action.png')
+    fig.savefig(figurePath)
+  if args.plotFigure:
+    plt.show()
+    plt.pause(0.001)
+  # endregion
+
+  trainDict['resultMtx'] = resultMtx
+  trainDict['actDistMtx'] = actDistMtx
 
 save_obj(trainDict, filePath)

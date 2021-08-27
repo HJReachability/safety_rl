@@ -7,12 +7,11 @@ Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
     policies.
 3. Pre-processing:
     we need to run `genEstSamples.py` beforehand to get state samples
-
-EXECUTION TIME: 32.9 seconds for
-    one attacker position
-    10 attacker heading angles
-    100 defender simulations
-    10 defender heading angles
+4. This script uses samples from `{args.modelFolder}/data/samplesEst.npy` as
+    the initial states of testing rollouts. We then specify the arguments of
+    the rollout (see help section of arguments for more details). The rollout
+    results are stored in
+    `{args.modelFolder}/data/est/{args.outFile}{args.index}.npy`.
 
 EXAMPLES
     test:
@@ -102,7 +101,7 @@ def multiExp(
 
 def run(args):
   startTime = time.time()
-  dataFolder = os.path.join(args.modelFolder, 'data/')
+  dataFolder = os.path.join(args.modelFolder, 'data')
   dataFile = os.path.join(dataFolder, 'samplesEst.npy')
   print('Load from {:s} ...'.format(dataFile))
   read_dictionary = np.load(dataFile, allow_pickle='TRUE').item()
@@ -172,7 +171,7 @@ def run(args):
   carPEDict['ddqnValue'] = ddqnValue
   carPEDict['rolloutValue'] = rolloutValue
 
-  outFolder = os.path.join(args.modelFolder, 'data/', 'est/')
+  outFolder = os.path.join(args.modelFolder, 'data', 'est')
   os.makedirs(outFolder, exist_ok=True)
   outFile = outFolder + args.outFile + str(args.index) + '.npy'
   np.save('{:s}'.format(outFile), carPEDict)
@@ -188,11 +187,16 @@ if __name__ == '__main__':
 
   # Simulation Parameters
   parser.add_argument(
-      "-f", "--forceCPU", help="force CPU", action="store_true"
+      "-f", "--forceCPU", help="force PyTorch to use CPU", action="store_true"
   )
-  parser.add_argument("-te", "--toEnd", help="to end", action="store_true")
   parser.add_argument(
-      "-ml", "--maxLength", help="max length", default=150, type=int
+      "-te", "--toEnd",
+      help="continue the rollout until both cars cross the boundary",
+      action="store_true"
+  )
+  parser.add_argument(
+      "-ml", "--maxLength", help="maximum length of rollout episodes",
+      default=150, type=int
   )
   parser.add_argument(
       "-nw", "--numWorker", help="#workers", default=6, type=int

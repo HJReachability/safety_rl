@@ -4,8 +4,10 @@ Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
 1. We collect ddqn-predicted values and rollout values from different
     attacker positions.
-2. Each file records ddqn-predicted values and rollout values from different
-    attacker heading angles, defender positions and defender heading angles
+2. This script collects all `estError*` under `{args.modelFolder}/data/est/`
+    and genetates `args.outFile` under the same folder. Each file records
+    ddqn-predicted values and rollout values from different attacker heading
+    angles, defender positions and defender heading angles.
 
 EXAMPLES
     python3 colEstError.py -mf <model path>
@@ -63,7 +65,7 @@ def run(args):
   finalDict['toEnd'] = toEnd
   finalDict['samples'] = samples
 
-  outFolder = os.path.join(args.modelFolder, 'data/')
+  outFolder = os.path.join(args.modelFolder, 'data')
   outFile = os.path.join(outFolder, args.outFile + '.npy')
   print('\n--> Save to {:s} ...'.format(outFile))
   print(finalDict.keys())

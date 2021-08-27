@@ -2,17 +2,13 @@
 Please contact the author(s) of this library if you have any questions.
 Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
-We want to evaluate how well we learned from the data.
-We compare the DDQN-predicted value vs. the rollout value by DDQN-induced
+1. We want to evaluate how well we learned from the data.
+2. We compare the DDQN-predicted value vs. the rollout value by DDQN-induced
 policies.
-
-EXECUTION TIME
-    Setting:
-        101 samples per dimension, 6 workers, maxLength = 100
-        NN: 1-layer with 100 neurons per leayer
-    Results
-        4000 seconds (toEnd = True)
-        1000 seconds (toEnd = False)
+3. This script samples the initial states of testing rollouts. We then specify
+    the arguments of the rollout (see help section of arguments for more
+    details). The rollout results are stored in
+    `{args.modelFolder}/data/{args.outFile}.npy`.
 
 EXAMPLES
     toEnd, low turning rate:
@@ -192,7 +188,7 @@ def run(args):
       env.plot_formatting(ax=ax)
 
     if args.storeFigure:
-      figureFolder = '{:s}/figure/'.format(args.modelFolder)
+      figureFolder = os.path.join(args.modelFolder, 'figure')
       os.makedirs(figureFolder, exist_ok=True)
       plt.savefig('{:s}rollout.png'.format(figureFolder))
     if args.plotFigure:
@@ -204,14 +200,18 @@ def run(args):
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   # Environment Parameters
-  parser.add_argument("-low", "--low", help="lowOmega", action="store_true")
+  parser.add_argument(
+      "-low", "--low", help="low turning rate", action="store_true"
+  )
 
   # Simulation Parameters
   parser.add_argument(
-      "-te", "--toEnd", help="stop until boundary", action="store_true"
+      "-te", "--toEnd",
+      help="continue the rollout until the car crosses the boundary",
+      action="store_true"
   )
   parser.add_argument(
-      "-f", "--forceCPU", help="force CPU", action="store_true"
+      "-f", "--forceCPU", help="force PyTorch to use CPU", action="store_true"
   )
   parser.add_argument(
       "-ns", "--numSample", help="#samples", default=101, type=int
@@ -220,7 +220,8 @@ if __name__ == '__main__':
       "-nw", "--numWorker", help="#workers", default=5, type=int
   )
   parser.add_argument(
-      "-ml", "--maxLength", help="max length", default=100, type=int
+      "-ml", "--maxLength", help="maximum length of rollout episodes",
+      default=100, type=int
   )
 
   # File Parameters

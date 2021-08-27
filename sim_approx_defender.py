@@ -11,7 +11,12 @@ The representability of the proposed method.
   against any possible adversary.
 3. Pre-processing:
     we need to run `sim_est_error.py` before to get dataFile
-4. Try to construct env, agent within `multiExp` function.
+4. This script uses samples in
+    `{args.modelFolder}/data/{sampleType}/{args.dataFile}{sampleType}.npy`
+    as the initial states of testing rollouts. We then specify the arguments of
+    the rollout (see help section of arguments for more details). The rollout
+    results are stored in
+    `{args.modelFolder}/data/{sampleType}/{args.outFile}{sampleType}{args.index}.npy`.
 
 EXAMPLES
     TN: with specific idx
@@ -233,16 +238,18 @@ if __name__ == '__main__':
 
   # Simulation Parameters
   parser.add_argument(
-      "-f", "--forceCPU", help="force CPU", action="store_true"
+      "-f", "--forceCPU", help="force PyTorch to use CPU", action="store_true"
   )
   parser.add_argument(
       "-nw", "--numWorker", help="#workers", default=5, type=int
   )
   parser.add_argument(
-      "-ml", "--maxLength", help="max length", default=50, type=int
+      "-ml", "--maxLength", help="maximum length of rollout episodes",
+      default=50, type=int
   )
   parser.add_argument(
-      "-nps", "--numPursuerStep", help="#pursuer steps", default=10, type=int
+      "-nps", "--numPursuerStep", help="#intervals of pursuer action sequence",
+      default=10, type=int
   )
   parser.add_argument(
       "-idx", "--index", help="the index of state in samples", default=0,

@@ -5,6 +5,11 @@ Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 1. We collect state samples, their worst results and rollout values for all
     action sequences.
 2. Each file records state, worst result and rollout values.
+3. This script collects all `{args.dataFile}{sampleType}*` under
+    `{args.modelFolder}/data/{sampleType}/` and genetates
+    `{args.outFile}{sampleType}.npy` under `{args.modelFolder}/data/`.
+    Each file records exhaustive value from different attacker heading
+    angles, defender positions and defender heading angles.
 
 EXAMPLES
     TN: python3 colValResult.py -t 0 -mf <model path>

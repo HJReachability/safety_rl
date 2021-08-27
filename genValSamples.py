@@ -5,6 +5,10 @@ Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 Generate samples to compute approximation error.
 1. It supports SIX sample types:
     0-6 corresponds to ['TN', 'TP', 'FN', 'FP', 'POS', 'NEG', 'ALL'].
+2. This script uses `{args.modelFolder}/data/{args.dataFile}.npy` to load the
+    ddqn-predicted values and rollout values of the sampled initial states.
+    Then, it generates the samples for validation under
+    `{args.modelFolder}/data/{sampleType}/{args.outFile}{sampleType}.npy`
 
 EXAMPLES
     TN: python3 genValSamples.py -t 0 -mf <model path>

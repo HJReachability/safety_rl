@@ -4,10 +4,12 @@ Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
 Generate samples to compute estimation error.
 1. For attacker (evader)'s position, we sampled uniformly from the ring
-    between (0.51, 0.99)
+    between (0.51, 0.99).
 2. For defender (pursuer)'s position, we sampled uniformly from the ring
-    between (0.01, 0.99)
-3. For heading angles, we pick [0, 2*pi/(numSamples-1)] with uniform spacing
+    between (0.01, 0.99).
+3. For heading angles, we pick [0, 2*pi/(numSamples-1)] with uniform spacing.
+4. This script uses a model under `{args.modelFolder}`, creates a subfolder
+    `data` under it and generates `{args.outFile}.npy under this subfolder.
 
 EXAMPLES
     TN: python3 genEstSamples.py -ns 10 -mf <model path>

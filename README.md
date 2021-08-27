@@ -50,15 +50,19 @@ In addition, the script will generate a `train.pkl` file, which contains the fol
 ```shell
     python3 sim_naive.py -w -sf -a -g 0.9 -mu 12000000 -cp 600000 -ut 20 -n anneal
 ```
-3. Point object in Figure 4
+3. Point object in Figure 3
+```shell
+    python3 sim_naive.py -sf -g 0.9999 -n 9999
+```
+4. Point object in Figure 4
 ```shell
     python3 sim_show.py -sf -g 0.9999 -n 9999
 ```
-4. Dubins car in Figure 5
+5. Dubins car in Figure 5
 ```shell
     python3 sim_car_one.py -sf -w -wi 5000 -g 0.9999 -n 9999
 ```
-5. Dubins car (attack-defense game) in Figure 7 (Section IV.D):
+6. Dubins car (attack-defense game) in Figure 7 (Section IV.D):
 ```shell
     python3 sim_car_pe.py -sf -w -wi 30000 -g 0.9999 -n 9999
 ```

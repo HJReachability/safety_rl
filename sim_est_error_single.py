@@ -31,8 +31,10 @@ import matplotlib
 import matplotlib.pyplot as plt
 import torch
 from multiprocessing import Pool
+import gym
 
 from utils.carOneAnalysis import loadAgent, loadEnv
+from gym_reachability import gym_reachability  # Custom Gym env.
 
 simplefilter(action='ignore', category=FutureWarning)
 matplotlib.use('Agg')
@@ -157,7 +159,7 @@ def run(args):
 
   outFolder = os.path.join(args.modelFolder, 'data')
   os.makedirs(outFolder, exist_ok=True)
-  outFile = outFolder + args.outFile + '.npy'
+  outFile = os.path.join(outFolder, args.outFile + '.npy')
   np.save('{:s}'.format(outFile), carOneDict)
   print('--> Save to {:s} ...'.format(outFile))
 
@@ -190,7 +192,7 @@ def run(args):
     if args.storeFigure:
       figureFolder = os.path.join(args.modelFolder, 'figure')
       os.makedirs(figureFolder, exist_ok=True)
-      plt.savefig('{:s}rollout.png'.format(figureFolder))
+      plt.savefig(os.path.join(figureFolder, 'rollout.png'))
     if args.plotFigure:
       plt.show()
       plt.pause(0.001)

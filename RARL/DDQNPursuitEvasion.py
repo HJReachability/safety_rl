@@ -96,7 +96,7 @@ class DDQNPursuitEvasion(DDQN):
 
     Args:
         CONFIG (object): configuration.
-        numActionList (int): the number of actions in the evader and pursuer's
+        numActionList (list): the number of actions in the evader and pursuer's
             action sets.
         dimList (np.ndarray): dimensions of each layer in the neural network.
         mode (str, optional): the reinforcement learning mode.

@@ -82,13 +82,13 @@ def run(args):
 
   # == ENVIRONMENT ==
   env = loadEnv(args)
-  stateNum = env.state.shape[0]
-  actionNum = env.action_space.n
-  actionList = np.arange(actionNum)
+  state_dim = env.state.shape[0]
+  action_num = env.action_space.n
+  action_list = np.arange(action_num)
   device = env.device
 
   # == AGENT ==
-  agent = loadAgent(args, device, stateNum, actionNum, actionList)
+  agent = loadAgent(args, device, state_dim, action_num, action_list)
 
   # == ROLLOUT RESULTS ==
   print("\n== Estimation Error Information ==")
@@ -234,10 +234,7 @@ if __name__ == '__main__':
   parser.add_argument(
       "-of", "--outFile", help="output file", default='estError', type=str
   )
-  parser.add_argument(
-      "-mf", "--modelFolder", help="model folder",
-      default='models/store_best/car/RA/big/tanh', type=str
-  )
+  parser.add_argument("-mf", "--modelFolder", help="model folder", type=str)
 
   args = parser.parse_args()
   print("\n== Arguments ==")

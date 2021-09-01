@@ -94,10 +94,7 @@ if __name__ == '__main__':
   parser.add_argument(
       "-of", "--outFile", help="output file", default='valDict', type=str
   )
-  parser.add_argument(
-      "-mf", "--modelFolder", help="model folder",
-      default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str
-  )
+  parser.add_argument("-mf", "--modelFolder", help="model folder", type=str)
   parser.add_argument(
       "-df", "--dataFile", help="samples file", default='valDict', type=str
   )

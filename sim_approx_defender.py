@@ -34,9 +34,11 @@ import os
 from warnings import simplefilter
 import numpy as np
 from multiprocessing import Pool
+import gym
 
 from utils.carPEAnalysis import loadEnv, loadAgent
 from utils.carPEAnalysis import checkCapture, exhaustiveDefenderSearch
+from gym_reachability import gym_reachability  # Custom Gym env.
 
 simplefilter(action='ignore', category=FutureWarning)
 np.set_printoptions(precision=3, suppress=True, floatmode='fixed')
@@ -263,10 +265,7 @@ if __name__ == '__main__':
   parser.add_argument(
       "-of", "--outFile", help="output file", default='valDict', type=str
   )
-  parser.add_argument(
-      "-mf", "--modelFolder", help="model folder",
-      default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str
-  )
+  parser.add_argument("-mf", "--modelFolder", help="model folder", type=str)
   parser.add_argument(
       "-df", "--dataFile", help="samples file", default='samples', type=str
   )

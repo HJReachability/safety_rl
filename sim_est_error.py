@@ -30,7 +30,6 @@ import numpy as np
 import torch
 import os
 import time
-import pickle
 import argparse
 from multiprocessing import Pool
 
@@ -173,7 +172,7 @@ def run(args):
 
   outFolder = os.path.join(args.modelFolder, 'data', 'est')
   os.makedirs(outFolder, exist_ok=True)
-  outFile = outFolder + args.outFile + str(args.index) + '.npy'
+  outFile = os.path.join(outFolder, args.outFile + str(args.index) + '.npy')
   np.save('{:s}'.format(outFile), carPEDict)
   print('--> Save to {:s} ...'.format(outFile))
 
@@ -210,10 +209,7 @@ if __name__ == '__main__':
   parser.add_argument(
       "-of", "--outFile", help="output file", default='estError', type=str
   )
-  parser.add_argument(
-      "-mf", "--modelFolder", help="model folder",
-      default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str
-  )
+  parser.add_argument("-mf", "--modelFolder", help="model folder", type=str)
 
   args = parser.parse_args()
   print("\n== Arguments ==")

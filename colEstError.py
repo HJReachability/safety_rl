@@ -84,10 +84,7 @@ if __name__ == '__main__':
       "-n", "--number", help="#files assumed to obtain", default='225',
       type=int
   )
-  parser.add_argument(
-      "-mf", "--modelFolder", help="model folder",
-      default='scratch/carPE/largeBuffer-3-512-2021-02-07-01_51', type=str
-  )
+  parser.add_argument("-mf", "--modelFolder", help="model folder", type=str)
 
   args = parser.parse_args()
   print("== Arguments ==")

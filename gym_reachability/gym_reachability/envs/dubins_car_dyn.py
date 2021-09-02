@@ -185,7 +185,7 @@ class DubinsCarDyn(object):
     """Set the boundary of the environment.
 
     Args:
-        bounds (np.ndarray): of the shape (n_dim, 2). each row is [LB, UB].
+        bounds (np.ndarray): of the shape (n_dim, 2). Each row is [LB, UB].
     """
     self.bounds = bounds
 

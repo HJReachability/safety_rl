@@ -28,8 +28,8 @@ def plot_arc(p, r, thetaParam, ax, c="b", lw=3, orientation=0., zorder=1):
   """Plot an arc given a center, a radius and the (theta_init, theta_final).
 
   Args:
-      p (np.ndarray): the center of the circle.
-      r (float): the radius of the circle.
+      p (np.ndarray): the center of the arc.
+      r (float): the radius of the arc.
       thetaParam (tuple of floats): the initial angle and the final angle.
       ax (matplotlib.axes.Axes): the ax to plot.
       c (str, optional): the color of the arc. Defaults to "b".
@@ -56,7 +56,6 @@ def plot_circle(
     x, y, r, ax, c="b", lw=5, orientation=0., scatter=False, zorder=1
 ):
   """Plot a circle given a center and a radius.
-  [summary]
 
   Args:
       x (float): the x position of the circle.

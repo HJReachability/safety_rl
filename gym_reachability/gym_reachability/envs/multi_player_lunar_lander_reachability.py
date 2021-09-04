@@ -65,24 +65,24 @@ class MultiPlayerContactDetector(contactListener):
 
 class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
   """
-    in the LunarLander environment the variables self.LANDER_POLY,
-    self.LEG_AWAY, self.LEG_DOWN, self.LEG_W, self.LEG_H
+    In the LunarLander environment, the variables self.LANDER_POLY,
+    self.LEG_AWAY, self.LEG_DOWN, self.LEG_W, self.LEG_H,
     self.SIDE_ENGINE_HEIGHT, self.SIDE_ENGINE_AWAY, self.VIEWPORT_W and
-    self.VIEWPORT_H are measured in pixels
+    self.VIEWPORT_H are measured in pixels.
 
-    the x and y coordinates (and their time derivatives) used for physics
-    calculations in the simulator use those values scaled by 1 / self.SCALE
+    The x and y coordinates (and their time derivatives) used for physics
+    calculations in the simulator use those values scaled by 1 / self.SCALE.
 
-    the observations sent to the learning algorithm when reset() or step()
+    The observations sent to the learning algorithm when reset() or step()
     is called use those values scaled by self.SCALE / (2 * self.VIEWPORT_H)
     and self.SCALE / (2 * VIEWPORT_Y) and centered at
     (2 * self.VIEWPORT_W) / self.SCALE and
     self.HELIPAD_Y + self.LEG_DOWN / self.SCALE for x and y respectively
-    theta_dot is scaled by 20.0 / self.FPS
+    theta_dot is scaled by 20.0 / self.FPS.
 
-    this makes reading the lunar_lander.py file difficult so I have tried to
+    This makes reading the lunar_lander.py file difficult so I have tried to
     make clear what self.SCALE is being used here by calling them: pixel
-    self.SCALE, simulator self.SCALE, and observation self.SCALE
+    self.SCALE, simulator self.SCALE, and observation self.SCALE.
 
     TODO(vrubies) Make this into base class. Specific problems inherit from
     here.
@@ -105,27 +105,27 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
       doneType='toFailureOrSuccess', obstacle_sampling=False
   ):
     """
-        __init__
+    __init__
 
-        Args:
-            device (torch.device, optional): CPU or GPU.
-                Defaults to CPU.
-            num_players (int, optional): number of lunar landers.
-                Defaults to 1.
-            observation_type (string, optional): type of observations available
-                    to the players.
-                Defaults to 'default'.
-                Additional options: 'LiDAR'.
-            param_dict (dict, optional): dictionary to set simulation params.
-                Defaults to empty dict.
-            rnd_seed (int, optional): random seed.
-                Defaults to 0.
-            doneType (string, optional): type of end-of-trajectory condition.
-                Defaults to 'toFailureOrSuccess'.
-                Additional Options: 'toEnd' (to outer env boundary),
-                                    'toThreshold' (to specific g thr. value),
-                                    'toDone' (to collision or done flag true).
-        """
+    Args:
+        device (torch.device, optional): CPU or GPU.
+            Defaults to CPU.
+        num_players (int, optional): number of lunar landers.
+            Defaults to 1.
+        observation_type (string, optional): type of observations available
+                to the players.
+            Defaults to 'default'.
+            Additional options: 'LiDAR'.
+        param_dict (dict, optional): dictionary to set simulation params.
+            Defaults to empty dict.
+        rnd_seed (int, optional): random seed.
+            Defaults to 0.
+        doneType (string, optional): type of end-of-trajectory condition.
+            Defaults to 'toFailureOrSuccess'.
+            Additional Options: 'toEnd' (to outer env boundary),
+                                'toThreshold' (to specific g thr. value),
+                                'toDone' (to collision or done flag true).
+    """
 
     self.param_dict = self._generate_param_dict(param_dict)
     self.initialize_simulator_variables(self.param_dict)
@@ -494,18 +494,16 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.world.DestroyBody(self.legs[ii][1])
 
   def reset(self, state_in=None, terrain_polyline=None):
+    """Reset the environment according to a uniform distribution.
+
+    Args:
+        state_in (np.ndarray, optional): assumed to be in simulation
+            self.SCALE. Defaults to None.
+        terrain_polyline ([type], optional): [description]. Defaults to None.
+
+    Returns:
+        current state as 6d NumPy array of floats
     """
-        Resets the environment according to a uniform distribution.
-
-        Args:
-            state_in (np.ndarray, optional): assumed to be in simulation
-                self.SCALE. Defaults to None.
-            terrain_polyline ([type], optional): [description]. Defaults to
-                None.
-
-        Returns:
-            current state as 6d NumPy array of floats
-        """
     self._destroy()
     self.world.contactListener_keepref = MultiPlayerContactDetector(self)
     self.world.contactListener = self.world.contactListener_keepref

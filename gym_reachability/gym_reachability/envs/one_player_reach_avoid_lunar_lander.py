@@ -26,17 +26,22 @@ from gym_reachability.gym_reachability.envs import (
 class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
 
   def __init__(
-      self,
-      device=torch.device("cpu"),
-      mode='normal',
-      observation_type='default',
-      param_dict={},
-      rnd_seed=0,
-      terrain=None,  # Used for world-related avoid set.
-      target_type='default',
-      doneType='toEnd',
-      obstacle_sampling=False
+      self, device=torch.device("cpu"), mode='RA', observation_type='default',
+      param_dict={}, rnd_seed=0, doneType='toEnd', obstacle_sampling=False
   ):
+    """Initialize the environment with given arguments.
+
+    Args:
+        device (str, optional): device type (used in PyTorch).
+            Defaults to torch.device("cpu").
+        mode (str, optional): reinforcement learning type. Defaults to "RA".
+        observation_type (str, optional): [description]. Defaults to 'default'.
+        param_dict (dict, optional): [description]. Defaults to {}.
+        rnd_seed (int, optional): random seed. Defaults to 0.
+        doneType (str, optional): the condition to raise `done flag in
+            training. Defaults to 'toEnd'.
+        obstacle_sampling (bool, optional): [description]. Defaults to False.
+    """
 
     self.parent_init = False
     super(OnePlayerReachAvoidLunarLander, self).__init__(
@@ -120,12 +125,42 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
       )
 
   def reset(self, state_in=None, terrain_polyline=None):
+    """Reset the state of the environment.
+
+    Args:
+        state_in (np.ndarray, optional): assumed to be in simulation
+            self.SCALE. Defaults to None.
+        terrain_polyline ([type], optional): [description]. Defaults to None.
+
+    Returns:
+        np.ndarray: The state that the environment has been reset to.
+    """
     return super().reset(state_in=state_in, terrain_polyline=terrain_polyline)
 
   def step(self, action):
+    """Evolve the environment one step forward given an action.
+
+    Args:
+        action (int): the index of the action in the action set.
+
+    Returns:
+        np.ndarray: next state.
+        float: the standard cost used in reinforcement learning.
+        bool: True if the episode is terminated.
+        dict: consist of target margin and safety margin at the new state.
+    """
     return super().step(action)
 
-  def target_margin(self, state, soft=False):
+  def target_margin(self, state):
+    """Compute the margin (e.g. distance) between the state and the target set.
+
+    Args:
+        s (np.ndarray): the state of the agent.
+
+    Returns:
+        float: negative numbers indicate reaching the target. If the target set
+            is not specified, return None.
+    """
     if not self.parent_init:
       return 0
     x = state[0]
@@ -136,6 +171,15 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     return -inside * L2_distance
 
   def safety_margin(self, state):
+    """Compute the margin (e.g. distance) between the state and the failue set.
+
+    Args:
+        s (np.ndarray): the state of the agent.
+
+    Returns:
+        float: postivive numbers indicate being inside the failure set (safety
+            violation).
+    """
     if not self.parent_init:
       return 0
     x = state[0]
@@ -146,26 +190,39 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     return -inside * L2_distance
 
   def set_seed(self, seed):
-    """ Set the random seed.
+    """Set the random seed.
 
-        Args:
-            seed: Random seed.
-        """
+    Args:
+        seed: Random seed.
+    """
     self.seed_val = seed
     np.random.seed(self.seed_val)
 
   def set_doneType(self, doneType):
-    """ Set the doneType seed.
+    """Set the doneType.
 
-        Args:
-            donetype: (str) doneType.
-        """
+    Args:
+        donetype: (str) doneType.
+    """
     self.doneType = doneType
 
   def simulate_one_trajectory(self, q_func, T=10, state=None, init_q=False):
+    """Simulate the trajectory given the state or randomly initialized.
+
+    Args:
+        q_func (object): agent's Q-network.
+        T (int, optional): maximum length of the trajectory. Defaults to 10.
+        state (np.ndarray, optional): if provided, set the initial state to
+            its value. Defaults to None.
+        init_q (bool, optional): return state values if True.
+            Defaults to False.
+
+    Returns:
+        np.ndarray: x-position of states in the trajectory.
+        np.ndarray: y-position of states in the trajectory.
+        int: result.
+        np.ndarray (optional): state values.
     """
-        simulates one trajectory in observation scale.
-        """
     if state is None:
       state = self.reset()
     else:
@@ -179,8 +236,6 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
       state_sim = self.obs_scale_to_simulator_scale(state)
       s_margin = self.safety_margin(state_sim)
       t_margin = self.target_margin(state_sim)
-      # print("S_Margin: ", s_margin)
-      # print("T_Margin: ", t_margin)
 
       state_tensor = torch.FloatTensor(state)
       state_tensor = state_tensor.to(self.device).unsqueeze(0)
@@ -211,9 +266,24 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     return traj_x, traj_y, result
 
   def simulate_trajectories(
-      self, q_func, T=10, num_rnd_traj=None, states=None, *args, **kwargs
+      self, q_func, T=10, num_rnd_traj=None, states=None
   ):
+    """
+    Simulate the trajectories. If the states are not provided, we pick the
+    initial states from the discretized state space.
 
+    Args:
+        q_func (object): agent's Q-network.
+        T (int, optional): maximum length of the trajectory. Defaults to 10.
+        num_rnd_traj (int, optional): #trajectories. Defaults to None.
+        states (list of np.ndarray, optional): if provided, set the initial
+            states to its value. Defaults to None.
+
+    Returns:
+        list of np.ndarray: each element is a tuple consisting of x and y
+            positions along the trajectory.
+        np.ndarray: the binary reach-avoid outcomes.
+    """
     assert ((num_rnd_traj is None and states is not None)
             or (num_rnd_traj is not None and states is None)
             or (len(states) == num_rnd_traj))
@@ -239,11 +309,23 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
   def plot_trajectories(
       self, q_func, T=10, num_rnd_traj=None, states=None, c='w', ax=None
   ):
-    # plt.figure(2)
+    """Plot trajectories given the agent's Q-network.
+
+    Args:
+        q_func (object): agent's Q-network.
+        T (int, optional): maximum length of the trajectory. Defaults to 10.
+        num_rnd_traj (int, optional): #states. Defaults to None.
+        states (list of np.ndarray, optional): if provided, set the initial
+            states to its value. Defaults to None.
+        c (str, optional): color. Defaults to 'w'.
+        ax (matplotlib.axes.Axes, optional): Defaults to None.
+
+    Returns:
+        np.ndarray: the binary reach-avoid outcomes.
+    """
     assert ((num_rnd_traj is None and states is not None)
             or (num_rnd_traj is not None and states is None)
             or (len(states) == num_rnd_traj))
-    # plt.clf()
     if ax is None:
       ax = plt.gca()
     trajectories, results = self.simulate_trajectories(
@@ -257,9 +339,26 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     return results
 
   def get_value(
-      self, q_func, nx=41, ny=121, x_dot=0, y_dot=0, theta=0, theta_dot=0,
+      self, q_func, nx=101, ny=101, x_dot=0., y_dot=0., theta=0., theta_dot=0.,
       addBias=False
   ):
+    """Get the state values given the Q-network.
+
+    Args:
+        q_func (object): agent's Q-network.
+        theta (float): the heading angle of the car.
+        nx (int, optional): # points in x-axis. Defaults to 101.
+        ny (int, optional): # points in y-axis. Defaults to 101.
+        x_dot (float, optional): the velocity at x direction. Defaults to 0.
+        y_dot (float, optional): the velocity at y direction. Defaults to 0.
+        theta (float, optional): the yaw of the agent. Defaults to 0.
+        theta_dot (float, optional): the angular velocity. Defaults to 0.
+        addBias (bool, optional): adding bias to the values or not.
+            Defaults to False.
+
+    Returns:
+        np.ndarray: values
+    """
     v = np.zeros((nx, ny))
     it = np.nditer(v, flags=['multi_index'])
     xs = np.linspace(
@@ -307,11 +406,12 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     return v, xs, ys
 
   def get_axes(self):
-    """ Gets the bounds for the environment.
+    """Get the axes bounds and aspect_ratio.
 
-        Returns:
-            List containing a list of bounds for each state coordinate and a
-        """
+    Returns:
+        np.ndarray: axes bounds.
+        float: aspect ratio.
+    """
     aspect_ratio = (
         (self.bounds_observation[0, 1] - self.bounds_observation[0, 0]) /
         (self.bounds_observation[1, 1] - self.bounds_observation[1, 0])
@@ -338,17 +438,31 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     )
 
   def visualize(
-      self, q_func, no_show=False, vmin=-50, vmax=50, nx=91, ny=91,
-      labels=['', ''], boolPlot=False, plotZero=False, cmap='seismic',
-      addBias=False, trueRAZero=False, lvlset=0
+      self, q_func, vmin=-50, vmax=50, nx=91, ny=91, labels=['', ''],
+      boolPlot=False, cmap='seismic', addBias=False, trueRAZero=False,
+      lvlset=0.
   ):
-    """ Overlays analytic safe set on top of state value function.
+    """
+    Visulaize the trained Q-network in terms of state values and trajectories
+    rollout.
 
-        Args:
-            v: State value function.
-        """
-    # plt.figure(1)
-    # plt.clf()
+    Args:
+        q_func (object): agent's Q-network.
+        vmin (int, optional): vmin in colormap. Defaults to -50.
+        vmax (int, optional): vmax in colormap. Defaults to 50.
+        nx (int, optional): # points in x-axis. Defaults to 101.
+        ny (int, optional): # points in y-axis. Defaults to 101.
+        labels (list, optional): x- and y- labels. Defaults to None.
+        boolPlot (bool, optional): plot the values in binary form.
+            Defaults to False.
+        cmap (str, optional): color map. Defaults to 'seismic'.
+        addBias (bool, optional): adding bias to the values or not.
+            Defaults to False.
+        trueRAZero (bool, optional): For bool plot, use the rollout outcome if
+            True. If False, use the levelset instead. Defaults to False.
+        lvlset (float, optional): The levelset threshold for plotting the
+            reach-avoid set. Defaults to 0.
+    """
     axStyle = self.get_axes()
     numX = len(self.slices_x)
     numY = len(self.slices_y)
@@ -356,17 +470,10 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
       self.fig, self.axes = plt.subplots(
           numX, numY, figsize=(2 * numY, 2 * numX), sharex=True, sharey=True
       )
-    # else:
-    #     self.fig.clf()
-    #     self.fig, self.axes = plt.subplots(
-    #         numX, numY, figsize=(2 * numY, 2 * numX), sharex=True,
-    #         sharey=True
-    #     )
     for y_jj, y_dot in enumerate(self.slices_y):
       for x_ii, x_dot in enumerate(self.slices_x):
         ax = self.axes[y_jj][x_ii]
         ax.cla()
-        # print("Subplot -> ", y_jj*len(self.slices_y)+x_ii+1)
         v, xs, ys = self.get_value(
             q_func, nx, ny, x_dot=x_dot, y_dot=y_dot, theta=0, theta_dot=0,
             addBias=addBias
@@ -447,11 +554,18 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
           return
     plt.tight_layout()
 
-    # if not no_show:
-    #     plt.show()
-
   def get_warmup_examples(self, num_warmup_samples=100, s_margin=True):
+    """Get warmup samples.
 
+    Args:
+        num_warmup_samples (int, optional): # warmup samples. Defaults to 100.
+        s_margin (bool, optional): use safety margin as heuristic values if
+            True. If False, use max{ell, g} instead. Defaults to true.
+
+    Returns:
+        np.ndarray: sampled states.
+        np.ndarray: the heuristic values.
+    """
     rv = np.random.uniform(
         low=self.bounds_simulation[:, 0], high=self.bounds_simulation[:, 1],
         size=(num_warmup_samples, self.total_obs_dim)

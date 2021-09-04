@@ -120,7 +120,7 @@ class DubinsCarOneEnv(gym.Env):
 
   # == Reset Functions ==
   def reset(self, start=None):
-    """ Reset the state of the environment.
+    """Reset the state of the environment.
 
     Args:
         start (np.ndarray, optional): state to reset the environment to.
@@ -430,8 +430,9 @@ class DubinsCarOneEnv(gym.Env):
     return [axes, aspect_ratio]
 
   def get_value(self, q_func, theta, nx=101, ny=101, addBias=False):
-    """Get the state values given the Q-network. We fix the heading angle of
-        the car to `theta`.
+    """
+    Get the state values given the Q-network. We fix the heading angle of the
+    car to `theta`.
 
     Args:
         q_func (object): agent's Q-network.
@@ -482,7 +483,7 @@ class DubinsCarOneEnv(gym.Env):
             to 250.
         state (np.ndarray, optional): if provided, set the initial state to
             its value. Defaults to None.
-        theta ([type], optional): if provided, set the theta to its value.
+        theta (float, optional): if provided, set the theta to its value.
             Defaults to None.
         sample_inside_obs (bool, optional): sampling initial states inside
             of the obstacles or not. Defaults to True.

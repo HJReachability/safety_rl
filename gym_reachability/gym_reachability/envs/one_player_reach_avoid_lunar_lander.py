@@ -1,6 +1,10 @@
 """
 Please contact the author(s) of this library if you have any questions.
 Authors: Vicenc Rubies Royo   ( vrubies@berkeley.edu )
+
+This module implements an environment considering lunar lander dynamics. This
+environemnt shows reach-avoid reinforcement learning's performance on a
+high-dimensional dynamic ststem.
 """
 
 import numpy as np

@@ -1,6 +1,9 @@
 """
 Please contact the author(s) of this library if you have any questions.
 Authors: Vicenc Rubies Royo   ( vrubies@berkeley.edu )
+
+This module implements the parent class for the lunar lander environments,
+e.g., single lunar lander environment.
 """
 
 import numpy as np
@@ -31,6 +34,8 @@ from shapely.ops import triangulate
 
 
 class MultiPlayerContactDetector(contactListener):
+  """This class implements a contact detector.
+  """
 
   def __init__(self, env):
     contactListener.__init__(self)

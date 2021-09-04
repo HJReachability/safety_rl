@@ -25,7 +25,6 @@ from RARL.DDQNSingle import DDQNSingle
 from RARL.config import dqnConfig
 from gym_reachability import gym_reachability  # Custom Gym env.
 
-
 timestr = time.strftime("%Y-%m-%d-%H_%M_%S")
 simplefilter(action='ignore', category=FutureWarning)
 
@@ -144,12 +143,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 fn = args.name + '-' + args.doneType
 if args.showTime:
-    fn = fn + '-' + timestr
+  fn = fn + '-' + timestr
 
 outFolder = os.path.join(args.outFolder, 'LunarLander-DDQN', fn)
 print(outFolder)
-# figureFolder = os.path.join(outFolder, 'figure')
-# os.makedirs(figureFolder, exist_ok=True)
 
 CONFIG = dqnConfig(
     ENV_NAME=env_name,
@@ -191,9 +188,9 @@ CONFIG = dqnConfig(
 
 # == REPORT ==
 def report_config(CONFIG):
-    for key, value in CONFIG.__dict__.items():
-        if key[:1] != '_':
-            print(key, value)
+  for key, value in CONFIG.__dict__.items():
+    if key[:1] != '_':
+      print(key, value)
 
 
 # == ENVIRONMENT ==
@@ -206,91 +203,89 @@ env.set_costParam(penalty=CONFIG.PENALTY, reward=CONFIG.REWARD)
 
 # == EXPERIMENT ==
 def run_experiment(args, CONFIG, env):
-    """
-    run_experiment: It runs the reach-avoid training algorithm.
+  """Run the reach-avoid training algorithm.
 
-    Args:
-        args: parsed arguments.
-        CONFIG (config, object): configuration parameters.
-        env (gym.Env): environment used for training.
-    """
-    # == AGENT ==
-    s_dim = env.observation_space.shape[0]
-    numAction = env.action_space.n
-    actionList = np.arange(numAction)
-    dimList = [s_dim] + args.architecture + [numAction]
+  Args:
+      args: parsed arguments.
+      CONFIG (config, object): configuration parameters.
+      env (gym.Env): environment used for training.
+  """
+  # == AGENT ==
+  s_dim = env.observation_space.shape[0]
+  numAction = env.action_space.n
+  actionList = np.arange(numAction)
+  dimList = [s_dim] + args.architecture + [numAction]
 
-    env.set_seed(args.randomSeed)
-    np.random.seed(args.randomSeed)
-    agent = DDQNSingle(CONFIG, numAction, actionList, dimList, mode='RA')
+  env.set_seed(args.randomSeed)
+  np.random.seed(args.randomSeed)
+  agent = DDQNSingle(CONFIG, numAction, actionList, dimList, mode='RA')
 
-    # == TRAINING ==
-    report_config(CONFIG)
-    _, trainProgress = agent.learn(
-        env,
-        MAX_UPDATES=CONFIG.MAX_UPDATES,
-        MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
-        warmupBuffer=True,
-        warmupQ=args.warmup,
-        warmupIter=args.warmupIter,
-        addBias=args.addBias,
-        doneTerminate=True,
-        runningCostThr=None,
-        curUpdates=None,
-        plotFigure=args.plotFigure,  # Display value function while learning.
-        showBool=False,  # Show boolean reach avoid set 0/1.
-        vmin=-1,
-        vmax=1,
-        checkPeriod=args.checkPeriod,  # How often to compute Safe vs. Unsafe.
-        storeFigure=args.storeFigure,  # Store the figure in an eps file.
-        storeModel=True,
-        storeBest=False,
-        outFolder=outFolder,
-        verbose=True
-    )
-    return trainProgress
+  # == TRAINING ==
+  report_config(CONFIG)
+  _, trainProgress = agent.learn(
+      env,
+      MAX_UPDATES=CONFIG.MAX_UPDATES,
+      MAX_EP_STEPS=CONFIG.MAX_EP_STEPS,
+      warmupBuffer=True,
+      warmupQ=args.warmup,
+      warmupIter=args.warmupIter,
+      addBias=args.addBias,
+      doneTerminate=True,
+      runningCostThr=None,
+      curUpdates=None,
+      plotFigure=args.plotFigure,  # Display value function while learning.
+      showBool=False,  # Show boolean reach avoid set 0/1.
+      vmin=-1,
+      vmax=1,
+      checkPeriod=args.checkPeriod,  # How often to compute Safe vs. Unsafe.
+      storeFigure=args.storeFigure,  # Store the figure in an eps file.
+      storeModel=True,
+      storeBest=False,
+      outFolder=outFolder,
+      verbose=True
+  )
+  return trainProgress
 
 
 def test_experiment(path, config_path, env, doneType='toFailureOrSuccess'):
-    """
-    test_experiment: It plots the value function slices.
+  """Plot the value function slices.
 
-    Args:
-        path (string): path to the model file *.pth.
-        config_path (string): path to the CONFIG.pkl file of the experiment.
-        env (gym.Env): environment used for training.
-        doneType (string, optional): termination type for episodes.
-    """
-    s_dim = env.observation_space.shape[0]
-    numAction = env.action_space.n
-    actionList = np.arange(numAction)
+  Args:
+      path (string): path to the model file *.pth.
+      config_path (string): path to the CONFIG.pkl file of the experiment.
+      env (gym.Env): environment used for training.
+      doneType (string, optional): termination type for episodes.
+  """
+  s_dim = env.observation_space.shape[0]
+  numAction = env.action_space.n
+  actionList = np.arange(numAction)
 
-    if os.path.isfile(config_path):
-        CONFIG_ = pickle.load(open(config_path, 'rb'))
-        for k in CONFIG_.__dict__:
-            CONFIG.__dict__[k] = CONFIG_.__dict__[k]
-        CONFIG.DEVICE = device
-    report_config(CONFIG)
+  if os.path.isfile(config_path):
+    CONFIG_ = pickle.load(open(config_path, 'rb'))
+    for k in CONFIG_.__dict__:
+      CONFIG.__dict__[k] = CONFIG_.__dict__[k]
+    CONFIG.DEVICE = device
+  report_config(CONFIG)
 
-    env.doneType = doneType
-    env.set_costParam(penalty=CONFIG.PENALTY, reward=CONFIG.REWARD)
+  env.doneType = doneType
+  env.set_costParam(penalty=CONFIG.PENALTY, reward=CONFIG.REWARD)
 
-    dimList = [s_dim] + CONFIG.ARCHITECTURE + [numAction]
-    agent = DDQNSingle(
-        CONFIG, numAction, actionList, dimList, mode='RA',
-        actType=CONFIG.ACTIVATION
-    )
-    agent.restore(path)
+  dimList = [s_dim] + CONFIG.ARCHITECTURE + [numAction]
+  agent = DDQNSingle(
+      CONFIG, numAction, actionList, dimList, mode='RA',
+      actType=CONFIG.ACTIVATION
+  )
+  agent.restore(path)
 
-    # Visualize value function.
-    env.visualize(
-        agent.Q_network, True, nx=91, ny=91, boolPlot=False, trueRAZero=False,
-        addBias=False, lvlset=0
-    )
-    plt.show()
+  # Visualize value function.
+  env.visualize(
+      agent.Q_network, True, nx=91, ny=91, boolPlot=False, trueRAZero=False,
+      addBias=False, lvlset=0
+  )
+  plt.show()
 
 
 if args.test:
-    test_experiment(args.path, args.config_path, env)
+  test_experiment(args.path, args.config_path, env)
 else:
-    run_experiment(args, CONFIG, env)
+  run_experiment(args, CONFIG, env)

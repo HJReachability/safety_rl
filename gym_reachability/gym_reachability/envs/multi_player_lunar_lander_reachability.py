@@ -104,14 +104,11 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
       observation_type='default', param_dict={}, rnd_seed=0,
       doneType='toFailureOrSuccess', obstacle_sampling=False
   ):
-    """
-    __init__
+    """Initialize the environment with arguments.
 
     Args:
-        device (torch.device, optional): CPU or GPU.
-            Defaults to CPU.
-        num_players (int, optional): number of lunar landers.
-            Defaults to 1.
+        device (torch.device, optional): CPU or GPU. Defaults to CPU.
+        num_players (int, optional): number of lunar landers. Defaults to 1.
         observation_type (string, optional): type of observations available
                 to the players.
             Defaults to 'default'.
@@ -203,6 +200,11 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     self.reset()
 
   def _generate_param_dict(self, input_dict):
+    """Return dictionary with common parameters and user-specific parameters.
+
+    Args:
+        input_dict (dict): user-specific parameters.
+    """
     param_dict = {}
 
     param_dict["FPS"] = 50
@@ -234,6 +236,11 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return param_dict
 
   def initialize_simulator_variables(self, param_dict):
+    """Initialize simulator of the lunar lander given parameters.
+
+    Args:
+        param_dict (dict): common parameters and user-specific parameters.
+    """
     self.FPS = param_dict["FPS"]
     # scale affects how fast-paced the game is, forces should be adjusted
     # as well
@@ -289,7 +296,8 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
   # generate-sample-coordinates-inside-a-polygon
   @staticmethod
   def random_points_in_polygon(polygon, k):
-    "Return list of k points uniformly at random inside the polygon."
+    """Return list of k points uniformly at random inside the polygon.
+    """
     areas = []
     transforms = []
     for t in triangulate(polygon):
@@ -307,6 +315,14 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return points
 
   def extend_state(self, states):
+    """Extend the state to consist of max{ell, g}. Only used for mode='extend'.
+
+    Args:
+        states (np.ndarray): (x, y) position of states.
+
+    Returns:
+        np.ndarray: extended states.
+    """
     new_states = []
     for state in states:
       l_x = self.target_margin(state)
@@ -315,7 +331,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return new_states
 
   def set_lander_state(self, state, key):
-    # convention is x,y,x_dot,y_dot, theta, theta_dot
+    # convention is x, y, x_dot, y_dot, theta, theta_dot.
     # These internal variables are in --> simulator self.SCALE <--
     # changes need to be in np.float64
     self.lander[key].position = np.array([state[0], state[1]],

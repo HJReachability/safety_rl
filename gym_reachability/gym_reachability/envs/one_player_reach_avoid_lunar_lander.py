@@ -36,11 +36,13 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
             Defaults to torch.device("cpu").
         mode (str, optional): reinforcement learning type. Defaults to "RA".
         observation_type (str, optional): [description]. Defaults to 'default'.
-        param_dict (dict, optional): [description]. Defaults to {}.
+        param_dict (dict, optional): dictionary to set simulation params.
+            Defaults to {}.
         rnd_seed (int, optional): random seed. Defaults to 0.
         doneType (str, optional): the condition to raise `done flag in
             training. Defaults to 'toEnd'.
-        obstacle_sampling (bool, optional): [description]. Defaults to False.
+        obstacle_sampling (bool, optional): consider sampling the state inside
+            the obstacles if True. Defaults to False.
     """
 
     self.parent_init = False
@@ -425,6 +427,14 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     return [axes, aspect_ratio]
 
   def imshow_lander(self, extent=None, alpha=0.4, ax=None):
+    """Plot the lunar lander.
+
+    Args:
+        extent (list, optional): the bounding box in data coordinates that
+            the image will fill, os the shape (4, ). Defaults to None.
+        alpha (float, optional): opacity coefficient. Defaults to 0.4.
+        ax (matplotlib.axes.Axes, optional): Defaults to None.
+    """
     if self.img_data is None:
       # todo{vrubies} can we find way to supress gym window?
       img_data = self.render(mode="rgb_array", plot_landers=False)
@@ -589,14 +599,22 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     return states, heuristic_v
 
   def confusion_matrix(self, q_func, num_states=50):
+    """Get the confusion matrix using DDQN values and rollout results.
 
+    Args:
+        q_func (object): agent's Q-network.
+        num_states (int, optional): # initial states to rollout a trajectoy.
+            Defaults to 50.
+
+    Returns:
+        np.ndarray: confusion matrix.
+    """
     confusion_matrix = np.array([[0.0, 0.0], [0.0, 0.0]])
     for ii in range(num_states):
       _, _, result, initial_q = self.simulate_one_trajectory(
           q_func, T=1000, init_q=True
       )
       assert (result == 1) or (result == -1)
-      # print(initial_q, " ", result)
       # note that signs are inverted
       if -int(np.sign(initial_q)) == np.sign(result):
         if np.sign(result) == 1:
@@ -615,6 +633,12 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     return confusion_matrix / num_states
 
   def scatter_actions(self, q_func, num_states=50):
+    """Get the action output of the Q-network by sampling states.
+
+    Args:
+        q_func (object): agent's Q-network.
+        num_states (int, optional): #states to get an action. Defaults to 50.
+    """
     lb = self.bounds_simulation[:, 0]
     ub = self.bounds_simulation[:, 1]
     rv = np.random.uniform(
@@ -642,6 +666,13 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
           plt.plot(rv[ii, 0], rv[ii, 1], "y*")
 
   def render(self, mode='human', plot_landers=True):
+    """Return rendered image.
+
+    Args:
+        mode (str, optional): Defaults to 'human'.
+        plot_landers (bool, optional): Plot the lunar lander if True.
+            Defaults to True.
+    """
     return super().render(
         mode, plot_landers=plot_landers, target=self.polygon_target
     )

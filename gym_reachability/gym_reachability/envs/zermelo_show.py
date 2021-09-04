@@ -154,8 +154,7 @@ class ZermeloShowEnv(gym.Env):
     self.device = device
 
   def extend_state(self, states):
-    """
-    Extend the state to consist of max{ell, g}. Only used for mode='extend'.
+    """Extend the state to consist of max{ell, g}. Only used for mode='extend'.
 
     Args:
         states (np.ndarray): (x, y) position of states.

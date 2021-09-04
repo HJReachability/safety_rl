@@ -331,6 +331,13 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return new_states
 
   def set_lander_state(self, state, key):
+    """Set the state of the lunar lander.
+
+    Args:
+        state (np.ndarray): the position, yaw, linear velocity and angular
+            velocity of the agent's body
+        key (str): the key for the lunar lander you want to set the state.
+    """
     # convention is x, y, x_dot, y_dot, theta, theta_dot.
     # These internal variables are in --> simulator self.SCALE <--
     # changes need to be in np.float64
@@ -341,7 +348,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     self.lander[key].angle = np.float64(state[4])
     self.lander[key].angularVelocity = np.float64(state[5])
 
-    # after lander position is set have to set leg positions to be where
+    # after lander position is set, we have to set leg positions to be where
     # new lander position is.
     self.legs[key][0].position = np.array([
         self.lander[key].position.x + self.LEG_AWAY / self.SCALE,
@@ -353,6 +360,12 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     ], dtype=np.float64)
 
   def generate_lander(self, initial_state, key):
+    """Generate the lunar lander given an inital state and a key for it.
+
+    Args:
+        initial_state (np.ndarray): we only care the x- and y- position.
+        key (str): the name of the lunar lander, serving as the key to call it.
+    """
     # Generate Landers
     initial_x = initial_state[0]  # self.VIEWPORT_W/self.SCALE/2
     initial_y = initial_state[1]
@@ -418,10 +431,17 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
   def generate_terrain_and_landers(
       self, terrain_polyline=None, sample_inside_obs=False
   ):
-    # self.chunk_x = [self.W/(self.CHUNKS-1)*i for i in range(self.CHUNKS)]
-    # self.helipad_x1 = self.chunk_x[self.CHUNKS//2-1]
-    # self.helipad_x2 = self.chunk_x[self.CHUNKS//2+1]
-    # self.HELIPAD_Y = self.HELIPAD_Y
+    """Generate the terrain of the world and lunar landers in the world.
+
+    Args:
+        terrain_polyline (list, optional): height of each chunk.
+            Defaults to None.
+        sample_inside_obs (bool, optional): consider sampling the state inside
+            the obstacles if True. Defaults to False.
+
+    Returns:
+        np.ndarray: states of lunar landers.
+    """
     # terrain
     if terrain_polyline is None:
       height = np.ones((self.CHUNKS + 1,))
@@ -486,6 +506,12 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return s
 
   def rejection_sample(self, sample_inside_obs=False):
+    """Return the initial states sampled uniformly at random.
+
+    Args:
+        sample_inside_obs (bool, optional): consider sampling the state inside
+            the obstacles if True. Defaults to False.
+    """
     flag_sample = False
     while not flag_sample:
       xy_sample = np.random.uniform(low=[0, 0], high=[self.W, self.H])
@@ -497,6 +523,8 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return xy_sample
 
   def _destroy(self):
+    """Destroy the environment.
+    """
     if self.moon is not None:
       self.world.contactListener = None
       self._clean_particles(True)
@@ -515,7 +543,8 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     Args:
         state_in (np.ndarray, optional): assumed to be in simulation
             self.SCALE. Defaults to None.
-        terrain_polyline ([type], optional): [description]. Defaults to None.
+        terrain_polyline (list, optional): height of each chunk.
+            Defaults to None.
 
     Returns:
         current state as 6d NumPy array of floats
@@ -570,6 +599,18 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return s
 
   def parent_step(self, action, key):
+    """Evolve the environment one step forward given an action.
+
+    Args:
+        action (int): the index of the action in the action set.
+        key (str): the name of the lunar lander.
+
+    Returns:
+        np.ndarray: next state.
+        float: the standard cost used in reinforcement learning.
+        bool: True if the episode is terminated.
+        dict: empty one.
+    """
     # Action needs to be single action 0-3.
     assert self.action_space.contains(
         action
@@ -682,7 +723,6 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return np.array(state, dtype=np.float32), reward, done, {}
 
   def step(self, action):
-
     info = {}
 
     l_x_cur = self.target_margin(self.sim_state)
@@ -785,6 +825,14 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
 
   # TODO(vrubies): Swap to
   def decimal_actions_to_player_actions(self, action):
+    """Transform decimal actions into an action for each lunar lander.
+
+    Args:
+        action (int): a decimal action.
+
+    Returns:
+        list: actions for all lunar landers.
+    """
     base_actions = self.one_player_act_dim
     player_actions = []
     for ii in range(self.num_players - 1, -1, -1):
@@ -807,6 +855,11 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
 
   # =========== Methods for conversions (BEGIN).
   def simulator_scale_to_obs_scale_single(self, state):
+    """Transform the state from simulator scle to observation scale and return.
+
+    Args:
+        state (np.ndarray): state of a lunar lander in simulator scale.
+    """
     copy_state = np.copy(state)
     chg_dims = self.one_player_obs_dim
     x, y, x_dot, y_dot, theta, theta_dot = copy_state[:chg_dims]
@@ -820,6 +873,11 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return copy_state
 
   def simulator_scale_to_obs_scale(self, state):
+    """Transform the state from simulator scle to observation scale and return.
+
+    Args:
+        state (np.ndarray): states of all lunar landers in simulator scale.
+    """
     copy_state = np.copy(state)
     chg_dims = self.one_player_obs_dim
     for ii in range(self.num_players):
@@ -831,6 +889,11 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return copy_state
 
   def obs_scale_to_simulator_scale_single(self, state):
+    """Transform the state from observation scle to simulator scale and return.
+
+    Args:
+        state (np.ndarray): state of a lunar lander in observation scale.
+    """
     copy_state = np.copy(state)
     chg_dims = self.one_player_obs_dim
     x, y, x_dot, y_dot, theta, theta_dot = copy_state[:chg_dims]
@@ -844,6 +907,11 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return copy_state
 
   def obs_scale_to_simulator_scale(self, state):
+    """Transform the state from observation scle to simulator scale and return.
+
+    Args:
+        state (np.ndarray): states of all lunar landers in observation scale.
+    """
     copy_state = np.copy(state)
     chg_dims = self.one_player_obs_dim
     for ii in range(self.num_players):
@@ -857,22 +925,44 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
   # =========== Methods for conversions (END).
 
   def set_seed(self, seed):
-    """ Set the random seed.
+    """Set the random seed.
 
-        Args:
-            seed: Random seed.
-        """
+    Args:
+        seed (int): Random seed.
+    """
     self.seed_val = seed
     np.random.seed(self.seed_val)
 
   def set_doneType(self, doneType):
+    """Set the condition to raise `done` flag.
+
+    Args:
+        doneType (str): condition to raise `done` flag.
+    """
     self.doneType = doneType
 
   def set_costParam(self, penalty=1, reward=-1):
+    """
+    Set the hyper-parameters for the `cost` signal used in training, important
+    for standard (Lagrange-type) reinforcement learning.
+
+    Args:
+        penalty (float, optional): cost when entering the obstacles or crossing
+            the environment boundary. Defaults to 1.0.
+        reward (float, optional): cost when reaching the targets.
+            Defaults to -1.0.
+    """
     self.penalty = penalty
     self.reward = reward
 
   def render(self, mode='human', plot_landers=True, **kwargs):
+    """Return rendered image.
+
+    Args:
+        mode (str, optional): Defaults to 'human'.
+        plot_landers (bool, optional): Plot the lunar lander if True.
+            Defaults to True.
+    """
     from gym.envs.classic_control import rendering
     if self.viewer is None:
       self.viewer = rendering.Viewer(self.VIEWPORT_W, self.VIEWPORT_H)
@@ -941,6 +1031,8 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return self.viewer.render(return_rgb_array=mode == 'rgb_array')
 
   def close(self):
+    """Close the viewer.
+    """
     if self.viewer is not None:
       self.viewer.close()
       self.viewer = None

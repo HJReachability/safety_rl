@@ -268,7 +268,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     return traj_x, traj_y, result
 
   def simulate_trajectories(
-      self, q_func, T=10, num_rnd_traj=None, states=None
+      self, q_func, T=10, num_rnd_traj=None, states=None, **kwargs
   ):
     """
     Simulate the trajectories. If the states are not provided, we pick the

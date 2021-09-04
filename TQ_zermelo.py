@@ -1,10 +1,4 @@
 """
-Copyright (c) 2021-2022, The Regents of the University of California.
-All rights reserved.
-
-This file is subject to the terms and conditions defined in the LICENSE file
-included in this repository.
-
 Please contact the author(s) of this library if you have any questions.
 Authors: Vicenc Rubies-Royo   ( vrubies@berkeley.edu )
 
@@ -26,7 +20,6 @@ from utils.utils import make_linear_schedule, make_stepped_schedule, v_from_q
 from utils.utils import visualize_matrix
 from utils.utils import make_inverse_visit_schedule
 
-
 simplefilter(action='ignore', category=FutureWarning)
 
 # == Environment ==
@@ -44,15 +37,15 @@ ys = np.linspace(-3, 11, ny)
 it = np.nditer(v, flags=['multi_index'])
 
 while not it.finished:
-    idx = it.multi_index
-    x = xs[idx[0]]
-    y = ys[idx[1]]
+  idx = it.multi_index
+  x = xs[idx[0]]
+  y = ys[idx[1]]
 
-    l_x[idx] = env.target_margin(np.array([x, y]))
-    g_x[idx] = env.safety_margin(np.array([x, y]))
+  l_x[idx] = env.target_margin(np.array([x, y]))
+  g_x[idx] = env.safety_margin(np.array([x, y]))
 
-    v[idx] = np.maximum(l_x[idx], g_x[idx])
-    it.iternext()
+  v[idx] = np.maximum(l_x[idx], g_x[idx])
+  it.iternext()
 
 axStyle = [[-4, 4, -3, 11], 8 / 14]
 fig, axes = plt.subplots(1, 3, figsize=(12, 6))
@@ -68,7 +61,6 @@ ax.set_aspect(axStyle[1])  # makes equal aspect ratio
 env.plot_target_failure_set(ax)
 ax.set_title(r'$\ell(x)$')
 cbar = fig.colorbar(f, ax=ax, pad=0.01, fraction=0.05, shrink=.9)
-# env.plot_formatting(ax=ax)
 
 ax = axes[1]
 f = ax.imshow(
@@ -81,7 +73,6 @@ ax.set_aspect(axStyle[1])  # makes equal aspect ratio
 env.plot_target_failure_set(ax)
 ax.set_title(r'$g(x)$')
 cbar = fig.colorbar(f, ax=ax, pad=0.01, fraction=0.05, shrink=.9)
-# env.plot_formatting(ax=ax)
 
 ax = axes[2]
 f = ax.imshow(
@@ -95,8 +86,6 @@ ax.set_aspect(axStyle[1])  # makes equal aspect ratio
 env.plot_target_failure_set(ax)
 ax.set_title(r'$v(x)$')
 cbar = fig.colorbar(f, ax=ax, pad=0.01, fraction=0.05, shrink=.9)
-# env.plot_formatting(ax=ax)
-# plt.show()
 
 # == Seeding ==
 seed = 1
@@ -113,8 +102,7 @@ get_alpha = make_inverse_visit_schedule(max_episodes / num_states)
 get_epsilon = make_linear_schedule(0.95, 0.1, max_episodes)
 get_gamma = make_stepped_schedule(0.9, int(max_episodes / 20), 0.99999999)
 
-# Visualization states.
-viz_states = [np.array([0, 0])]
+viz_states = [np.array([0, 0])]  # Visualization states.
 
 q, stats = learn(
     get_learning_rate=get_alpha, get_epsilon=get_epsilon, get_gamma=get_gamma,

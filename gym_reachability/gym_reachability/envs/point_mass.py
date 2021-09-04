@@ -1,6 +1,10 @@
 """
 Please contact the author(s) of this library if you have any questions.
 Authors: Vicenc Rubies-Royo   ( vrubies@berkeley.edu )
+
+This module implements an environment considering the 2D point object dynamics.
+This environemnt is roughly the same as the basic version of `zermelo_show.py`,
+but this environment has a grid of cells (used for tabular Q-learning).
 """
 
 import gym.spaces
@@ -14,7 +18,8 @@ from utils.utils import state_to_index
 class PointMassEnv(gym.Env):
 
   def __init__(self):
-
+    """Initialize the environment with given arguments.
+    """
     # State bounds.
     self.bounds = np.array([
         [-2, 2],  # axis_0 = state, axis_1=bounds.
@@ -100,15 +105,15 @@ class PointMassEnv(gym.Env):
     np.random.seed(self.seed_val)
 
   def reset(self, start=None):
-    """ Reset the state of the environment.
+    """Reset the state of the environment.
 
-        Args:
-            start: Which state to reset the environment to. If None, pick the
-                state uniformly at random.
+    Args:
+        start (np.ndarray, optional): Which state to reset the environment to.
+            If None, pick the state uniformly at random. Defaults to None.
 
-        Returns:
-            The state the environment has been reset to.
-        """
+    Returns:
+        np.ndarray: The state the environment has been reset to.
+    """
     if start is None:
       self.state = self.sample_random_state()
     else:
@@ -120,15 +125,17 @@ class PointMassEnv(gym.Env):
     return rnd_state
 
   def step(self, action):
-    """ Evolve the environment one step forward under given input action.
+    """Evolve the environment one step forward under given action.
 
-        Args:
-            action: Input action.
+    Args:
+        action (int): the index of the action in the action set.
 
-        Returns:
-            Tuple of (next state, signed distance of current state, whether the
-            episode is done, info dictionary).
-        """
+    Returns:
+        np.ndarray: next state.
+        float: target margin at the new state.
+        bool: True if the episode is terminated.
+        dictionary: consist of safety margin at the new state.
+    """
     # The signed distance must be computed before the environment steps
     # forward.
     if self.grid_cells is None:
@@ -154,39 +161,39 @@ class PointMassEnv(gym.Env):
     return np.copy(self.state), l_x, done, info
 
   def integrate_forward(self, x, y, u):
-    """ Integrate the dynamics forward by one step.
+    """Integrate the dynamics forward by one step.
 
-        Args:
-            x: Position in x-axis.
-            y: Position in y-axis
-            theta: Heading.
-            u: Contol input.
+    Args:
+        x (float): Position in x-axis.
+        y (float): Position in y-axis
+        u (float): contol inputs, consisting of v_x and v_y.
 
-        Returns:
-            State variables (x,y,theta) integrated one step forward in time.
-        """
+    Returns:
+        np.ndarray: (x, y) position of the next state.
+    """
     x = x + self.time_step * u
     y = y + self.time_step * self.upward_speed
     return x, y
 
   def set_seed(self, seed):
-    """ Set the random seed.
+    """Set the random seed.
 
-        Args:
-            seed: Random seed.
-        """
+    Args:
+        seed (int): Random seed.
+    """
     self.seed_val = seed
     np.random.seed(self.seed_val)
 
   def safety_margin(self, s):
-    """ Computes the margin (e.g. distance) between state and failue set.
+    """Compute the margin (e.g. distance) between the state and the failue set.
 
-        Args:
-            s: State.
+    Args:
+        s (np.ndarray): the state of the agent.
 
-        Returns:
-            Margin for the state s.
-        """
+    Returns:
+        float: postivive numbers indicate being inside the failure set (safety
+            violation).
+    """
     box1_safety_margin = -(
         np.linalg.norm(s - self.box1_x_y_length[:2], ord=np.inf)
         - self.box1_x_y_length[-1] / 2.0
@@ -215,14 +222,15 @@ class PointMassEnv(gym.Env):
     return self.scaling * safety_margin
 
   def target_margin(self, s):
-    """ Computes the margin (e.g. distance) between state and target set.
+    """Compute the margin (e.g. distance) between the state and the target set.
 
-        Args:
-            s: State.
+    Args:
+        s (np.ndarray): the state of the agent.
 
-        Returns:
-            Margin for the state s.
-        """
+    Returns:
+        float: negative numbers indicate reaching the target. If the target set
+            is not specified, return None.
+    """
     box4_target_margin = (
         np.linalg.norm(s - self.box4_x_y_length[:2], ord=np.inf)
         - self.box4_x_y_length[-1] / 2.0
@@ -232,22 +240,20 @@ class PointMassEnv(gym.Env):
     return self.scaling * target_margin
 
   def set_grid_cells(self, grid_cells):
-    """ Set number of grid cells.
+    """Set the number of grid cells.
 
-        Args:
-            grid_cells: Number of grid cells as a tuple.
-        """
+    Args:
+        grid_cells (tuple of ints): the ith value is the number of grid_cells
+            for ith dimension of state.
+    """
     self.grid_cells = grid_cells
 
-    # (self.x_opos, self.y_opos, self.x_ipos,
-    #  self.y_ipos) = self.constraint_set_boundary()
-
   def set_bounds(self, bounds):
-    """ Set state bounds.
+    """Set the boundary and the observation_space of the environment.
 
-        Args:
-            bounds: Bounds for the state.
-        """
+    Args:
+        bounds (np.ndarray): of the shape (n_dim, 2). Each row is [LB, UB].
+    """
     self.bounds = bounds
 
     # Get lower and upper bounds
@@ -261,12 +267,13 @@ class PointMassEnv(gym.Env):
     )
 
   def set_discretization(self, grid_cells, bounds):
-    """ Set number of grid cells and state bounds.
+    """Set the number of grid cells and state bounds.
 
-        Args:
-            grid_cells: Number of grid cells as a tuple.
-            bounds: Bounds for the state.
-        """
+    Args:
+        grid_cells (tuple of ints): the ith value is the number of grid_cells
+            for ith dimension of state.
+        bounds (np.ndarray): Bounds for the state.
+    """
     self.set_grid_cells(grid_cells)
     self.set_bounds(bounds)
 
@@ -274,16 +281,13 @@ class PointMassEnv(gym.Env):
     pass
 
   def constraint_set_boundary(self):
-    """ Computes the safe set boundary based on the analytic solution.
+    """Compute the safe set boundary based on the analytic solution.
 
-        The boundary of the safe set for the double integrator is determined by
-        two parabolas and two line segments.
-
-        Returns:
-            Set of discrete points describing each parabola. The first and last
-            two elements of the list describe the set of coordinates for the
-            first and second parabola respectively.
-        """
+    Returns:
+        tuple of np.ndarray: each array is of the shape (5, ). Since we use the
+            box constraint in this environment, we need five points to plot a
+            box.
+    """
     x_box1_pos = np.array([
         self.box1_x_y_length[0] - self.box1_x_y_length[-1] / 2.0,
         self.box1_x_y_length[0] - self.box1_x_y_length[-1] / 2.0,
@@ -333,16 +337,12 @@ class PointMassEnv(gym.Env):
     )
 
   def target_set_boundary(self):
-    """ Computes the safe set boundary based on the analytic solution.
+    """Computes the target set boundary based on the analytic solution.
 
-        The boundary of the safe set for the double integrator is determined by
-        two parabolas and two line segments.
-
-        Returns:
-            Set of discrete points describing each parabola. The first and last
-            two elements of the list describe the set of coordinates for the
-            first and second parabola respectively.
-        """
+    Returns:
+        tuple of np.ndarray: each array is of the shape (5, ). Since we use the
+            box target in this environment, we need five points to plot a box.
+    """
     x_box4_pos = np.array([
         self.box4_x_y_length[0] - self.box4_x_y_length[-1] / 2.0,
         self.box4_x_y_length[0] - self.box4_x_y_length[-1] / 2.0,
@@ -362,14 +362,20 @@ class PointMassEnv(gym.Env):
     return (x_box4_pos, y_box4_pos)
 
   def visualize_analytic_comparison(
-      self, v, no_show=False, labels=["x", "y"], vmin=-1, vmax=1,
-      boolPlot=False, cmap='seismic', fig=None, ax=None
+      self, v, vmin=-1, vmax=1, boolPlot=False, cmap='seismic', ax=None
   ):
-    """ Overlays analytic safe set on top of state value function.
+    """Overlay state value function.
 
-        Args:
-            v: State value function.
-        """
+    Args:
+        q_values (np.ndarray): State-action values, which is of dimension
+            (grid_cells, env.action_space.n).
+        vmin (int, optional): vmin in colormap. Defaults to -1.
+        vmax (int, optional): vmax in colormap. Defaults to 1.
+        boolPlot (bool, optional): plot the values in binary form if True.
+            Defaults to False.
+        cmap (str, optional): color map. Defaults to 'seismic'.
+        ax (matplotlib.axes.Axes, optional): Defaults to None.
+    """
     axes = self.get_axes()
 
     if boolPlot:
@@ -385,7 +391,20 @@ class PointMassEnv(gym.Env):
       # fig.colorbar(im, pad=0.01, shrink=0.95)
 
   def simulate_one_trajectory(self, q_func, T=10, state=None):
+    """Simulate the trajectory given the state or randomly initialized.
 
+    Args:
+        q_func (np.ndarray): State-action values, which is of dimension
+            (grid_cells, env.action_space.n).
+        T (int, optional): the maximum length of the trajectory.
+            Defaults to 10.
+        state (np.ndarray, optional): if provided, set the initial state to its
+            value. Defaults to None.
+
+    Returns:
+        np.ndarray: x-position of states in the trajectory.
+        np.ndarray: y-position of states in the trajectory.
+    """
     if state is None:
       state = self.sample_random_state()
     x, y = state
@@ -417,7 +436,22 @@ class PointMassEnv(gym.Env):
   def simulate_trajectories(
       self, q_func, T=10, num_rnd_traj=None, states=None
   ):
+    """
+    Simulate the trajectories. If the states are not provided, we pick the
+    initial states from the discretized state space.
 
+    Args:
+        q_func (object): agent's Q-network.
+        T (int, optional): the maximum length of the trajectory.
+            Defaults to 10.
+        num_rnd_traj (int, optional): #states. Defaults to None.
+        states (list of np.ndarrays, optional): if provided, set the initial
+            states to its value. Defaults to None.
+
+    Returns:
+        list of np.ndarrays: each element is a tuple consisting of x and y
+            positions along the trajectory.
+    """
     assert ((num_rnd_traj is None and states is not None)
             or (num_rnd_traj is not None and states is None)
             or (len(states) == num_rnd_traj))
@@ -435,10 +469,23 @@ class PointMassEnv(gym.Env):
     return trajectories
 
   def plot_trajectories(
-      self, q_func, T=250, num_rnd_traj=None, states=None, keepOutOf=False,
-      toEnd=False, ax=None, c='k', lw=2, zorder=3
+      self, q_func, T=250, num_rnd_traj=None, states=None, ax=None, c='k',
+      lw=2, zorder=2
   ):
+    """Plot trajectories given the state-action values.
 
+    Args:
+        q_func (object): agent's Q-network.
+        T (int, optional): the maximum length of the trajectory.
+            Defaults to 10.
+        num_rnd_traj (int, optional): #states. Defaults to None.
+        states (list of np.ndarrays, optional): if provided, set the initial
+            states to its value. Defaults to None.
+        ax (matplotlib.axes.Axes, optional): Defaults to None.
+        c (str, optional): color of the trajectories. Defaults to 'k'.
+        lw (float, optional): linewidth of the trajectories. Defaults to 2.
+        zorder (int, optional): graph layers order. Defaults to 2.
+    """
     assert ((num_rnd_traj is None and states is not None)
             or (num_rnd_traj is not None and states is None)
             or (len(states) == num_rnd_traj))
@@ -455,6 +502,17 @@ class PointMassEnv(gym.Env):
   def plot_target_failure_set(
       self, ax=None, c_c='m', c_t='y', lw=1.5, zorder=1
   ):
+    """Plot the target and the failure set.
+
+    Args:
+        ax (matplotlib.axes.Axes, optional)
+        c_c (str, optional): color of the constraint set boundary.
+            Defaults to 'm'.
+        c_t (str, optional): color of the target set boundary.
+            Defaults to 'y'.
+        lw (float, optional): liewidth. Defaults to 1.5.
+        zorder (int, optional): graph layers order. Defaults to 1.
+    """
     # Plot bounadries of constraint set.
     ax.plot(self.x_box1_pos, self.y_box1_pos, color=c_c, lw=lw, zorder=zorder)
     ax.plot(self.x_box2_pos, self.y_box2_pos, color=c_c, lw=lw, zorder=zorder)
@@ -464,6 +522,15 @@ class PointMassEnv(gym.Env):
     ax.plot(self.x_box4_pos, self.y_box4_pos, color=c_t, lw=lw, zorder=zorder)
 
   def plot_reach_avoid_set(self, ax=None, c='g', lw=3, zorder=2):
+    """Plot the analytic reach-avoid set.
+
+    Args:
+        ax (matplotlib.axes.Axes, optional): ax to plot. Defaults to None.
+        c (str, optional): color of the rach-avoid set boundary.
+            Defaults to 'g'.
+        lw (int, optional): liewidth. Defaults to 3.
+        zorder (int, optional): graph layers order. Defaults to 2.
+    """
     slope = self.upward_speed / self.horizontal_rate
 
     def get_line(slope, end_point, x_limit, ns=100):
@@ -506,6 +573,12 @@ class PointMassEnv(gym.Env):
     ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
   def plot_formatting(self, ax=None, labels=None):
+    """Format the visualization.
+
+    Args:
+        ax (matplotlib.axes.Axes, optional): ax to plot. Defaults to None.
+        labels (list, optional): x- and y- labels. Defaults to None.
+    """
     axStyle = self.get_axes()
     # == Formatting ==
     ax.axis(axStyle[0])
@@ -523,11 +596,11 @@ class PointMassEnv(gym.Env):
     ax.set_yticklabels([])
 
   def get_axes(self):
-    """ Gets the bounds for the environment.
+    """Gets the bounds for the environment.
 
-        Returns:
-            List containing a list of bounds for each state coordinate and a
-        """
+    Returns:
+        list: contain np.ndarray (axes bounds) and float (aspect ratio).
+    """
     x_span = self.bounds[0, 1] - self.bounds[0, 0]
     y_span = self.bounds[1, 1] - self.bounds[1, 0]
     aspect_ratio = x_span / y_span

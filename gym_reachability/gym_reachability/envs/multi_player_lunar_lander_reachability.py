@@ -29,9 +29,6 @@ from shapely.geometry import Polygon, Point
 from shapely.affinity import affine_transform
 from shapely.ops import triangulate
 
-# TODO(vrubies): Maybe re-write env to a multi-env like in
-# https://github.com/openai/multiagent-particle-envs/blob/master/multiagent/environment.py
-
 
 class MultiPlayerContactDetector(contactListener):
   """This class implements a contact detector.
@@ -139,7 +136,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     # Set random seed.
     self.set_seed(rnd_seed)
 
-    # for torch
+    # For torch.
     self.device = device
 
     # From parent constuctor.
@@ -367,7 +364,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         key (str): the name of the lunar lander, serving as the key to call it.
     """
     # Generate Landers
-    initial_x = initial_state[0]  # self.VIEWPORT_W/self.SCALE/2
+    initial_x = initial_state[0]
     initial_y = initial_state[1]
     self.lander[key] = self.world.CreateDynamicBody(
         position=(initial_x, initial_y),
@@ -723,6 +720,17 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return np.array(state, dtype=np.float32), reward, done, {}
 
   def step(self, action):
+    """Evolve the environment one step forward for each lander.
+
+    Args:
+        action (int): the index of the action in the action set.
+
+    Returns:
+        np.ndarray: next state.
+        float: safety margin value for the next state.
+        bool: True if the episode is terminated for any lander.
+        dict: dictionary with safety and target margins.
+    """
     info = {}
 
     l_x_cur = self.target_margin(self.sim_state)
@@ -802,6 +810,17 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return np.copy(self.obs_state), l_x_nxt, done, info
 
   def _create_particle(self, mass, x, y, ttl):
+    """Generate particles for the thrusters for cosmetic purposes.
+
+    Args:
+        mass (float): mass of the particle.
+        x (float): x position.
+        y (float): y position.
+        ttl (float): power.
+
+    Returns:
+        Dynamic body representing a thurster particle.
+    """
     p = self.world.CreateDynamicBody(
         position=(x, y),
         angle=0.0,
@@ -820,18 +839,26 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return p
 
   def _clean_particles(self, all_):
+    """Destroy particles with options.
+
+    Args:
+        all_ (bool): If true it destroys all particles.
+    """
     while self.particles and (all_ or self.particles[0].ttl < 0):
       self.world.DestroyBody(self.particles.pop(0))
 
-  # TODO(vrubies): Swap to
   def decimal_actions_to_player_actions(self, action):
     """Transform decimal actions into an action for each lunar lander.
+    Goes from base 10 to base #actions.
+    (e.g. 3 actions, 2 landers. Decimal: 0, Players: [0, 0]
+                                Decimal: 1, Players: [0, 1]
+                                Decimal: 5, Players: [1, 1]
 
     Args:
         action (int): a decimal action.
 
     Returns:
-        list: actions for all lunar landers.
+        list: actions for each lunar lander.
     """
     base_actions = self.one_player_act_dim
     player_actions = []
@@ -962,6 +989,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         mode (str, optional): Defaults to 'human'.
         plot_landers (bool, optional): Plot the lunar lander if True.
             Defaults to True.
+        kwargs (dict): polyline for the target.
     """
     from gym.envs.classic_control import rendering
     if self.viewer is None:
@@ -985,8 +1013,6 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
 
     for p in self.sky_polys:
       self.viewer.draw_polygon(p, color=(0, 0, 0))
-    # for p in self.moon_chunk:
-    #     self.viewer.draw_polygon(p, color=(0.5, 0.5, 0.5))
 
     if plot_landers:
       if self.observation_type == "LiDAR":
@@ -1036,28 +1062,3 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     if self.viewer is not None:
       self.viewer.close()
       self.viewer = None
-
-
-# class RandomAlias:
-#     """
-#     Note: This is a little hacky. The LunarLander uses the instance attribute
-#     self.np_random to pick the moon self.CHUNKS placements and also determine
-#     the randomness in the dynamics and starting conditions. The size argument
-#     is only used for determining the height of the self.CHUNKS so this can be
-#     used to set the height of the self.CHUNKS. When low=-1.0 and high=1.0 the
-#     dispersion on the particles is determined on line 247 in step LunarLander
-#     which makes the dynamics probabilistic. Safety Bellman Equation assumes
-#     deterministic dynamics so we set that to be constant
-#     """
-
-#     @staticmethod
-#     def uniform(low, high, size=None):
-#         if size is None:
-#             if low == -1.0 and high == 1.0:
-#                 return 0
-#             else:
-#                 return np.random.uniform(low=low, high=high)
-#         else:
-#             return np.ones(
-#                 12
-#             ) * self.HELIPAD_Y * 0.1  # this makes the ground flat

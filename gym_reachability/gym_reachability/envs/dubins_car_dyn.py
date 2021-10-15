@@ -18,7 +18,7 @@ class DubinsCarDyn(object):
   """
 
   def __init__(self, doneType='toEnd'):
-    """Initialize the environment with the episode termination criterion.
+    """Initializes the environment with the episode termination criterion.
 
     Args:
         doneType (str, optional): conditions to raise `done` flag in
@@ -65,7 +65,7 @@ class DubinsCarDyn(object):
       self, start=None, theta=None, sample_inside_obs=False,
       sample_inside_tar=True
   ):
-    """Reset the state of the environment.
+    """Resets the state of the environment.
 
     Args:
         start (np.ndarray, optional): the state to reset the Dubins car to. If
@@ -93,7 +93,7 @@ class DubinsCarDyn(object):
   def sample_random_state(
       self, sample_inside_obs=False, sample_inside_tar=True, theta=None
   ):
-    """Pick the state uniformly at random.
+    """Picks the state uniformly at random.
 
     Args:
         sample_inside_obs (bool, optional): consider sampling the state inside
@@ -131,7 +131,7 @@ class DubinsCarDyn(object):
 
   # == Dynamics ==
   def step(self, action):
-    """Evolve the environment one step forward given an action.
+    """Evolves the environment one step forward given an action.
 
     Args:
         action (int): the index of the action in the action set.
@@ -162,7 +162,7 @@ class DubinsCarDyn(object):
     return np.copy(self.state), done
 
   def integrate_forward(self, state, u):
-    """Integrate the dynamics forward by one step.
+    """Integrates the dynamics forward by one step.
 
     Args:
         state (np.ndarray): (x, y, yaw).
@@ -182,7 +182,7 @@ class DubinsCarDyn(object):
 
   # == Setting Hyper-Parameter Functions ==
   def set_bounds(self, bounds):
-    """Set the boundary of the environment.
+    """Sets the boundary of the environment.
 
     Args:
         bounds (np.ndarray): of the shape (n_dim, 2). Each row is [LB, UB].
@@ -194,7 +194,7 @@ class DubinsCarDyn(object):
     self.high = np.array(self.bounds)[:, 1]
 
   def set_speed(self, speed=.5):
-    """Set speed of the car. The speed influences the angular speed and the
+    """Sets speed of the car. The speed influences the angular speed and the
         discrete control set.
 
     Args:
@@ -207,7 +207,7 @@ class DubinsCarDyn(object):
     ])
 
   def set_time_step(self, time_step=.05):
-    """Set the time step for dynamics integration.
+    """Sets the time step for dynamics integration.
 
     Args:
         time_step (float, optional): time step used in the integrate_forward.
@@ -216,7 +216,7 @@ class DubinsCarDyn(object):
     self.time_step = time_step
 
   def set_radius(self, target_radius=.3, constraint_radius=1., R_turn=.6):
-    """Set target_radius, constraint_radius and turning radius.
+    """Sets target_radius, constraint_radius and turning radius.
 
     Args:
         target_radius (float, optional): the radius of the target set.
@@ -231,7 +231,7 @@ class DubinsCarDyn(object):
     self.set_radius_rotation(R_turn=R_turn)
 
   def set_radius_rotation(self, R_turn=.6, verbose=False):
-    """Set radius of the car's circular motion. The turning radius influences
+    """Sets radius of the car's circular motion. The turning radius influences
         the angular speed and the discrete control set.
 
     Args:
@@ -248,7 +248,7 @@ class DubinsCarDyn(object):
       print(self.discrete_controls)
 
   def set_constraint(self, center, radius):
-    """Set the constraint set (complement of failure set).
+    """Sets the constraint set (complement of failure set).
 
     Args:
         center (np.ndarray, optional): center of the constraint set.
@@ -258,7 +258,7 @@ class DubinsCarDyn(object):
     self.constraint_radius = radius
 
   def set_target(self, center, radius):
-    """Set the target set.
+    """Sets the target set.
 
     Args:
         center (np.ndarray, optional): center of the target set.
@@ -269,7 +269,7 @@ class DubinsCarDyn(object):
 
   # == Getting Functions ==
   def check_within_bounds(self, state):
-    """Check if the agent is still in the environment.
+    """Checks if the agent is still in the environment.
 
     Args:
         state (np.ndarray): the state of the agent.
@@ -286,7 +286,7 @@ class DubinsCarDyn(object):
 
   # == Compute Margin ==
   def safety_margin(self, s):
-    """Compute the margin (e.g. distance) between the state and the failue set.
+    """Computes the margin (e.g. distance) between the state and the failue set.
 
     Args:
         s (np.ndarray): the state of the agent.
@@ -315,7 +315,7 @@ class DubinsCarDyn(object):
     return self.safetyScaling * safety_margin
 
   def target_margin(self, s):
-    """Compute the margin (e.g. distance) between the state and the target set.
+    """Computes the margin (e.g. distance) between the state and the target set.
 
     Args:
         s (np.ndarray): the state of the agent.

@@ -27,7 +27,7 @@ class DubinsCarOneEnv(gym.Env):
       self, device, mode="RA", doneType="toEnd", sample_inside_obs=False,
       sample_inside_tar=True
   ):
-    """Initialize the environment with given arguments.
+    """Initializes the environment with given arguments.
 
     Args:
         device (str): device type (used in PyTorch).
@@ -107,7 +107,7 @@ class DubinsCarOneEnv(gym.Env):
 
   def init_car(self):
     """
-    Initialize the dynamics, constraint set and the target set of a Dubins car.
+    Initializes the dynamics, constraint and the target set of a Dubins car.
     """
     self.car.set_bounds(bounds=self.bounds)
     self.car.set_constraint(
@@ -120,7 +120,7 @@ class DubinsCarOneEnv(gym.Env):
 
   # == Reset Functions ==
   def reset(self, start=None):
-    """Reset the state of the environment.
+    """Resets the state of the environment.
 
     Args:
         start (np.ndarray, optional): state to reset the environment to.
@@ -139,7 +139,7 @@ class DubinsCarOneEnv(gym.Env):
   def sample_random_state(
       self, sample_inside_obs=False, sample_inside_tar=True, theta=None
   ):
-    """Pick the state of the environment uniformly at random.
+    """Picks the state of the environment uniformly at random.
 
     Args:
         sample_inside_obs (bool, optional): consider sampling the state inside
@@ -161,7 +161,7 @@ class DubinsCarOneEnv(gym.Env):
 
   # == Dynamics Functions ==
   def step(self, action):
-    """Evolve the environment one step forward given an action.
+    """Evolves the environment one step forward given an action.
 
     Args:
         action (int): the index of the action in the action set.
@@ -234,7 +234,7 @@ class DubinsCarOneEnv(gym.Env):
       safetyScaling=1.0
   ):
     """
-    Set the hyper-parameters for the `cost` signal used in training, important
+    Sets the hyper-parameters for the `cost` signal used in training, important
     for standard (Lagrange-type) reinforcement learning.
 
     Args:
@@ -257,7 +257,7 @@ class DubinsCarOneEnv(gym.Env):
     self.targetScaling = targetScaling
 
   def set_seed(self, seed):
-    """Set the seed for `numpy`, `random`, `PyTorch` packages.
+    """Sets the seed for `numpy`, `random`, `PyTorch` packages.
 
     Args:
         seed (int): seed value.
@@ -273,7 +273,7 @@ class DubinsCarOneEnv(gym.Env):
     torch.backends.cudnn.deterministic = True
 
   def set_bounds(self, bounds):
-    """Set the boundary and the observation space of the environment.
+    """Sets the boundary and the observation space of the environment.
 
     Args:
         bounds (np.ndarray): of the shape (n_dim, 2). Each row is [LB, UB].
@@ -294,7 +294,7 @@ class DubinsCarOneEnv(gym.Env):
     self.car.set_bounds(bounds)
 
   def set_speed(self, speed=0.5):
-    """Set the linear velocity of the car.
+    """Sets the linear velocity of the car.
 
     Args:
         speed (float, optional): speed of the car. Defaults to .5.
@@ -303,7 +303,7 @@ class DubinsCarOneEnv(gym.Env):
     self.car.set_speed(speed=speed)
 
   def set_radius(self, target_radius=0.3, constraint_radius=1.0, R_turn=0.6):
-    """Set target_radius, constraint_radius and turning radius.
+    """Sets target_radius, constraint_radius and turning radius.
 
     Args:
         target_radius (float, optional): the radius of the target set.
@@ -323,7 +323,7 @@ class DubinsCarOneEnv(gym.Env):
 
   def set_radius_rotation(self, R_turn=0.6, verbose=False):
     """
-    Set radius of the car's circular motion. The turning radius influences the
+    Sets radius of the car's circular motion. The turning radius influences the
     angular speed and the discrete control set.
 
     Args:
@@ -335,7 +335,7 @@ class DubinsCarOneEnv(gym.Env):
     self.car.set_radius_rotation(R_turn=R_turn, verbose=verbose)
 
   def set_constraint(self, center=np.array([0.0, 0.0]), radius=1.0):
-    """Set the constraint set (complement of failure set).
+    """Sets the constraint set (complement of failure set).
 
     Args:
         center (np.ndarray, optional): center of the constraint set.
@@ -348,7 +348,7 @@ class DubinsCarOneEnv(gym.Env):
     self.car.set_constraint(center=center, radius=radius)
 
   def set_target(self, center=np.array([0.0, 0.0]), radius=0.4):
-    """Set the target set.
+    """Sets the target set.
 
     Args:
         center (np.ndarray, optional): center of the target set.
@@ -361,7 +361,7 @@ class DubinsCarOneEnv(gym.Env):
 
   # == Margin Functions ==
   def safety_margin(self, s):
-    """Compute the margin (e.g. distance) between the state and the failue set.
+    """Computes the margin (e.g. distance) between the state and the failue set.
 
     Args:
         s (np.ndarray): the state of the agent.
@@ -373,7 +373,7 @@ class DubinsCarOneEnv(gym.Env):
     return self.car.safety_margin(s[:2])
 
   def target_margin(self, s):
-    """Compute the margin (e.g. distance) between the state and the target set.
+    """Computes the margin (e.g. distance) between the state and the target set.
 
     Args:
         s (np.ndarray): the state of the agent.
@@ -386,7 +386,7 @@ class DubinsCarOneEnv(gym.Env):
 
   # == Getting Functions ==
   def get_warmup_examples(self, num_warmup_samples=100):
-    """Get warmup samples.
+    """Gets warmup samples.
 
     Args:
         num_warmup_samples (int, optional): # warmup samples. Defaults to 100.
@@ -413,7 +413,7 @@ class DubinsCarOneEnv(gym.Env):
     return states, heuristic_v
 
   def get_axes(self):
-    """Get the axes bounds and aspect_ratio.
+    """Gets the axes bounds and aspect_ratio.
 
     Returns:
         np.ndarray: axes bounds.
@@ -431,7 +431,7 @@ class DubinsCarOneEnv(gym.Env):
 
   def get_value(self, q_func, theta, nx=101, ny=101, addBias=False):
     """
-    Get the state values given the Q-network. We fix the heading angle of the
+    Gets the state values given the Q-network. We fix the heading angle of the
     car to `theta`.
 
     Args:
@@ -475,7 +475,7 @@ class DubinsCarOneEnv(gym.Env):
       self, q_func, T=10, state=None, theta=None, sample_inside_obs=True,
       sample_inside_tar=True, toEnd=False
   ):
-    """Simulate the trajectory given the state or randomly initialized.
+    """Simulates the trajectory given the state or randomly initialized.
 
     Args:
         q_func (object): agent's Q-network.
@@ -557,7 +557,7 @@ class DubinsCarOneEnv(gym.Env):
       self, q_func, T=10, num_rnd_traj=None, states=None, toEnd=False
   ):
     """
-    Simulate the trajectories. If the states are not provided, we pick the
+    Simulates the trajectories. If the states are not provided, we pick the
     initial states from the discretized state space.
 
     Args:
@@ -630,7 +630,7 @@ class DubinsCarOneEnv(gym.Env):
       rndTraj=False, num_rnd_traj=10
   ):
     """
-    Visulaize the trained Q-network in terms of state values and trajectories
+    Visulaizes the trained Q-network in terms of state values and trajectories
     rollout.
 
     Args:
@@ -729,7 +729,7 @@ class DubinsCarOneEnv(gym.Env):
       nx=201, ny=201, cmap="seismic", boolPlot=False, cbarPlot=True,
       addBias=False
   ):
-    """Plot state values.
+    """Plots state values.
 
     Args:
         q_func (object): agent's Q-network.
@@ -792,7 +792,7 @@ class DubinsCarOneEnv(gym.Env):
       self, q_func, T=100, num_rnd_traj=None, states=None, theta=None,
       toEnd=False, ax=None, c="y", lw=1.5, orientation=0, zorder=2
   ):
-    """Plot trajectories given the agent's Q-network.
+    """Plots trajectories given the agent's Q-network.
 
     Args:
         q_func (object): agent's Q-network.
@@ -844,7 +844,7 @@ class DubinsCarOneEnv(gym.Env):
     return results, minVs
 
   def plot_target_failure_set(self, ax=None, c_c="m", c_t="y", lw=3, zorder=0):
-    """Plot the boundary of the target and the failure set.
+    """Plots the boundary of the target and the failure set.
 
     Args:
         ax (matplotlib.axes.Axes, optional): ax to plot.
@@ -875,7 +875,7 @@ class DubinsCarOneEnv(gym.Env):
   def plot_reach_avoid_set(
       self, ax=None, c="g", lw=3, orientation=0, zorder=1
   ):
-    """Plot the analytic reach-avoid set.
+    """Plots the analytic reach-avoid set.
 
     Args:
         ax (matplotlib.axes.Axes, optional): ax to plot.
@@ -988,7 +988,7 @@ class DubinsCarOneEnv(gym.Env):
       )
 
   def plot_formatting(self, ax=None, labels=None):
-    """Format the visualization.
+    """Formats the visualization.
 
     Args:
         ax (matplotlib.axes.Axes, optional): ax to plot.

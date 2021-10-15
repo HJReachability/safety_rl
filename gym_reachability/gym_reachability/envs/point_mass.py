@@ -18,7 +18,7 @@ from utils.utils import state_to_index
 class PointMassEnv(gym.Env):
 
   def __init__(self):
-    """Initialize the environment with given arguments.
+    """Initializes the environment with given arguments.
     """
     # State bounds.
     self.bounds = np.array([
@@ -105,7 +105,7 @@ class PointMassEnv(gym.Env):
     np.random.seed(self.seed_val)
 
   def reset(self, start=None):
-    """Reset the state of the environment.
+    """Resets the state of the environment.
 
     Args:
         start (np.ndarray, optional): Which state to reset the environment to.
@@ -121,11 +121,16 @@ class PointMassEnv(gym.Env):
     return np.copy(self.state)
 
   def sample_random_state(self):
+    """Samples a state and returns it.
+
+    Returns:
+        np.ndarray: a state
+    """
     rnd_state = np.random.uniform(low=self.low, high=self.high)
     return rnd_state
 
   def step(self, action):
-    """Evolve the environment one step forward under given action.
+    """Evolves the environment one step forward under given action.
 
     Args:
         action (int): the index of the action in the action set.
@@ -161,7 +166,7 @@ class PointMassEnv(gym.Env):
     return np.copy(self.state), l_x, done, info
 
   def integrate_forward(self, x, y, u):
-    """Integrate the dynamics forward by one step.
+    """Integrates the dynamics forward by one step.
 
     Args:
         x (float): Position in x-axis.
@@ -176,7 +181,7 @@ class PointMassEnv(gym.Env):
     return x, y
 
   def set_seed(self, seed):
-    """Set the random seed.
+    """Sets the random seed.
 
     Args:
         seed (int): Random seed.
@@ -185,7 +190,7 @@ class PointMassEnv(gym.Env):
     np.random.seed(self.seed_val)
 
   def safety_margin(self, s):
-    """Compute the margin (e.g. distance) between the state and the failue set.
+    """Computes the margin (e.g. distance) between the state and the failue set.
 
     Args:
         s (np.ndarray): the state of the agent.
@@ -222,7 +227,7 @@ class PointMassEnv(gym.Env):
     return self.scaling * safety_margin
 
   def target_margin(self, s):
-    """Compute the margin (e.g. distance) between the state and the target set.
+    """Computes the margin (e.g. distance) between the state and the target set.
 
     Args:
         s (np.ndarray): the state of the agent.
@@ -240,7 +245,7 @@ class PointMassEnv(gym.Env):
     return self.scaling * target_margin
 
   def set_grid_cells(self, grid_cells):
-    """Set the number of grid cells.
+    """Sets the number of grid cells.
 
     Args:
         grid_cells (tuple of ints): the ith value is the number of grid_cells
@@ -249,7 +254,7 @@ class PointMassEnv(gym.Env):
     self.grid_cells = grid_cells
 
   def set_bounds(self, bounds):
-    """Set the boundary and the observation_space of the environment.
+    """Sets the boundary and the observation_space of the environment.
 
     Args:
         bounds (np.ndarray): of the shape (n_dim, 2). Each row is [LB, UB].
@@ -267,7 +272,7 @@ class PointMassEnv(gym.Env):
     )
 
   def set_discretization(self, grid_cells, bounds):
-    """Set the number of grid cells and state bounds.
+    """Sets the number of grid cells and state bounds.
 
     Args:
         grid_cells (tuple of ints): the ith value is the number of grid_cells
@@ -281,7 +286,7 @@ class PointMassEnv(gym.Env):
     pass
 
   def constraint_set_boundary(self):
-    """Compute the safe set boundary based on the analytic solution.
+    """Computes the safe set boundary based on the analytic solution.
 
     Returns:
         tuple of np.ndarray: each array is of the shape (5, ). Since we use the
@@ -364,7 +369,7 @@ class PointMassEnv(gym.Env):
   def visualize_analytic_comparison(
       self, v, vmin=-1, vmax=1, boolPlot=False, cmap='seismic', ax=None
   ):
-    """Overlay state value function.
+    """Overlays state value function.
 
     Args:
         q_values (np.ndarray): State-action values, which is of dimension
@@ -391,7 +396,7 @@ class PointMassEnv(gym.Env):
       # fig.colorbar(im, pad=0.01, shrink=0.95)
 
   def simulate_one_trajectory(self, q_func, T=10, state=None):
-    """Simulate the trajectory given the state or randomly initialized.
+    """Simulates the trajectory given the state or randomly initialized.
 
     Args:
         q_func (np.ndarray): State-action values, which is of dimension
@@ -437,7 +442,7 @@ class PointMassEnv(gym.Env):
       self, q_func, T=10, num_rnd_traj=None, states=None
   ):
     """
-    Simulate the trajectories. If the states are not provided, we pick the
+    Simulates the trajectories. If the states are not provided, we pick the
     initial states from the discretized state space.
 
     Args:
@@ -472,7 +477,7 @@ class PointMassEnv(gym.Env):
       self, q_func, T=250, num_rnd_traj=None, states=None, ax=None, c='k',
       lw=2, zorder=2
   ):
-    """Plot trajectories given the state-action values.
+    """Plots trajectories given the state-action values.
 
     Args:
         q_func (object): agent's Q-network.
@@ -502,7 +507,7 @@ class PointMassEnv(gym.Env):
   def plot_target_failure_set(
       self, ax=None, c_c='m', c_t='y', lw=1.5, zorder=1
   ):
-    """Plot the target and the failure set.
+    """Plots the target and the failure set.
 
     Args:
         ax (matplotlib.axes.Axes, optional)
@@ -522,7 +527,7 @@ class PointMassEnv(gym.Env):
     ax.plot(self.x_box4_pos, self.y_box4_pos, color=c_t, lw=lw, zorder=zorder)
 
   def plot_reach_avoid_set(self, ax=None, c='g', lw=3, zorder=2):
-    """Plot the analytic reach-avoid set.
+    """Plots the analytic reach-avoid set.
 
     Args:
         ax (matplotlib.axes.Axes, optional): ax to plot. Defaults to None.
@@ -573,7 +578,7 @@ class PointMassEnv(gym.Env):
     ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
   def plot_formatting(self, ax=None, labels=None):
-    """Format the visualization.
+    """Formats the visualization.
 
     Args:
         ax (matplotlib.axes.Axes, optional): ax to plot. Defaults to None.

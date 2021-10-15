@@ -7,7 +7,7 @@ import numpy as np
 
 # == margin ==
 def calculate_margin_rect(s, x_y_w_h, negativeInside=True):
-  """Calculate the margin to a rectangular box in the x-y state space.
+  """Calculates the margin to a rectangular box in the x-y state space.
 
     Args:
         s (np.ndarray): the state of the agent. It requires that s[0] is the
@@ -31,7 +31,7 @@ def calculate_margin_rect(s, x_y_w_h, negativeInside=True):
 
 
 def calculate_margin_circle(s, c_r, negativeInside=True):
-  """Calculate the margin to a circle in the x-y state space.
+  """Calculates the margin to a circle in the x-y state space.
 
     Args:
         s (np.ndarray): the state of the agent. It requires that s[0] is the
@@ -57,7 +57,7 @@ def calculate_margin_circle(s, c_r, negativeInside=True):
 def plot_arc(
     center, r, thetaParam, ax, c='b', lw=1.5, orientation=0., zorder=0
 ):
-  """Plot an arc given a center, a radius and the (theta_init, theta_final).
+  """Plots an arc given a center, a radius and the (theta_init, theta_final).
 
   Args:
       center (np.ndarray): the center of the arc.
@@ -88,7 +88,7 @@ def plot_circle(
     center, r, ax, c='b', lw=1.5, ls='-', orientation=0, scatter=False,
     zorder=0
 ):
-  """Plot a circle given a center and a radius.
+  """Plots a circle given a center and a radius.
 
   Args:
       enter (np.ndarray): the center of the arc.
@@ -118,7 +118,7 @@ def plot_circle(
 
 
 def rotatePoint(state, orientation):
-  """Rotate the point counter-clockwise by a given angle.
+  """Rotates the point counter-clockwise by a given angle.
 
   Args:
       state (np.ndarray): the state of the agent. It requires that s[0] is the

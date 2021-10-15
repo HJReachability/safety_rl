@@ -31,7 +31,7 @@ from shapely.ops import triangulate
 
 
 class MultiPlayerContactDetector(contactListener):
-  """This class implements a contact detector.
+  """Implements a contact detector.
   """
 
   def __init__(self, env):
@@ -101,7 +101,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
       observation_type='default', param_dict={}, rnd_seed=0,
       doneType='toFailureOrSuccess', obstacle_sampling=False
   ):
-    """Initialize the environment with arguments.
+    """Initializes the environment with arguments.
 
     Args:
         device (torch.device, optional): CPU or GPU. Defaults to CPU.
@@ -197,7 +197,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     self.reset()
 
   def _generate_param_dict(self, input_dict):
-    """Return dictionary with common parameters and user-specific parameters.
+    """Returns dictionary with common parameters and user-specific parameters.
 
     Args:
         input_dict (dict): user-specific parameters.
@@ -233,7 +233,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return param_dict
 
   def initialize_simulator_variables(self, param_dict):
-    """Initialize simulator of the lunar lander given parameters.
+    """Initializes simulator of the lunar lander given parameters.
 
     Args:
         param_dict (dict): common parameters and user-specific parameters.
@@ -293,7 +293,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
   # generate-sample-coordinates-inside-a-polygon
   @staticmethod
   def random_points_in_polygon(polygon, k):
-    """Return list of k points uniformly at random inside the polygon.
+    """Returns list of k points uniformly at random inside the polygon.
     """
     areas = []
     transforms = []
@@ -312,7 +312,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return points
 
   def extend_state(self, states):
-    """Extend the state to consist of max{ell, g}. Only used for mode='extend'.
+    """Extends the state to consist of max{ell, g}. Only used for mode='extend'.
 
     Args:
         states (np.ndarray): (x, y) position of states.
@@ -328,7 +328,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return new_states
 
   def set_lander_state(self, state, key):
-    """Set the state of the lunar lander.
+    """Sets the state of the lunar lander.
 
     Args:
         state (np.ndarray): the position, yaw, linear velocity and angular
@@ -357,7 +357,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     ], dtype=np.float64)
 
   def generate_lander(self, initial_state, key):
-    """Generate the lunar lander given an inital state and a key for it.
+    """Generates the lunar lander given an inital state and a key for it.
 
     Args:
         initial_state (np.ndarray): we only care the x- and y- position.
@@ -428,7 +428,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
   def generate_terrain_and_landers(
       self, terrain_polyline=None, sample_inside_obs=False
   ):
-    """Generate the terrain of the world and lunar landers in the world.
+    """Generates the terrain of the world and lunar landers in the world.
 
     Args:
         terrain_polyline (list, optional): height of each chunk.
@@ -503,7 +503,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return s
 
   def rejection_sample(self, sample_inside_obs=False):
-    """Return the initial states sampled uniformly at random.
+    """Returns the initial states sampled uniformly at random.
 
     Args:
         sample_inside_obs (bool, optional): consider sampling the state inside
@@ -520,7 +520,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return xy_sample
 
   def _destroy(self):
-    """Destroy the environment.
+    """Destroys the environment.
     """
     if self.moon is not None:
       self.world.contactListener = None
@@ -535,7 +535,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.world.DestroyBody(self.legs[ii][1])
 
   def reset(self, state_in=None, terrain_polyline=None):
-    """Reset the environment according to a uniform distribution.
+    """Resets the environment according to a uniform distribution.
 
     Args:
         state_in (np.ndarray, optional): assumed to be in simulation
@@ -596,7 +596,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return s
 
   def parent_step(self, action, key):
-    """Evolve the environment one step forward given an action.
+    """Evolves the environment one step forward given an action.
 
     Args:
         action (int): the index of the action in the action set.
@@ -720,7 +720,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return np.array(state, dtype=np.float32), reward, done, {}
 
   def step(self, action):
-    """Evolve the environment one step forward for each lander.
+    """Evolves the environment one step forward for each lander.
 
     Args:
         action (int): the index of the action in the action set.
@@ -810,7 +810,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return np.copy(self.obs_state), l_x_nxt, done, info
 
   def _create_particle(self, mass, x, y, ttl):
-    """Generate particles for the thrusters for cosmetic purposes.
+    """Generates particles for the thrusters for cosmetic purposes.
 
     Args:
         mass (float): mass of the particle.
@@ -839,7 +839,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return p
 
   def _clean_particles(self, all_):
-    """Destroy particles with options.
+    """Destroys particles with options.
 
     Args:
         all_ (bool): If true it destroys all particles.
@@ -848,7 +848,8 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
       self.world.DestroyBody(self.particles.pop(0))
 
   def decimal_actions_to_player_actions(self, action):
-    """Transform decimal actions into an action for each lunar lander.
+    """
+    Transforms decimal actions into an action for each lunar lander.
     Goes from base 10 to base #actions.
     (e.g. 3 actions, 2 landers. Decimal: 0, Players: [0, 0]
                                 Decimal: 1, Players: [0, 1]
@@ -882,7 +883,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
 
   # =========== Methods for conversions (BEGIN).
   def simulator_scale_to_obs_scale_single(self, state):
-    """Transform the state from simulator scle to observation scale and return.
+    """Transforms the state from simulator scle to observation scale and return.
 
     Args:
         state (np.ndarray): state of a lunar lander in simulator scale.
@@ -900,7 +901,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return copy_state
 
   def simulator_scale_to_obs_scale(self, state):
-    """Transform the state from simulator scle to observation scale and return.
+    """Transforms the state from simulator scle to observation scale and return.
 
     Args:
         state (np.ndarray): states of all lunar landers in simulator scale.
@@ -916,7 +917,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return copy_state
 
   def obs_scale_to_simulator_scale_single(self, state):
-    """Transform the state from observation scle to simulator scale and return.
+    """Transforms the state from observation scle to simulator scale and return.
 
     Args:
         state (np.ndarray): state of a lunar lander in observation scale.
@@ -934,7 +935,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     return copy_state
 
   def obs_scale_to_simulator_scale(self, state):
-    """Transform the state from observation scle to simulator scale and return.
+    """Transforms the state from observation scle to simulator scale and return.
 
     Args:
         state (np.ndarray): states of all lunar landers in observation scale.
@@ -952,7 +953,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
   # =========== Methods for conversions (END).
 
   def set_seed(self, seed):
-    """Set the random seed.
+    """Sets the random seed.
 
     Args:
         seed (int): Random seed.
@@ -961,7 +962,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     np.random.seed(self.seed_val)
 
   def set_doneType(self, doneType):
-    """Set the condition to raise `done` flag.
+    """Sets the condition to raise `done` flag.
 
     Args:
         doneType (str): condition to raise `done` flag.
@@ -970,7 +971,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
 
   def set_costParam(self, penalty=1, reward=-1):
     """
-    Set the hyper-parameters for the `cost` signal used in training, important
+    Sets the hyper-parameters for the `cost` signal used in training, important
     for standard (Lagrange-type) reinforcement learning.
 
     Args:
@@ -983,7 +984,7 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
     self.reward = reward
 
   def render(self, mode='human', plot_landers=True, **kwargs):
-    """Return rendered image.
+    """Returns rendered image.
 
     Args:
         mode (str, optional): Defaults to 'human'.
@@ -1051,13 +1052,13 @@ class MultiPlayerLunarLanderReachability(gym.Env, EzPickle):
         self.paint_obstacle, color=(1, 0, 0), linewidth=10
     )
 
-    for key, value in kwargs.items():
+    for _, value in kwargs.items():
       self.viewer.draw_polyline(value, color=(0, 1, 0), linewidth=10)
 
     return self.viewer.render(return_rgb_array=mode == 'rgb_array')
 
   def close(self):
-    """Close the viewer.
+    """Closes the viewer.
     """
     if self.viewer is not None:
       self.viewer.close()

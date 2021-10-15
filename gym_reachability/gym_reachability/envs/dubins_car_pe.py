@@ -35,7 +35,7 @@ class DubinsCarPEEnv(gym.Env):
       self, device, mode='RA', doneType='toEnd', sample_inside_obs=False,
       sample_inside_tar=True, considerPursuerFailure=False
   ):
-    """Initialize the environment with given arguments.
+    """Initializes the environment with given arguments.
 
     Args:
         device (str): device type (used in PyTorch).
@@ -110,7 +110,7 @@ class DubinsCarPEEnv(gym.Env):
     self.device = device
 
   def init_car(self):
-    """Initalize the pursuer and evader.
+    """Initalizes the pursuer and evader.
     """
     self.evader.set_bounds(bounds=self.bounds)
     self.evader.set_constraint(
@@ -135,7 +135,7 @@ class DubinsCarPEEnv(gym.Env):
 
   # == Reset Functions ==
   def reset(self, start=None):
-    """Reset the state of the environment.
+    """Resets the state of the environment.
 
     Args:
         start (np.ndarray, optional): state to reset the environment to.
@@ -162,7 +162,7 @@ class DubinsCarPEEnv(gym.Env):
   def sample_random_state(
       self, sample_inside_obs=False, sample_inside_tar=True, theta=None
   ):
-    """Pick the state uniformly at random.
+    """Picks the state uniformly at random.
 
     Args:
         sample_inside_obs (bool, optional): consider sampling the state inside
@@ -187,7 +187,7 @@ class DubinsCarPEEnv(gym.Env):
 
   # == Dynamics Functions ==
   def step(self, action):
-    """Evolve the environment one step forward under given action.
+    """Evolves the environment one step forward under given action.
 
     Args:
         action (list of ints)): contains the index of action in the evader and
@@ -251,7 +251,7 @@ class DubinsCarPEEnv(gym.Env):
       safetyScaling=1.0
   ):
     """
-    Set the hyper-parameters for the `cost` signal used in training, important
+    Sets the hyper-parameters for the `cost` signal used in training, important
     for standard (Lagrange-type) reinforcement learning.
 
     Args:
@@ -273,7 +273,7 @@ class DubinsCarPEEnv(gym.Env):
     self.targetScaling = targetScaling
 
   def set_capture_range(self, capture_range=.1):
-    """Set the caspture radius of the pursuer.
+    """Sets the caspture radius of the pursuer.
 
     Args:
         capture_range (float, optional): the radius of the capture range.
@@ -282,7 +282,7 @@ class DubinsCarPEEnv(gym.Env):
     self.capture_range = capture_range
 
   def set_seed(self, seed):
-    """Set the seed for `numpy`, `random`, `PyTorch` packages.
+    """Sets the seed for `numpy`, `random`, `PyTorch` packages.
 
     Args:
         seed (int): seed value.
@@ -297,7 +297,7 @@ class DubinsCarPEEnv(gym.Env):
     torch.backends.cudnn.deterministic = True
 
   def set_bounds(self, bounds):
-    """Set the boundary and the observation space of the environment.
+    """Sets the boundary and the observation space of the environment.
 
     Args:
         bounds (np.ndarray): of the shape (n_dim, 2). Each row is [LB, UB].
@@ -319,7 +319,7 @@ class DubinsCarPEEnv(gym.Env):
 
   def set_radius_rotation(self, R_turn=.6, verbose=False):
     """
-    Set radius of the car's circular motion. The turning radius influences the
+    Sets radius of the car's circular motion. The turning radius influences the
     angular speed and the discrete control set.
 
     Args:
@@ -332,7 +332,7 @@ class DubinsCarPEEnv(gym.Env):
     self.pursuer.set_radius_rotation(R_turn=R_turn, verbose=verbose)
 
   def set_constraint(self, center=np.array([0., 0.]), radius=1., car='evader'):
-    """Set the constraint set (complement of failure set).
+    """Sets the constraint set (complement of failure set).
 
     Args:
         center (np.ndarray, optional): center of the constraint set.
@@ -358,7 +358,7 @@ class DubinsCarPEEnv(gym.Env):
       self.pursuer.set_constraint(center=center, radius=radius)
 
   def set_target(self, center=np.array([0., 0.]), radius=.4, car='evader'):
-    """Set the target set.
+    """Sets the target set.
 
     Args:
         center (np.ndarray, optional): center of the target set.
@@ -383,7 +383,7 @@ class DubinsCarPEEnv(gym.Env):
       self.pursuer.set_constraint(center=center, radius=radius)
 
   def set_considerPursuerFailure(self, considerPursuerFailure):
-    """Set the flag whether to consider pursuer's failure.
+    """Sets the flag whether to consider pursuer's failure.
 
     Args:
         considerPursuerFailure (bool): the game outcome considers the pursuer
@@ -394,7 +394,7 @@ class DubinsCarPEEnv(gym.Env):
   # == Margin Functions ==
   def safety_margin(self, s):
     """
-    Compute the margin (e.g. distance) between evader and its failue set and
+    Computes the margin (e.g. distance) between evader and its failue set and
     the distance between the evader and the pursuer.
 
     Args:
@@ -411,7 +411,7 @@ class DubinsCarPEEnv(gym.Env):
 
   def target_margin(self, s):
     """
-    Compute the margin (e.g. distance) between the evader and its target set.
+    Computes the margin (e.g. distance) between the evader and its target set.
     If self.considerPursuerFailure is True, then it also considers the failure
     of the pursuer.
 
@@ -434,7 +434,7 @@ class DubinsCarPEEnv(gym.Env):
       self, num_warmup_samples=100, theta=None, xPursuer=None, yPursuer=None,
       thetaPursuer=None
   ):
-    """Get the warmup samples.
+    """Gets the warmup samples to initialize the Q-network.
 
     Args:
         num_warmup_samples (int, optional): # warmup samples. Defaults to 100.
@@ -478,7 +478,7 @@ class DubinsCarPEEnv(gym.Env):
 
   # 2D-plot based on evader's x and y
   def get_axes(self):
-    """Get the axes bounds and aspect_ratio.
+    """Gets the axes bounds and aspect_ratio.
 
     Returns:
         np.ndarray: axes bounds.
@@ -498,7 +498,7 @@ class DubinsCarPEEnv(gym.Env):
       addBias=False, verbose=False
   ):
     """
-    Get the state values given the Q-network. We fix evader's heading angle to
+    Gets the state values given the Q-network. We fix evader's heading angle to
     theta and pursuer's state to [xPursuer, yPursuer, thetaPursuer].
 
     Args:
@@ -554,7 +554,7 @@ class DubinsCarPEEnv(gym.Env):
     return v
 
   def report(self):
-    """Report the information about the environment, the evader and the pursuer.
+    """Reports the information about the environment, the evader and the pursuer.
     """
     stateDim = self.state.shape[0]
     actionNum = self.action_space.n
@@ -595,7 +595,7 @@ class DubinsCarPEEnv(gym.Env):
   def simulate_one_trajectory(
       self, q_func, T=10, state=None, theta=None, keepOutOf=False, toEnd=False
   ):
-    """Simulate the trajectory given the state or randomly initialized.
+    """Simulates the trajectory given the state or randomly initialized.
 
     Args:
         q_func (object): agent's Q-network.
@@ -706,7 +706,7 @@ class DubinsCarPEEnv(gym.Env):
       keepOutOf=False, toEnd=False
   ):
     """
-    Simulate the trajectories. If the states are not provided, we pick the
+    Simulates the trajectories. If the states are not provided, we pick the
     initial states from the discretized state space.
 
     Args:
@@ -768,7 +768,7 @@ class DubinsCarPEEnv(gym.Env):
       num_rnd_traj=10, keepOutOf=False
   ):
     """
-    Visulaize the trained Q-network in terms of state values and trajectories
+    Visulaizes the trained Q-network in terms of state values and trajectories
     rollout.
 
     Args:
@@ -835,7 +835,7 @@ class DubinsCarPEEnv(gym.Env):
       fig=None, vmin=-1, vmax=1, nx=101, ny=101, cmap='seismic',
       boolPlot=False, cbarPlot=True, addBias=False
   ):
-    """Plot state values.
+    """Plots state values.
 
     Args:
         q_func (object): agent's Q-network.
@@ -894,7 +894,7 @@ class DubinsCarPEEnv(gym.Env):
       keepOutOf=False, toEnd=False, ax=None, c=[tiffany,
                                                 'y'], lw=2, orientation=0
   ):
-    """Plot trajectories given the agent's Q-network.
+    """Plots trajectories given the agent's Q-network.
 
     Args:
         q_func (object): agent's Q-network.
@@ -968,7 +968,7 @@ class DubinsCarPEEnv(gym.Env):
       self, ax=None, xPursuer=.5, yPursuer=.5, lw=3, showCapture=True, c_c='m',
       c_t='y', zorder=1
   ):
-    """Plot evader's target, constraint and pursuer's capture range.
+    """Plots evader's target, constraint and pursuer's capture range.
 
     Args:
         ax (matplotlib.axes.Axes, optional)
@@ -1004,7 +1004,7 @@ class DubinsCarPEEnv(gym.Env):
     pass
 
   def plot_formatting(self, ax=None, labels=None):
-    """Format the visualization.
+    """Formats the visualization.
 
     Args:
         ax (matplotlib.axes.Axes, optional): ax to plot.

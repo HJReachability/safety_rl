@@ -25,7 +25,7 @@ class ZermeloShowEnv(gym.Env):
       self, device, mode='RA', doneType='toEnd', thickness=.1,
       sample_inside_obs=False, envType='show'
   ):
-    """Initialize the environment with given arguments.
+    """Initializes the environment with given arguments.
 
     Args:
         device (str): device type (used in PyTorch).
@@ -154,7 +154,7 @@ class ZermeloShowEnv(gym.Env):
     self.device = device
 
   def extend_state(self, states):
-    """Extend the state to consist of max{ell, g}. Only used for mode='extend'.
+    """Extends the state to consist of max{ell, g}. Only used for mode='extend'.
 
     Args:
         states (np.ndarray): (x, y) position of states.
@@ -170,7 +170,7 @@ class ZermeloShowEnv(gym.Env):
     return new_states
 
   def reset(self, start=None):
-    """Reset the state of the environment.
+    """Resets the state of the environment.
 
     Args:
         start (np.ndarray, optional): state to reset the environment to.
@@ -188,7 +188,7 @@ class ZermeloShowEnv(gym.Env):
     return np.copy(self.state)
 
   def sample_random_state(self, sample_inside_obs=False):
-    """Pick the state uniformly at random.
+    """Picks the state uniformly at random.
 
     Args:
         sample_inside_obs (bool, optional): consider sampling the state inside
@@ -210,7 +210,7 @@ class ZermeloShowEnv(gym.Env):
 
   # == Dynamics ==
   def step(self, action):
-    """Evolve the environment one step forward under given action.
+    """Evolves the environment one step forward under given action.
 
     Args:
         action (int): the index of the action in the action set.
@@ -272,7 +272,7 @@ class ZermeloShowEnv(gym.Env):
     return np.copy(self.state), cost, done, info
 
   def integrate_forward(self, state, u):
-    """Integrate the dynamics forward by one step.
+    """Integrates the dynamics forward by one step.
 
     Args:
         state (np.ndarray): x, y - position
@@ -310,7 +310,7 @@ class ZermeloShowEnv(gym.Env):
       self, penalty=1., reward=-1., costType='sparse', scaling=1.
   ):
     """
-    Set the hyper-parameters for the `cost` signal used in training, important
+    Sets the hyper-parameters for the `cost` signal used in training, important
     for standard (Lagrange-type) reinforcement learning.
 
     Args:
@@ -328,7 +328,7 @@ class ZermeloShowEnv(gym.Env):
     self.scaling = scaling
 
   def set_seed(self, seed):
-    """Set the seed for `numpy`, `random`, `PyTorch` packages.
+    """Sets the seed for `numpy`, `random`, `PyTorch` packages.
 
     Args:
         seed (int): seed value.
@@ -343,7 +343,7 @@ class ZermeloShowEnv(gym.Env):
     torch.backends.cudnn.deterministic = True
 
   def set_bounds(self, bounds):
-    """Set the boundary and the observation_space of the environment.
+    """Sets the boundary and the observation_space of the environment.
 
     Args:
         bounds (np.ndarray): of the shape (n_dim, 2). Each row is [LB, UB].
@@ -362,7 +362,7 @@ class ZermeloShowEnv(gym.Env):
     )
 
   def set_doneType(self, doneType):
-    """Set the condition to terminate the episode.
+    """Sets the condition to terminate the episode.
 
     Args:
         doneType (str): conditions to raise `done flag in training.
@@ -370,7 +370,7 @@ class ZermeloShowEnv(gym.Env):
     self.doneType = doneType
 
   def set_sample_type(self, sample_inside_obs=False, verbose=False):
-    """Set the type of the sampling method.
+    """Sets the type of the sampling method.
 
     Args:
         sample_inside_obs (bool, optional): consider sampling the state inside
@@ -383,7 +383,7 @@ class ZermeloShowEnv(gym.Env):
 
   # == Getting Margin ==
   def safety_margin(self, s):
-    """Compute the margin (e.g. distance) between the state and the failue set.
+    """Computes the margin (e.g. distance) between the state and the failue set.
 
     Args:
         s (np.ndarray): the state of the agent.
@@ -409,7 +409,7 @@ class ZermeloShowEnv(gym.Env):
     return self.scaling * safety_margin
 
   def target_margin(self, s):
-    """Compute the margin (e.g. distance) between the state and the target set.
+    """Computes the margin (e.g. distance) between the state and the target set.
 
     Args:
         s (np.ndarray): the state of the agent.
@@ -431,7 +431,7 @@ class ZermeloShowEnv(gym.Env):
 
   # == Getting Information ==
   def check_within_env(self, state):
-    """Check if the robot is still in the environment.
+    """Checks if the robot is still in the environment.
 
     Args:
         state (np.ndarray): the state of the agent.
@@ -445,7 +445,7 @@ class ZermeloShowEnv(gym.Env):
     return outsideTop or outsideLeft or outsideRight
 
   def get_constraint_set_boundary(self):
-    """Get the constarint set boundary.
+    """Gets the constarint set boundary.
 
     Returns:
         np.ndarray: of the shape (#constraint, 5, 2). Since we use the box
@@ -467,7 +467,7 @@ class ZermeloShowEnv(gym.Env):
     return constraint_set_boundary
 
   def get_target_set_boundary(self):
-    """Get the target set boundary.
+    """Gets the target set boundary.
 
     Returns:
         np.ndarray: of the shape (#target, 5, 2). Since we use the box target
@@ -489,7 +489,7 @@ class ZermeloShowEnv(gym.Env):
     return target_set_boundary
 
   def get_warmup_examples(self, num_warmup_samples=100):
-    """Get the warmup samples.
+    """Gets the warmup samples.
 
     Args:
         num_warmup_samples (int, optional): # warmup samples. Defaults to 100.
@@ -516,7 +516,7 @@ class ZermeloShowEnv(gym.Env):
     return states, heuristic_v
 
   def get_axes(self):
-    """Get the axes bounds and aspect_ratio.
+    """Gets the axes bounds and aspect_ratio.
 
     Returns:
         np.ndarray: axes bounds.
@@ -532,7 +532,7 @@ class ZermeloShowEnv(gym.Env):
     return [axes, aspect_ratio]
 
   def get_value(self, q_func, nx=41, ny=121, addBias=False):
-    """Get the state values given the Q-network.
+    """Gets the state values given the Q-network.
 
     Args:
         q_func (object): agent's Q-network.
@@ -575,7 +575,7 @@ class ZermeloShowEnv(gym.Env):
   def simulate_one_trajectory(
       self, q_func, T=250, state=None, keepOutOf=False, toEnd=False
   ):
-    """Simulate the trajectory given the state or randomly initialized.
+    """Simulates the trajectory given the state or randomly initialized.
 
     Args:
         q_func (object): agent's Q-network.
@@ -632,7 +632,7 @@ class ZermeloShowEnv(gym.Env):
       self, q_func, T=250, num_rnd_traj=None, states=None, toEnd=False
   ):
     """
-    Simulate the trajectories. If the states are not provided, we pick the
+    Simulates the trajectories. If the states are not provided, we pick the
     initial states from the discretized state space.
 
     Args:
@@ -701,7 +701,7 @@ class ZermeloShowEnv(gym.Env):
       boolPlot=False, addBias=False, cmap='seismic'
   ):
     """
-    Visulaize the trained Q-network in terms of state values and trajectories
+    Visulaizes the trained Q-network in terms of state values and trajectories
     rollout.
 
     Args:
@@ -745,7 +745,7 @@ class ZermeloShowEnv(gym.Env):
       self, q_func, ax=None, fig=None, vmin=-1, vmax=1, nx=201, ny=201,
       cmap='seismic', alpha=0.8, boolPlot=False, cbarPlot=True, addBias=False
   ):
-    """Plot state values.
+    """Plots state values.
 
     Args:
         q_func (object): agent's Q-network.
@@ -792,7 +792,7 @@ class ZermeloShowEnv(gym.Env):
       self, q_func, T=250, num_rnd_traj=None, states=None, toEnd=False,
       ax=None, c='k', lw=2, zorder=2
   ):
-    """Plot trajectories given the agent's Q-network.
+    """Plots trajectories given the agent's Q-network.
 
     Args:
         q_func (object): agent's Q-network.
@@ -829,7 +829,7 @@ class ZermeloShowEnv(gym.Env):
   def plot_target_failure_set(
       self, ax=None, c_c='m', c_t='y', lw=1.5, zorder=1
   ):
-    """Plot the target and the failure set.
+    """Plots the target and the failure set.
 
     Args:
         ax (matplotlib.axes.Axes, optional)
@@ -855,7 +855,7 @@ class ZermeloShowEnv(gym.Env):
       )
 
   def plot_reach_avoid_set(self, ax=None, c='g', lw=3, zorder=1):
-    """Plot the analytic reach-avoid set.
+    """Plots the analytic reach-avoid set.
 
     Args:
         ax (matplotlib.axes.Axes, optional): ax to plot. Defaults to None.
@@ -905,7 +905,7 @@ class ZermeloShowEnv(gym.Env):
     ax.plot(xs, ys, color=c, linewidth=lw, zorder=zorder)
 
   def plot_formatting(self, ax=None, labels=None):
-    """Format the visualization.
+    """Formats the visualization.
 
     Args:
         ax (matplotlib.axes.Axes, optional): ax to plot. Defaults to None.

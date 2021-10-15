@@ -29,7 +29,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
       self, device=torch.device("cpu"), mode='RA', observation_type='default',
       param_dict={}, rnd_seed=0, doneType='toEnd', obstacle_sampling=False
   ):
-    """Initialize the environment with given arguments.
+    """Initializes the environment with given arguments.
 
     Args:
         device (str, optional): device type (used in PyTorch).
@@ -127,7 +127,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
       )
 
   def reset(self, state_in=None, terrain_polyline=None):
-    """Reset the state of the environment.
+    """Resets the state of the environment.
 
     Args:
         state_in (np.ndarray, optional): assumed to be in simulation
@@ -140,7 +140,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     return super().reset(state_in=state_in, terrain_polyline=terrain_polyline)
 
   def step(self, action):
-    """Evolve the environment one step forward given an action.
+    """Evolves the environment one step forward given an action.
 
     Args:
         action (int): the index of the action in the action set.
@@ -154,7 +154,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     return super().step(action)
 
   def target_margin(self, state):
-    """Compute the margin (e.g. distance) between the state and the target set.
+    """Computes the margin (e.g. distance) between the state and the target set.
 
     Args:
         s (np.ndarray): the state of the agent.
@@ -173,7 +173,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     return -inside * L2_distance
 
   def safety_margin(self, state):
-    """Compute the margin (e.g. distance) between the state and the failue set.
+    """Computes the margin (e.g. distance) between the state and the failue set.
 
     Args:
         s (np.ndarray): the state of the agent.
@@ -192,7 +192,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     return -inside * L2_distance
 
   def set_seed(self, seed):
-    """Set the random seed.
+    """Sets the random seed.
 
     Args:
         seed: Random seed.
@@ -201,7 +201,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     np.random.seed(self.seed_val)
 
   def set_doneType(self, doneType):
-    """Set the doneType.
+    """Sets the episode termination criterion.
 
     Args:
         donetype: (str) doneType.
@@ -209,7 +209,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     self.doneType = doneType
 
   def simulate_one_trajectory(self, q_func, T=10, state=None, init_q=False):
-    """Simulate the trajectory given the state or randomly initialized.
+    """Simulates the trajectory given the state or randomly initialized.
 
     Args:
         q_func (object): agent's Q-network.
@@ -271,7 +271,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
       self, q_func, T=10, num_rnd_traj=None, states=None, **kwargs
   ):
     """
-    Simulate the trajectories. If the states are not provided, we pick the
+    Simulates the trajectories. If the states are not provided, we pick the
     initial states from the discretized state space.
 
     Args:
@@ -311,7 +311,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
   def plot_trajectories(
       self, q_func, T=10, num_rnd_traj=None, states=None, c='w', ax=None
   ):
-    """Plot trajectories given the agent's Q-network.
+    """Plots trajectories given the agent's Q-network.
 
     Args:
         q_func (object): agent's Q-network.
@@ -344,7 +344,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
       self, q_func, nx=101, ny=101, x_dot=0., y_dot=0., theta=0., theta_dot=0.,
       addBias=False
   ):
-    """Get the state values given the Q-network.
+    """Gets the state values given the Q-network.
 
     Args:
         q_func (object): agent's Q-network.
@@ -408,7 +408,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     return v, xs, ys
 
   def get_axes(self):
-    """Get the axes bounds and aspect_ratio.
+    """Gets the axes bounds and aspect_ratio.
 
     Returns:
         np.ndarray: axes bounds.
@@ -427,7 +427,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     return [axes, aspect_ratio]
 
   def imshow_lander(self, extent=None, alpha=0.4, ax=None):
-    """Plot the lunar lander.
+    """Plots the lunar lander.
 
     Args:
         extent (list, optional): the bounding box in data coordinates that
@@ -453,7 +453,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
       lvlset=0.
   ):
     """
-    Visulaize the trained Q-network in terms of state values and trajectories
+    Visulaizes the trained Q-network in terms of state values and trajectories
     rollout.
 
     Args:
@@ -565,7 +565,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     plt.tight_layout()
 
   def get_warmup_examples(self, num_warmup_samples=100, s_margin=True):
-    """Get warmup samples.
+    """Gets warmup samples to initialize the Q-network.
 
     Args:
         num_warmup_samples (int, optional): # warmup samples. Defaults to 100.
@@ -599,7 +599,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     return states, heuristic_v
 
   def confusion_matrix(self, q_func, num_states=50):
-    """Get the confusion matrix using DDQN values and rollout results.
+    """Gets the confusion matrix using DDQN values and rollout results.
 
     Args:
         q_func (object): agent's Q-network.
@@ -633,7 +633,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
     return confusion_matrix / num_states
 
   def scatter_actions(self, q_func, num_states=50):
-    """Get the action output of the Q-network by sampling states.
+    """Gets the action output of the Q-network by sampling states.
 
     Args:
         q_func (object): agent's Q-network.
@@ -666,7 +666,7 @@ class OnePlayerReachAvoidLunarLander(MultiPlayerLunarLanderReachability):
           plt.plot(rv[ii, 0], rv[ii, 1], "y*")
 
   def render(self, mode='human', plot_landers=True):
-    """Return rendered image.
+    """Returns rendered image.
 
     Args:
         mode (str, optional): Defaults to 'human'.

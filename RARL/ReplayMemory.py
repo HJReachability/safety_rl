@@ -16,7 +16,7 @@ import numpy as np
 
 
 class ReplayMemory(object):
-  """The implementation of replay memory (buffer).
+  """Contains a replay memory (or a memory buffer).
 
   Attribures:
       capacity (int): the maximum number of transitions can be stored.
@@ -28,7 +28,7 @@ class ReplayMemory(object):
   """
 
   def __init__(self, capacity, seed=0):
-    """Initialize the memory with the maximum capacity and a random seed.
+    """Initializes the memory with the maximum capacity and a random seed.
     """
     self.capacity = capacity
     self.memory = []
@@ -38,14 +38,14 @@ class ReplayMemory(object):
     np.random.seed(self.seed)
 
   def reset(self):
-    """Clear the memory and reset the position to be zero.
+    """Clears the memory and reset the position to be zero.
     """
     self.memory = []
     self.position = 0
     self.isfull = False
 
   def update(self, transition):
-    """Update the memory given the newcoming transition.
+    """Updates the memory given the newcoming transition.
     """
     if len(self.memory) < self.capacity:
       self.memory.append(None)
@@ -55,13 +55,13 @@ class ReplayMemory(object):
       self.isfull = True
 
   def sample(self, batch_size):
-    """Sample batch_size transitions from the memory uniformly at random.
+    """Samples batch_size transitions from the memory uniformly at random.
     """
     length = len(self.memory)
     indices = np.random.randint(low=0, high=length, size=(batch_size,))
     return [self.memory[i] for i in indices]
 
   def __len__(self):
-    """Return the number of transitions in the memory.
+    """Returns the number of transitions in the memory.
     """
     return len(self.memory)

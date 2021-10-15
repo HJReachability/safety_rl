@@ -27,13 +27,13 @@ Transition = namedtuple("Transition", ["s", "a", "r", "s_", "info"])
 
 class DDQN(abc.ABC):
   """
-  The parent class for DDQNSingle and DDQNPursuitEvasion. It implements the
+  The parent class for DDQNSingle and DDQNPursuitEvasion. Implements the
   basic utils functions and defines abstract functions to be implemented in
   the child class.
   """
 
   def __init__(self, CONFIG):
-    """init DDQN with configuration file.
+    """Initializes DDQN with a configuration file.
 
     Args:
         CONFIG (object): a class object containing all the hyper-parameters
@@ -96,7 +96,7 @@ class DDQN(abc.ABC):
 
   def build_optimizer(self):
     """
-    Build optimizer for the Q_network and construct a scheduler for
+    Builds optimizer for the Q_network and construct a scheduler for
     learning rate and reset counter for updates.
     """
     self.optimizer = torch.optim.AdamW(
@@ -142,7 +142,7 @@ class DDQN(abc.ABC):
 
   def update_target_network(self):
     """
-    Update the target network periodically.
+    Updates the target network periodically.
     """
     if self.SOFT_UPDATE:
       # Soft Replace: update the target_network right after every
@@ -156,7 +156,7 @@ class DDQN(abc.ABC):
 
   def updateHyperParam(self):
     """
-    Update the hypewr-parameters, such as learning rate, discount factor
+    Updates the hypewr-parameters, such as learning rate, discount factor
     (GAMMA) and exploration-exploitation tradeoff (EPSILON)
     """
     lr = self.optimizer.state_dict()["param_groups"][0]["lr"]
@@ -179,14 +179,12 @@ class DDQN(abc.ABC):
     raise NotImplementedError
 
   def store_transition(self, *args):
-    """
-    Store the transition into the replay buffer (memory).
+    """Stores the transition into the replay buffer.
     """
     self.memory.update(Transition(*args))
 
   def save(self, step, logs_path):
-    """
-    Save the model weights and save the configuration file in first call.
+    """Saves the model weights and save the configuration file in first call.
 
     Args:
         step (int): the number of updates so far.
@@ -199,8 +197,7 @@ class DDQN(abc.ABC):
       self.saved = True
 
   def restore(self, step, logs_path, verbose=True):
-    """
-    Restore the model weights from the given model path.
+    """Restores the model weights from the given model path.
 
     Args:
         step (int): the number of updates of the model.
@@ -218,8 +215,7 @@ class DDQN(abc.ABC):
       print("  => Restore {}".format(logs_path))
 
   def unpack_batch(self, batch):
-    """
-    Decompose the batch into different variables.
+    """Decomposes the batch into different variables.
 
     Args:
         batch (object): Transition of batch-arrays.

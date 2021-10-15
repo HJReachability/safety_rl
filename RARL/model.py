@@ -30,8 +30,8 @@ class Sin(nn.Module):
 
 class Model(nn.Module):
   """
-  Construct a fully-connected neural network with flexible depth, width and
-      activation function choices.
+  Constructs a fully-connected neural network with flexible depth, width and
+  activation function choices.
   """
 
   def __init__(
@@ -39,8 +39,8 @@ class Model(nn.Module):
       verbose=False
   ):
     """
-    Initalize the neural network with dimension of each layer and the following
-        activation layer.
+    Initalizes the neural network with dimension of each layer and the
+    following activation layer.
 
     Args:
         dimList (List): the dimension of each layer.
@@ -85,11 +85,11 @@ class Model(nn.Module):
 class _scheduler(abc.ABC):
   """
   The parent class for schedulers. It implements some basic functions that will
-      be used in all scheduler.
+  be used in all scheduler.
   """
 
   def __init__(self, last_epoch=-1, verbose=False):
-    """Initialize the scheduler with the index of last epoch.
+    """Initializes the scheduler with the index of last epoch.
     """
     self.cnt = last_epoch
     self.verbose = verbose
@@ -97,7 +97,7 @@ class _scheduler(abc.ABC):
     self.step()
 
   def step(self):
-    """Update the index of the last epoch and the variable.
+    """Updates the index of the last epoch and the variable.
     """
     self.cnt += 1
     value = self.get_value()
@@ -108,7 +108,7 @@ class _scheduler(abc.ABC):
     raise NotImplementedError
 
   def get_variable(self):
-    """Return the variable.
+    """Returns the variable.
     """
     return self.variable
 
@@ -121,7 +121,7 @@ class StepLR(_scheduler):
       self, initValue, period, decay=0.1, endValue=0., last_epoch=-1,
       verbose=False
   ):
-    """Initialize an object of the scheduler with the specified attributes.
+    """Initializes an object of the scheduler with the specified attributes.
 
     Args:
         initValue (float): initial value of the variable.
@@ -141,7 +141,7 @@ class StepLR(_scheduler):
     super(StepLR, self).__init__(last_epoch, verbose)
 
   def get_value(self):
-    """Return the value of the variable.
+    """Returns the value of the variable.
     """
     if self.cnt == -1:
       return self.initValue
@@ -159,8 +159,7 @@ class StepLRMargin(_scheduler):
       self, initValue, period, goalValue, decay=0.1, endValue=1, last_epoch=-1,
       verbose=False
   ):
-    """
-    Initialize an object of the scheduler with the specified attributes.
+    """Initializes an object of the scheduler with the specified attributes.
 
     Args:
         initValue (float): initial value of the variable.
@@ -182,7 +181,7 @@ class StepLRMargin(_scheduler):
     super(StepLRMargin, self).__init__(last_epoch, verbose)
 
   def get_value(self):
-    """Return the value of the variable.
+    """Returns the value of the variable.
     """
     if self.cnt == -1:
       return self.initValue
@@ -201,7 +200,7 @@ class StepResetLR(_scheduler):
       self, initValue, period, resetPeriod, decay=0.1, endValue=0,
       last_epoch=-1, verbose=False
   ):
-    """Initialize an object of the scheduler with the specified attributes.
+    """Initializes an object of the scheduler with the specified attributes.
 
     Args:
         initValue (float): initial value of the variable.
@@ -224,7 +223,7 @@ class StepResetLR(_scheduler):
     super(StepResetLR, self).__init__(last_epoch, verbose)
 
   def get_value(self):
-    """Return the value of the variable.
+    """Returns the value of the variable.
     """
     if self.cnt == -1:
       return self.initValue
@@ -237,7 +236,7 @@ class StepResetLR(_scheduler):
 
   def step(self):
     """
-    Update the index of the last epoch and the variable. It overrides the same
+    Updates the index of the last epoch and the variable. It overrides the same
     function in the parent class.
     """
     self.cnt += 1

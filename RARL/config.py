@@ -9,9 +9,7 @@ deep Q-network.
 
 
 class config(object):
-  """
-  This class contains basic hyper-parameters for reinforcement learning
-  algorithms.
+  """Contains basic hyper-parameters for reinforcement learning algorithms.
   """
 
   def __init__(
@@ -23,8 +21,7 @@ class config(object):
       RENDER=False, MAX_MODEL=5, ARCHITECTURE=None, ACTIVATION="Tanh",
       SKIP=False, REWARD=-1, PENALTY=1
   ):
-    """
-    Initialize an object of the config class with the specified attributes.
+    """Initializes an object of the config class with the specified attributes.
 
     Args:
         ENV_NAME (str, optional): enironment name. Defaults to 'Pendulum-v0'.
@@ -106,7 +103,7 @@ class config(object):
 
 
 class dqnConfig(config):
-  """This class contains hyper-parameters for (double) deep Q-network.
+  """Contains hyper-parameters for (double) deep Q-network.
   """
 
   def __init__(

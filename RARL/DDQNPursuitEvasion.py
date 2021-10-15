@@ -3,8 +3,7 @@ Please contact the author(s) of this library if you have any questions.
 Authors: Kai-Chieh Hsu ( kaichieh@princeton.edu )
 
 This module implements a special case of reach-avoid reinforcement learning
-with double deep Q-network, which we called it evasion (attacker) and pursuit
-(defense) game.
+with double deep Q-network, called pursuit-evasion (or attack-defense) game.
 
 Here we aim to minimize the upper value of the game.
     - u', d' = argmin_u' argmax_d' Q_policy(s', u', d'),
@@ -27,8 +26,7 @@ import time
 
 # == local functions ==
 def actionIndexInt2Tuple(actionIdx, numActionList):
-  """
-  actionIndexInt2Tuple: transform an action index to tuple of action indices.
+  """Transforms an action index to tuple of action indices.
 
   Args:
       actionIdx (int): action index of the discrete action set.
@@ -49,8 +47,7 @@ def actionIndexInt2Tuple(actionIdx, numActionList):
 
 
 def actionIndexTuple2Int(actionIdxTuple, numActionList):
-  """
-  actionIndexTuple2Int: transform tuple of action indices to an action index.
+  """Transforms tuple of action indices to an action index.
 
   Args:
       actionIdxTuple (tuple of int): indices of the Q-matrix.
@@ -78,8 +75,8 @@ def actionIndexTuple2Int(actionIdxTuple, numActionList):
 
 class DDQNPursuitEvasion(DDQN):
   """
-  This class implements the double deep Q-network supporting minimizing the
-  upper value of the pursuit-evasion game.
+  Implements the double deep Q-network algorithm. Supports minimizing the upper
+  value of the pursuit-evasion game.
 
   Args:
       DDQN (object): an object implementing the basic utils functions.
@@ -90,7 +87,7 @@ class DDQNPursuitEvasion(DDQN):
       verbose=True
   ):
     """
-    Initialize with a configuration object, environment information, neural
+    Initializes with a configuration object, environment information, neural
     network architecture, reinforcement learning algorithm type and type of
     the terminal value for reach-avoid reinforcement learning.
 
@@ -128,8 +125,7 @@ class DDQNPursuitEvasion(DDQN):
     )
 
   def build_network(self, dimList, actType="Tanh", verbose=True):
-    """
-    Build a neural network for the Q-network.
+    """Builds a neural network for the Q-network.
 
     Args:
         dimList (np.ndarray): dimensions of each layer in the neural network.
@@ -146,8 +142,7 @@ class DDQNPursuitEvasion(DDQN):
     self.build_optimizer()
 
   def update(self):
-    """
-    Update the Q-network.
+    """Updates the Q-network using a batch of sampled replay transitions.
 
     Returns:
         float: critic loss.
@@ -210,8 +205,7 @@ class DDQNPursuitEvasion(DDQN):
       expected_state_action_values = (
           torch.zeros(self.BATCH_SIZE).float().to(self.device)
       )
-      # Another version (discussed on Feb. 22, 2021):
-      # we want Q(s, u) = V( f(s,u) )
+      # Q(s, u) = V( f(s,u) )
       non_terminal = torch.max(
           g_x[non_final_mask],
           torch.min(l_x[non_final_mask], state_value_nxt[non_final_mask]),
@@ -250,8 +244,7 @@ class DDQNPursuitEvasion(DDQN):
     return loss.item()
 
   def initBuffer(self, env):
-    """
-    Put some transitions into the replay memory (buffer) randomly.
+    """Adds some transitions to the replay memory (buffer) randomly.
 
     Args:
         env (gym.Env): the environment we interact with.
@@ -271,7 +264,7 @@ class DDQNPursuitEvasion(DDQN):
       vmax=1, plotFigure=True, storeFigure=True
   ):
     """
-    Initalize the Q-network given that the environment can provide warmup
+    Initalizes the Q-network given that the environment can provide warmup
     examples with heuristic values.
 
     Args:
@@ -334,30 +327,13 @@ class DDQNPursuitEvasion(DDQN):
     return lossList
 
   def learn(
-      self,
-      env,
-      MAX_UPDATES=2000000,
-      MAX_EP_STEPS=100,
-      warmupBuffer=True,
-      warmupQ=False,
-      warmupIter=10000,
-      doneTerminate=True,
-      runningCostThr=None,
-      curUpdates=None,
-      checkPeriod=50000,
-      plotFigure=True,
-      storeFigure=False,
-      showBool=False,
-      vmin=-1,
-      vmax=1,
-      numRndTraj=200,
-      storeModel=True,
-      storeBest=False,
-      outFolder="RA",
-      verbose=True,
+      self, env, MAX_UPDATES=2000000, MAX_EP_STEPS=100, warmupBuffer=True,
+      warmupQ=False, warmupIter=10000, doneTerminate=True, runningCostThr=None,
+      curUpdates=None, checkPeriod=50000, plotFigure=True, storeFigure=False,
+      showBool=False, vmin=-1, vmax=1, numRndTraj=200, storeModel=True,
+      storeBest=False, outFolder="RA", verbose=True
   ):
-    """
-    Learn the Q function given the training hyper-parameters.
+    """Learns the Q function given the training hyper-parameters.
 
     Args:
         env (gym.Env): the environment we interact with.
@@ -548,8 +524,7 @@ class DDQNPursuitEvasion(DDQN):
     return trainingRecords, trainProgress
 
   def select_action(self, state, explore=False):
-    """
-    Select the action given the state and conditioned on `explore` flag.
+    """Selects an action given the state and conditioned on `explore` flag.
 
     Args:
         state (np.ndarray): the state of the environment.

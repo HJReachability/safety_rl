@@ -6,7 +6,7 @@ This module implements reach-avoid reinforcement learning with double deep
 Q-network. It also supports the standard sum of discounted rewards (Lagrange
 cost) reinforcement learning.
 
-Here we aim to minimize the reach-avoid cost.
+Here we aim to minimize the reach-avoid cost, given by the Bellman backup:
     - a' = argmin_a' Q_network(s', a')
     - V(s') = Q_target(s', a')
     - V(s) = gamma ( max{ g(s), min{ l(s), V(s') } }
@@ -29,7 +29,7 @@ from .DDQN import DDQN, Transition
 
 class DDQNSingle(DDQN):
   """
-  This class implements the double deep Q-network supporting minimizing the
+  Implements the double deep Q-network algorithm. Supports minimizing the
   reach-avoid cost or the standard sum of discounted costs.
 
   Args:
@@ -41,7 +41,7 @@ class DDQNSingle(DDQN):
       terminalType="g", verbose=True
   ):
     """
-    Initialize with a configuration object, environment information, neural
+    Initializes with a configuration object, environment information, neural
     network architecture, reinforcement learning algorithm type and type of
     the terminal value for reach-avoid reinforcement learning.
 
@@ -74,8 +74,7 @@ class DDQNSingle(DDQN):
     )
 
   def build_network(self, dimList, actType="Tanh", verbose=True):
-    """
-    Build a neural network for the Q-network.
+    """Builds a neural network for the Q-network.
 
     Args:
         dimList (np.ndarray): dimensions of each layer in the neural network.
@@ -92,8 +91,7 @@ class DDQNSingle(DDQN):
     self.build_optimizer()
 
   def update(self, addBias=False):
-    """
-    Update the Q-network.
+    """Updates the Q-network using a batch of sampled replay transitions.
 
     Args:
         addBias (bool, optional): use biased version of value function if
@@ -199,8 +197,7 @@ class DDQNSingle(DDQN):
     return loss.item()
 
   def initBuffer(self, env):
-    """
-    Put some transitions into the replay memory (buffer) randomly.
+    """Adds some transitions to the replay memory (buffer) randomly.
 
     Args:
         env (gym.Env): the environment we interact with.
@@ -225,7 +222,7 @@ class DDQNSingle(DDQN):
       vmax=1, plotFigure=True, storeFigure=True
   ):
     """
-    Initalize the Q-network given that the environment can provide warmup
+    Initalizes the Q-network given that the environment can provide warmup
     examples with heuristic values.
 
     Args:
@@ -296,8 +293,7 @@ class DDQNSingle(DDQN):
       storeFigure=False, showBool=False, vmin=-1, vmax=1, numRndTraj=200,
       storeModel=True, storeBest=False, outFolder="RA", verbose=True
   ):
-    """
-    Learn the Q function given the training hyper-parameters.
+    """Learns the Q function given the training hyper-parameters.
 
     Args:
         env (gym.Env): the environment we interact with.
@@ -493,8 +489,7 @@ class DDQNSingle(DDQN):
     return trainingRecords, trainProgress
 
   def select_action(self, state, explore=False):
-    """
-    Select the action given the state and conditioned on `explore` flag.
+    """Selects the action given the state and conditioned on `explore` flag.
 
     Args:
         state (np.ndarray): the state of the environment.

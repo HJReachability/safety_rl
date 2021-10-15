@@ -13,7 +13,7 @@ import torch
 
 
 def soft_update(target, source, tau):
-  """Use soft_update method to update the target network.
+  """Uses soft_update method to update the target network.
 
   Args:
       target (toch.nn.Module): target network in double deep Q-network.
@@ -25,7 +25,7 @@ def soft_update(target, source, tau):
 
 
 def save_model(model, step, logs_path, types, MAX_MODEL):
-  """Save the weights of the model.
+  """Saves the weights of the model.
 
   Args:
       model (toch.nn.Module): the model to be saved.
@@ -46,7 +46,7 @@ def save_model(model, step, logs_path, types, MAX_MODEL):
 
 
 def save_obj(obj, filename):
-  """Save the object into a pickle file.
+  """Saves the object into a pickle file.
 
   Args:
       obj (object): the object to be saved.
@@ -57,7 +57,7 @@ def save_obj(obj, filename):
 
 
 def load_obj(filename):
-  """Load the object and return the object.
+  """Loads the object and return the object.
 
   Args:
       filename (str): the path to save the object.

@@ -14,7 +14,7 @@ silver = "#C0C0C0"
 
 
 def thetaMtx(theta):
-  """Return the rotation matrix given an angle.
+  """Returns the rotation matrix given an angle.
 
   Args:
       theta (float): the angle to rotate.
@@ -25,7 +25,7 @@ def thetaMtx(theta):
 
 # == Basic Plots ==
 def plot_arc(p, r, thetaParam, ax, c="b", lw=3, orientation=0., zorder=1):
-  """Plot an arc given a center, a radius and the (theta_init, theta_final).
+  """Plots an arc given a center, a radius and the (theta_init, theta_final).
 
   Args:
       p (np.ndarray): the center of the arc.
@@ -55,7 +55,7 @@ def plot_arc(p, r, thetaParam, ax, c="b", lw=3, orientation=0., zorder=1):
 def plot_circle(
     x, y, r, ax, c="b", lw=5, orientation=0., scatter=False, zorder=1
 ):
-  """Plot a circle given a center and a radius.
+  """Plots a circle given a center and a radius.
 
   Args:
       x (float): the x position of the circle.
@@ -91,8 +91,8 @@ def plot_circle(
 # == Outer Safe Set ==
 def plot_outer_safety(R, R_turn, orientation, ax, extent, lw=3):
   """
-  Plot the safe set considering the outer circle (the boundary of the failure
-      set).
+  Plots the safe set considering the outer circle (the boundary of the failure
+  set).
 
   Args:
       R (float): the radius of the outer circle.
@@ -160,9 +160,9 @@ def plot_reach_avoid_type_1(
     lw=3, cmap="seismic"
 ):
   """
-  Plot the reach-avoid set for the environment that satisfies the radius of
-      inner circle is no smaller than 2 times of the radius of circular motion
-      minus the radius of the outer circle, i.e., r >= 2*R_turn-R.
+  Plots the reach-avoid set for the environment that satisfies the radius of
+  inner circle is no smaller than 2 times of the radius of circular motion
+  minus the radius of the outer circle, i.e., r >= 2*R_turn-R.
 
   Args:
       R (float): the radius of the outer circle
@@ -245,9 +245,9 @@ def plot_reach_avoid_type_2(
     lw=3, cmap="seismic"
 ):
   """
-  Plot the reach-avoid set for the environment that satisfies the radius of
-      inner circle is smaller than 2 times of the radius of circular motion
-      minus the radius of the outer circle, i.e., r < 2*R_turn-R.
+  Plots the reach-avoid set for the environment that satisfies the radius of
+  inner circle is smaller than 2 times of the radius of circular motion
+  minus the radius of the outer circle, i.e., r < 2*R_turn-R.
 
   Args:
       R (float): the radius of the outer circle

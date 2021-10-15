@@ -23,19 +23,18 @@ from matplotlib import pyplot as plt
 
 
 def state_to_index(grid_cells, state_bounds, state):
+  """Transforms the state into the index of the nearest grid.
+
+  Args:
+      grid_cells (tuple of ints): where the ith value is the number of
+          grid_cells for ith dimension of state
+      state_bounds (list of tuples):  where ith tuple contains the min and
+          max value in that order of ith dimension
+      state (np.ndarray): state to discretize
+
+  Returns:
+      state discretized into appropriate grid_cells
   """
-    Transform the state into the index of the nearest grid.
-
-    Args:
-        grid_cells (tuple of ints): where the ith value is the number of
-            grid_cells for ith dimension of state
-        state_bounds (list of tuples):  where ith tuple contains the min and
-            max value in that order of ith dimension
-        state (np.ndarray): state to discretize
-
-    Returns:
-        state discretized into appropriate grid_cells
-    """
 
   index = []
   for i in range(len(state)):
@@ -55,19 +54,19 @@ def state_to_index(grid_cells, state_bounds, state):
 
 def index_to_state(grid_cells, state_bounds, discrete):
   """
-    Transform the index of the grid into the center of that cell, an "inverse"
-        of state_to_index
+  Transforms the index of the grid into the center of that cell, an "inverse"
+  of state_to_index
 
-    Args:
-        grid_cells (tuple of ints): where the ith value is the number of
-            grid_cells for ith dimension of state
-        state_bounds (list of tuples): where ith tuple contains the min and max
-            value in that order of ith dimension
-        discrete ([type]): discrete state to approximate to nearest real value
+  Args:
+      grid_cells (tuple of ints): where the ith value is the number of
+          grid_cells for ith dimension of state
+      state_bounds (list of tuples): where ith tuple contains the min and max
+          value in that order of ith dimension
+      discrete ([type]): discrete state to approximate to nearest real value
 
-    Returns:
-        the real valued state at the center of the cell of the discrete states
-    """
+  Returns:
+      the real valued state at the center of the cell of the discrete states
+  """
   state = np.zeros(len(discrete))
   for i in range(len(discrete)):
     if grid_cells[i] == 1:
@@ -80,19 +79,18 @@ def index_to_state(grid_cells, state_bounds, discrete):
 
 
 def nearest_real_grid_point(grid_cells, state_bounds, state):
-  """
-    Transform the state into the center of the nearest grid.
+  """Transforms the state into the center of the nearest grid.
 
-    Args:
-        grid_cells (tuple of ints): where the ith value is the number of
-            grid_cells for ith dimension of state
-        state_bounds (list of tuples): where ith tuple contains the min and max
-            value in that order of ith dimension
-        state (np.ndarray): state to convert to center of bucket
+  Args:
+      grid_cells (tuple of ints): where the ith value is the number of
+          grid_cells for ith dimension of state
+      state_bounds (list of tuples): where ith tuple contains the min and max
+          value in that order of ith dimension
+      state (np.ndarray): state to convert to center of bucket
 
-    Returns:
-        the real valued state at the center of the bucket that state would go
-            into
+  Returns:
+      the real valued state at the center of the bucket that state would go
+      into.
     """
   return index_to_state(
       grid_cells, state_bounds,
@@ -103,15 +101,15 @@ def nearest_real_grid_point(grid_cells, state_bounds, state):
 # == q value and value function utils ==
 def v_from_q(q_values):
   """
-    Compute the state value function from the state-action value function by
-        taking the maximum over available actions at each state.
+  Computes the state value function from the state-action value function by
+  taking the maximum over available actions at each state.
 
-    Args:
-        q_values (np.ndarray): q value function tensor
+  Args:
+      q_values (np.ndarray): q value function tensor
 
-    Returns:
-        np.ndarray: value function
-    """
+  Returns:
+      np.ndarray: value function
+  """
   v = np.zeros(np.shape(q_values)[:-1])
   it = np.nditer(q_values, flags=['multi_index', 'refs_ok'])
   while not it.finished:
@@ -121,19 +119,18 @@ def v_from_q(q_values):
 
 
 def q_values_from_q_func(q_func, num_grid_cells, state_bounds, action_n):
+  """Computes q value tensor from a q value function
+
+  Args:
+      q_func (funct): function from state to q value
+      num_grid_cells (int): number of grid_cells for resulting q value tensor
+      state_bounds (list of tuples): state bounds for resulting q value
+          tensor
+      action_n (int): number of actions in action space
+
+  Returns:
+      np.ndarray: q value tensor
   """
-    Compute q value tensor from a q value function
-
-    Args:
-        q_func (funct): function from state to q value
-        num_grid_cells (int): number of grid_cells for resulting q value tensor
-        state_bounds (list of tuples): state bounds for resulting q value
-            tensor
-        action_n (int): number of actions in action space
-
-    Returns:
-        np.ndarray: q value tensor
-    """
   q_values = np.zeros(num_grid_cells + (action_n,))
   it = np.nditer(q_values, flags=['multi_index'])
   while not it.finished:
@@ -202,16 +199,15 @@ def visualize_state_visits(state_visits):
 class SteppedSchedule(object):
 
   def __init__(self, initial_value, final_value, half_life):
-    """
-        Stepped exponential schedule to anneal gamma towards 1
+    """Stepped exponential schedule to anneal gamma towards 1
 
-        Args:
-            initial_value (float): the starting value to final value
-            final_value (float): final value that the schedule will stop
-                increasing at
-            half_life (int): number of timesteps that the value stays
-                constant before increasing
-        """
+    Args:
+        initial_value (float): the starting value to final value
+        final_value (float): final value that the schedule will stop
+            increasing at
+        half_life (int): number of timesteps that the value stays
+            constant before increasing
+    """
     self.half_life = half_life
     self.final_value = final_value
     self.initial_value = initial_value
@@ -258,19 +254,19 @@ def make_inverse_visit_schedule(episodic_length):
 # == data collection functions ==
 def compare_against_rollout(horizon, n_samples, q_func, env):
   """
-    Compare the predicted value of the q_func at the start of the trajectory to
-        the true minimum achieved after acting on-policy acording to the q_func
+  Compares the predicted value of the q_func at the start of the trajectory to
+  the true minimum achieved after acting on-policy acording to the q_func
 
-    Args:
-        horizon (int): maximum trajectory length
-        n_samples (int): number of trajectories to sample
-        q_func (funct): a function that takes in the state and outputs the
-            q-values for each action at that state
-        env (object): environment to simulate in
+  Args:
+      horizon (int): maximum trajectory length
+      n_samples (int): number of trajectories to sample
+      q_func (funct): a function that takes in the state and outputs the
+          q-values for each action at that state
+      env (object): environment to simulate in
 
-    Returns:
-        a n_samples long list of tuples of (actual, predicted)
-    """
+  Returns:
+      a n_samples long list of tuples of (actual, predicted)
+  """
   rollout_comparisons = []
 
   for i in range(n_samples):
@@ -291,23 +287,23 @@ def compare_against_rollout(horizon, n_samples, q_func, env):
 
 def eval_violation(time_horizon, n_samples, q_values, env):
   """
-    Counts how many times the policy violates the safety constraints on
-    n_samples many trajectories of length time_horizon. Acts on-policy by
-    taking action to be argmax of q_values and uses the env to simulate.
-    Since the starting state is sampled uniformly at random this can be used
-    as an unbiased estimator for the fraction of states that are in the safe
-    set for the provided policy and time horizon
+  Counts how many times the policy violates the safety constraints on
+  n_samples many trajectories of length time_horizon. Acts on-policy by
+  taking action to be argmax of q_values and uses the env to simulate.
+  Since the starting state is sampled uniformly at random this can be used
+  as an unbiased estimator for the fraction of states that are in the safe
+  set for the provided policy and time horizon
 
-    Args:
-        horizon (int): maximum trajectory length
-        n_samples (int): number of trajectories to sample
-        q_values (funct): a function that takes in the state and outputs the
-            q-values for each action at that state
-        env (object): environment to simulate in
+  Args:
+      horizon (int): maximum trajectory length
+      n_samples (int): number of trajectories to sample
+      q_values (funct): a function that takes in the state and outputs the
+          q-values for each action at that state
+      env (object): environment to simulate in
 
-    Returns:
-        int: the number of episodes that had a violation
-    """
+  Returns:
+      int: the number of episodes that had a violation
+  """
   violations = 0
   for _ in range(n_samples):
     s = env.reset()
@@ -323,18 +319,18 @@ def eval_violation(time_horizon, n_samples, q_values, env):
 
 def offsets(d):
   """
-    Calculate all the possible index offsets for cells next to a cell in a
-    d-dimensional grid. for example d = 1 we have [[-1], [0], [1]] and for
-    d = 2, we have [[-1, -1], [-1,  0], [-1,  1], [ 0, -1], [0, 0], [0, 1],
-    [ 1, -1], [1, 0], [1, 1]]. This is used for checking the adjacent grid
-    cells when comparing value functions
+  Calculates all the possible index offsets for cells next to a cell in a
+  d-dimensional grid. for example d = 1 we have [[-1], [0], [1]] and for
+  d = 2, we have [[-1, -1], [-1,  0], [-1,  1], [ 0, -1], [0, 0], [0, 1],
+  [ 1, -1], [1, 0], [1, 1]]. This is used for checking the adjacent grid
+  cells when comparing value functions
 
-    Args:
-        d (int): the dimension of the grid
+  Args:
+      d (int): the dimension of the grid
 
-    Returns:
-        list of np.ndarray: index offsets for cells
-    """
+  Returns:
+      list of np.ndarray: index offsets for cells
+  """
   l = []
   for bit_string in [
       "".join(seq) for seq in itertools.product("012", repeat=d)
@@ -351,24 +347,24 @@ def get_save_dir():
 # == saving and loading q functions == # TODO this still needs some cleanup
 def save(q_values, stats, experiment_name, save_dir=None):
   """
-    Save q_values and stats to a directory named experiment name concatenated
-    with the date inside of save_dir. The file is named time_iteration.pickle.
-    The date, time and iteration are taken from the stats dictionary. The date
-    and time are the date and time the experiment started.
+  Saves q_values and stats to a directory named experiment name concatenated
+  with the date inside of save_dir. The file is named time_iteration.pickle.
+  The date, time and iteration are taken from the stats dictionary. The date
+  and time are the date and time the experiment started.
 
-    Args:
-        q_values (funct): a function that takes in the state and outputs the
-            q-values for each action at that state
-        stats (np.ndarray): stats to be saved
-        experiment_name (str): name of experiment. files will be saved to a
-            directory named "experiment_name_date"
-        save_dir (str, optional): the parent directory of the experiment
-            directory. If left as None will use get_save_dir().
-            Defaults to None.
+  Args:
+      q_values (funct): a function that takes in the state and outputs the
+          q-values for each action at that state
+      stats (np.ndarray): stats to be saved
+      experiment_name (str): name of experiment. files will be saved to a
+          directory named "experiment_name_date"
+      save_dir (str, optional): the parent directory of the experiment
+          directory. If left as None will use get_save_dir().
+          Defaults to None.
 
-    Returns:
-        str: the directory saved in
-    """
+  Returns:
+      str: the directory saved in
+  """
   if save_dir is None:
     save_dir = get_save_dir()
 
@@ -393,15 +389,14 @@ def save(q_values, stats, experiment_name, save_dir=None):
 
 
 def load(path):
+  """Loads model from the path.
+
+  Args:
+      path (str): directory to load from.
+
+  Returns:
+      tuple: Q function and stats loaded from directory.
   """
-    Load model from the path.
-
-    Args:
-        path (str): directory to load from.
-
-    Returns:
-        tuple: Q function and stats loaded from directory.
-    """
   try:
     with open(path, 'rb') as handle:
       dictionary = cPickle.load(handle)

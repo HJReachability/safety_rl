@@ -17,7 +17,7 @@ tiffany = "#0abab5"
 
 
 def loadEnv(args, verbose=True):
-  """Construct the environmnet given the arguments and return it.
+  """Constructs the environmnet given the arguments and return it.
 
   Args:
       args (Namespace): it contains
@@ -74,7 +74,7 @@ def loadEnv(args, verbose=True):
 
 
 def loadAgent(args, device, state_dim, action_num, action_list, verbose=True):
-  """Construct the agent with arguments and return it.
+  """Constructs the agent with arguments and return it.
 
   Args:
       args (Namespace): it contains

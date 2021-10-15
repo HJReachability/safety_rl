@@ -24,34 +24,33 @@ def plotTrajStep(
     state, env, agent, c=[tiffany, "y"], lw=2, nx=101, ny=101, toEnd=False,
     T=100
 ):
+  """Plots the trajectory step-by-step.
+
+  Args:
+      state (np.ndarray): the initial state of the trajectory.
+      env (gym.Env): the environment.
+      agent (RARL.DDQNPursuitEvasion): the agent.
+      c (list, optional): the colors of the evader and the pursuer.
+          Defaults to [tiffany, 'y'].
+      lw (int, optional): the linewidth of the trajectory. Defaults to 2.
+      nx (int, optional): the number of grids in the x direction.
+          Defaults to 101.
+      ny (int, optional): the number of grids in the y direction.
+          Defaults to 101.
+      toEnd (bool, optional): end the rollout only after the agent goes
+          beyond the boundary. Defaults to False.
+      T (int, optional): the maximum number of steps in a trajectory.
+          Defaults to 100.
+
+  Returns:
+      tuple of np.ndarrays: the first array stores the reach-avoid outcome so
+          far, the second array stores the target margin at each time step,
+          and the third array stores the safety margin at each time step.
+
+  Example:
+      state = np.array([-.9, 0., 0., -.5, -.3, .75*np.pi])
+      valueList, lxList, gxList = plotTrajStep(state, env, agent)
   """
-    Plot the trajectory step-by-step.
-
-    Args:
-        state (np.ndarray): the initial state of the trajectory.
-        env (gym.Env): the environment.
-        agent (RARL.DDQNPursuitEvasion): the agent.
-        c (list, optional): the colors of the evader and the pursuer.
-            Defaults to [tiffany, 'y'].
-        lw (int, optional): the linewidth of the trajectory. Defaults to 2.
-        nx (int, optional): the number of grids in the x direction.
-            Defaults to 101.
-        ny (int, optional): the number of grids in the y direction.
-            Defaults to 101.
-        toEnd (bool, optional): end the rollout only after the agent goes
-            beyond the boundary. Defaults to False.
-        T (int, optional): the maximum number of steps in a trajectory.
-            Defaults to 100.
-
-    Returns:
-        tuple of np.ndarrays: the first array stores the reach-avoid outcome so
-            far, the second array stores the target margin at each time step,
-            and the third array stores the safety margin at each time step.
-
-    Example:
-        state = np.array([-.9, 0., 0., -.5, -.3, .75*np.pi])
-        valueList, lxList, gxList = plotTrajStep(state, env, agent)
-    """
   trajEvader, trajPursuer, result, minV, info = env.simulate_one_trajectory(
       agent.Q_network, T=T, state=state, toEnd=toEnd
   )
@@ -108,7 +107,7 @@ def plotCM(
     fig, ax, cm, target_names=["0", "1"], labels=["", ""], fontsize=20,
     thresh=0.5, cmap="viridis", cbarPlot=False
 ):
-  """Plot the confusion matrix.
+  """Plots the confusion matrix.
 
   Args:
       fig (matplotlib.Figure): the figure to plot.
@@ -156,7 +155,7 @@ def plotAndObtainValueDictIdx(
     env, dictList, testIdxList, indices, instantList=None, showCapture=False,
     maxCol=10, maxRow=2, width=2, height=2, lw=1.5, s=48
 ):
-  """Plot the trajectories and get the reach-avoid values for each index.
+  """Plots the trajectories and get the reach-avoid values for each index.
 
   Args:
       env (gym.Env): environment.
@@ -247,7 +246,7 @@ def plotAndObtainValueDictIdx(
 
 # == DATA ANALYSIS ==
 def generateCM(labelValue, predictValue):
-  """Generate the confusion matrix and rteturn it.
+  """Generates the confusion matrix and rteturn it.
 
   Args:
       labelValue (np.ndarray): true values.
@@ -288,8 +287,8 @@ def generateCM(labelValue, predictValue):
 # == GENERATE TRAJECTORIES ==
 def pursuerResponse(env, agent, statePursuer, trajEvader):
   """
-  Rollout the pursuer's policy given the initial state and the trajectory of
-      the evader.
+  Rollouts the pursuer's policy given the initial state and the trajectory of
+  the evader.
 
   Args:
       env (gym.Env): the environment.
@@ -356,8 +355,8 @@ def pursuerResponse(env, agent, statePursuer, trajEvader):
 
 def exhaustiveDefenderSearch(env, agent, state, actionSeq, maxLength=40):
   """
-  Verify the evader's policy given a pursuer's defensive strategy. It is a
-      subprocess of validateEvaderPolicy.
+  Verifies the evader's policy given a pursuer's defensive strategy. It is a
+  subprocess of validateEvaderPolicy.
 
   Args:
       env (gym.Env): the environment.
@@ -433,7 +432,7 @@ def exhaustiveDefenderSearch(env, agent, state, actionSeq, maxLength=40):
 
 
 def exhaustiveAttackerSearch(env, agent, state, actionSeq, maxLength=40):
-  """Verify the pursuer's policy given an evader's attacking strategy.
+  """Verifies the pursuer's policy given an evader's attacking strategy.
 
   Args:
       env (gym.Env): the environment.
@@ -517,7 +516,7 @@ def exhaustiveAttackerSearch(env, agent, state, actionSeq, maxLength=40):
 
 def validateEvaderPolicy(env, agent, state, maxLength=40, numChunk=10):
   """
-  Validate the evader's policy by trying out pursuer's strategies exaustively.
+  Validates the evader's policy by trying out pursuer's strategies exaustively.
 
   Args:
       env (gym.Env): the environment.
@@ -571,7 +570,7 @@ def validateEvaderPolicy(env, agent, state, maxLength=40, numChunk=10):
 
 
 def checkCapture(env, trajEvader, trajPursuer):
-  """Check if the evader is captured by the pursuer.
+  """Checks if the evader is captured by the pursuer.
 
   Args:
       env (gym.Env): the environment.
@@ -607,7 +606,7 @@ def checkCapture(env, trajEvader, trajPursuer):
 
 
 def checkCrossConstraint(env, trajEvader, trajPursuer):
-  """Check if the evader crosses the boundary.
+  """Checks if the evader crosses the boundary.
 
   Args:
       env (gym.Env): the environment.
@@ -632,8 +631,8 @@ def checkCrossConstraint(env, trajEvader, trajPursuer):
 
 def analyzeValidationResult(validationFile, env, verbose=True):
   """
-  Analyze the performance of evader's policy given the exhaustive search of
-      pursuer's strategies.
+  Analyzes the performance of evader's policy given the exhaustive search of
+  pursuer's strategies.
 
   Args:
       validationFile (str): the location of the validation results.
@@ -728,20 +727,19 @@ def analyzeValidationResult(validationFile, env, verbose=True):
 
 
 def colUnfinishedSamples(unfinishedList, valDict, valSamplesDict):
-  """
-    Collect unfinished testing indices.
+  """Collects unfinished testing indices.
 
-    Args:
-        unfinishedList (list): the test indices of unfinished samples.
-        valDict (dict): includes
-            'dictList'
-            'stateIdxList': the index of states by `genEstSamples.py`
-            'testIdxList': the index of states by `genValSamples.py`
-        valSamplesDict (dict): includes
-            'idxList': the index of states by `genEstSamples.py`
-            'rollvalList': the rollout values of states by `genEstSamples.py`
-            'ddqnList': the DDQN values of states by `genEstSamples.py`
-    """
+  Args:
+      unfinishedList (list): the test indices of unfinished samples.
+      valDict (dict): includes
+          'dictList'
+          'stateIdxList': the index of states by `genEstSamples.py`
+          'testIdxList': the index of states by `genValSamples.py`
+      valSamplesDict (dict): includes
+          'idxList': the index of states by `genEstSamples.py`
+          'rollvalList': the rollout values of states by `genEstSamples.py`
+          'ddqnList': the DDQN values of states by `genEstSamples.py`
+  """
   # == add to valSamplesTN ==
   unfinishedStateIdxList = []
   unfinishedStateList = np.empty(shape=(len(unfinishedList), 6), dtype=float)
@@ -791,7 +789,7 @@ def colUnfinishedSamples(unfinishedList, valDict, valSamplesDict):
 
 # == LOADING ==
 def loadEnv(args, verbose=True):
-  """Construct the environmnet given the arguments and return it.
+  """Constructs the environmnet given the arguments and return it.
 
   Args:
       args (Namespace): it contains
@@ -817,7 +815,7 @@ def loadEnv(args, verbose=True):
 def loadAgent(
     args, device, state_dim, action_num, numActionList, verbose=True
 ):
-  """Construct the agent with arguments and return it.
+  """Constructs the agent with arguments and return it.
 
   Args:
       args (Namespace): it contains

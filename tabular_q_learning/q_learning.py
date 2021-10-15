@@ -34,7 +34,7 @@ def learn(
     vis_T=10, use_ra=True, save_freq=None,
     outFolder=os.path.join('experiments', 'naive', 'TQ')
 ):
-  """Compute state-action value function in the tabular form.
+  """Computes state-action value function in the tabular form.
 
   Args:
       get_learning_rate (funct): Function of current episode number returns
@@ -283,7 +283,7 @@ def learn(
 
 
 def select_action(q_values, state_ix, env, epsilon=0):
-  """Select an action at random or based on the state-action value function.
+  """Selects an action at random or based on the state-action value function.
 
   Args:
       q_values (np.ndarray): State-action values, which is of dimension
@@ -306,7 +306,7 @@ def play(
     q_values, env, num_episodes, grid_cells, state_bounds,
     suppress_print=False, episode_length=None
 ):
-  """ Renders gym environment under greedy policy.
+  """Renders gym environment under greedy policy.
 
   The gym environment will be rendered and executed according to the greedy
   policy induced by the state-action value function. NOTE: After you use an

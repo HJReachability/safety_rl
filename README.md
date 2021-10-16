@@ -1,40 +1,82 @@
-# safety_rl
+# Safety and Liveness Guarantees through Reach-Avoid Reinforcement Learning
+[![License](https://img.shields.io/badge/license-BSD-blue.svg)](LICENSE)
+[![Python 3.8](https://img.shields.io/badge/python-3.8-blue)](https://www.python.org/downloads/)
 
-This repository contains the code necessary to run all the experiments in [ICRA19] in addition to core functions that can be either directly invoked by other reinforcement learning code or used as illustrative examples of how to adapt typical reinforcement learning methods to work with the Safety Bellman Equation.
+This repository implements a model-free reach-avoid reinforcement learning (RARL) to guarantee safety and liveness, and additionally contains example uses and benchmark evaluations of the proposed algorithm on a range of nonlinear systems.
+RARL is primarily developed by Kai-Chieh Hsu, a PhD student in the [Safe Robotics Lab](https://saferobotics.princeton.edu), and Vicenç Rubies-Royo, a postdoc in the [Hybrid Systems Lab](http://hybrid.eecs.berkeley.edu).
 
-*[ICRA19]* J. F. Fisac\*, N. Lugovoy\*, V. Rubies-Royo, S. Ghosh, and C. J. Tomlin. “[Bridging Hamilton-Jacobi Safety Analysis and Reinforcement Learning](https://ieeexplore.ieee.org/document/8794107),” IEEE International Conference on Robotics and Automation (ICRA), 2019.
 
+The repository also serves as the companion code to our [RSS 2021 paper](https://roboticsconference.org/program/papers/077/), where you can find the theoretical properties of the proposed algorithm as well as the implementation details.
+All experiments in the paper are included as examples in this repository, and you can replicate the results by using the commands described in Section II below.
+With some simple modification, you can replicate the results in the preceding [ICRA 19 paper](https://ieeexplore.ieee.org/document/8794107), which considers the special case of reachability/safety only.
 
-## Some quick notes:
+This tool is designed to work for arbitrary reinforcement learning environments, and uses two scalar signals (a _target margin_ and a _safety margin_) rather than a single scalar _reward_ signal.
+You just need to add your environment under `gym_reachability` and register through the standard method in `gym`.
+You can refer to some examples provided here.
+This tool learns the reach-avoid set by trial-and-error interactions with the environment, so it is not _in itself_ a safe learning algorithm.
+However, it can be used in conjunction with an existing safe learning scheme, such as "shielding", to enable learning with safety guarantees (see Script 4 below as well as Section IV.B in the [RSS 2021 paper](https://roboticsconference.org/program/papers/077/) for an example).
 
-1. If you want to use the Safety Bellman Equation with your own reinforcement learning algorithm you will need the functions `sbe_backup` and/or `sbe_outcome` in the `utils.py` file. The former computes the backup for value function learning (Q-learning, DQN, SAC, etc.) from equation (7) in [ICRA19] and the latter computes the outcome of a trajectory from equation (8) in [ICRA19] used in policy optimization methods (policy gradient, TRPO, PPO, etc.).
-2. The DQN and Policy Gradient algorithms are modified versions of the implementation from the [Ray library](https://github.com/ray-project/ray). Modifications are enclosed by a line of hashtags marking the start and end of the changes.
-3. The Soft Actor Critic algorithm is a modified version from the implementation in [Spinning Up](https://github.com/openai/spinningup) (Ray does not have a working implementation currently). Similarly hashtags indicate changes.
-4. The inverted pendulum and lunar lander environments are subclasses of environments implemented in [Open AI's Gym](https://github.com/openai/gym). The major changes from the parent classes are documented in the files.
-5. The Q-learning algorithm is loosely based on [Denny Britz's implementation](https://github.com/dennybritz/reinforcement-learning/blob/master/TD/Q-Learning%20Solution.ipynb).
-6. The numerical safety value function used as ground truth in the cart-pole experiment is computed in MATLAB using the [Level Set Toolbox](https://www.cs.ubc.ca/~mitchell/ToolboxLS/), by Prof. Ian Mitchell at the University of British Columbia.
+The implementation of tabular Q-learning is adapted from [Denny Britz's implementation](https://github.com/dennybritz/reinforcement-learning) and the implementation of double deep Q-network and replay memory is adapted from [PyTorch's tutorial (by Adam Paszke)](https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html).
 
-## Installation:
-
+## I. Dependencies
+If you are using anaconda to control packages, you can use one of the following
+command to create an identical environment with the specification file:
 ```
-git clone safety_rl
-cd safety_rl
-pip install -e .
+conda create --name <myenv> --file doc/spec-mac.txt
+conda create --name <myenv> --file doc/spec-linux.txt
+```
+Otherwise, you can install the following packages manually:
+1. numpy=1.21.1
+2. pytorch=1.9.0
+3. gym=0.18.0
+4. scipy=1.7.0
+5. matplotlib=3.4.2
+6. box2d-py=2.3.8
+7. shapely=1.7.1
+
+## II. Replicating the results in the [RSS 2021 paper](https://roboticsconference.org/program/papers/077/)
+Each script will automatically generate a folder under `experiments/` containing visualizations of the the training process and the weights of trained model.
+In addition, the script will generate a `train.pkl` file, which contains the following:
++ training loss 
++ training accuracy
++ trajectory rollout outcome starting from a grid of states
++ action taken from a grid of states
+
+1. Lunar lander in Figure 1
+```shell
+    python3 sim_lunar_lander.py -sf
+```
+2. Point object in Figure 2
+```shell
+    python3 sim_naive.py -w -sf -a -g 0.9 -mu 12000000 -cp 600000 -ut 20 -n anneal
+```
+3. Point object in Figure 3
+```shell
+    python3 sim_naive.py -sf -g 0.9999 -n 9999
+```
+4. Point object in Figure 4
+```shell
+    python3 sim_show.py -sf -g 0.9999 -n 9999
+```
+5. Dubins car in Figure 5
+```shell
+    python3 sim_car_one.py -sf -w -wi 5000 -g 0.9999 -n 9999
+```
+6. Dubins car (attack-defense game) in Figure 7 (Section IV.D):
+```shell
+    python3 sim_car_pe.py -sf -w -wi 30000 -g 0.9999 -n 9999
 ```
 
-In order to run Gym experiments requiring MuJoCo, a MuJoCo license is necessary.
-Please go to https://www.mujoco.org to download the MuJoCo software and acquire
-a free or paid license. Detailed instructions can be found [here]
-(https://github.com/openai/mujoco-py#install-mujoco).
-
-Note:As of June 2020, there are known issues with installing MuJoCo 2.0 on
-MacOS Catalina (reported [here]())
-
-## Dependencies:
-
-`'numpy', 'matplotlib', 'spinup', 'tensorflow==1.9.0', 'gym', 'scipy', 'requests', 'ray==0.7.3', 'pandas', 'opencv-python', 'psutil', 'lz4', 'Box2D', 'mujoco-py'`
-The versions for `ray` and `tensorflow` are locked because the APIs tend to change rapidly and that could break existing code.
-
-## Run Experiments:
-
-All of the experiments presented in the paper are scripts in the `experiments` folder. To replicate a particular experiment simply run the script. All of the experiments will save the data and produce a figure. The scripts are thoroughly commented.
+## Paper Citation
+If you use this code or find it helpful, please consider citing the companion [RSS 2021 paper](https://roboticsconference.org/program/papers/077/) as:
+```
+@INPROCEEDINGS{hsu2021safety,
+    AUTHOR    = {Kai-Chieh Hsu$^*$ and Vicenç Rubies-Royo$^*$ and Claire J. Tomlin and Jaime F. Fisac},
+    TITLE     = {Safety and Liveness Guarantees through Reach-Avoid Reinforcement Learning},
+    BOOKTITLE = {Proceedings of Robotics: Science and Systems},
+    YEAR      = {2021},
+    ADDRESS   = {Virtual},
+    MONTH     = {July},
+    DOI       = {10.15607/RSS.2021.XVII.077}
+}
+```
